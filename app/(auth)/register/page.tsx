@@ -7,6 +7,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { RegisterForm } from "@/components/auth/RegisterForm";
+import { AuthBackground } from "@/components/auth/AuthBackground";
+import { ScrollFade } from "@/components/ui/ScrollFade";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -28,16 +30,12 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   if (session?.user) redirect(callbackUrl);
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-[#F8FAFA] antialiased selection:bg-[#DDF4EC] selection:text-[#102124]">
-
-      {/* Background dot grid */}
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(#52626715_1px,transparent_1px)] [background-size:24px_24px]" />
-
-      {/* Ambient subtle teal depth (extremely low opacity) */}
-      <div className="pointer-events-none fixed top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[280px] bg-[#155761]/4 rounded-full blur-[100px] z-0" />
+    <div className="relative min-h-screen flex flex-col antialiased selection:bg-[#DDF4EC] selection:text-[#102124]">
+      {/* Animated Interactive Software Project Background */}
+      <AuthBackground />
 
       {/* Header */}
-      <header className="relative z-10 w-full bg-white/80 backdrop-blur-xl border-b border-[#D9E2E4] shadow-xs">
+      <header className="relative z-10 w-full bg-white/70 backdrop-blur-md border-b border-[#D9E2E4]/80 shadow-xs">
         <div className="h-16 max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between">
           <Link href="/" className="flex items-center group py-1">
             <Image
@@ -63,9 +61,9 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
       {/* Main */}
       <main className="relative z-10 flex-1 flex items-center justify-center w-full px-6 py-10">
-        <div className="w-full max-w-md mx-auto">
+        <ScrollFade direction="up" duration={0.6} className="w-full max-w-md mx-auto">
           {/* Card */}
-          <div className="bg-white rounded-2xl border border-[#D9E2E4] shadow-sm overflow-hidden">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-[#D9E2E4] shadow-xl overflow-hidden">
             <div className="px-7 pt-8 pb-0 sm:px-9 sm:pt-10">
 
               {/* Logo */}
@@ -112,7 +110,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               <p className="text-[13px] text-[#526267]">
                 Already have an account?{" "}
                 <Link
-                  href="/login"
+                  href={callbackUrl && callbackUrl !== "/" ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
                   className="text-[#155761] font-semibold hover:text-[#2F7D78] transition-colors ml-0.5"
                 >
                   Sign in
@@ -142,7 +140,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               <span>Zero buyer commission</span>
             </div>
           </div>
-        </div>
+        </ScrollFade>
       </main>
 
       {/* Footer */}

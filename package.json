@@ -25,6 +25,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
+    "motion": "^13.4.4",
     "next": "15.5.26",
     "next-auth": "^5.0.0-beta.29",
     "nodemailer": "^8.0.11",

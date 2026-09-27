@@ -13,9 +13,6 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 
-const isProduction = process.env.NODE_ENV === "production";
-const useSecureCookies = isProduction && !process.env.NEXTAUTH_URL?.startsWith("http://localhost");
-
 if (!process.env.AUTH_SECRET) {
   process.env.AUTH_SECRET = "soft-showcase-fallback-auth-secret-key-32chars";
 }
