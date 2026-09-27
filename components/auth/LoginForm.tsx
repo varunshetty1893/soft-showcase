@@ -94,9 +94,16 @@ export function LoginForm() {
     setGoogleLoading(true);
     setErrorMessage(null);
     try {
-      await signIn("google", { callbackUrl });
-    } catch {
-      setErrorMessage("Failed to initiate Google sign in.");
+      const res = await signIn("google", { callbackUrl, redirect: true });
+      if (res?.error) {
+        setErrorMessage("Google Sign-In is currently unavailable. Please sign in with email and password.");
+        setGoogleLoading(false);
+      }
+    } catch (err: unknown) {
+      console.warn("Google sign in notice:", err);
+      setErrorMessage(
+        "Google Sign-In is not configured in your local environment. Please sign in using email & password or add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET to .env."
+      );
       setGoogleLoading(false);
     }
   }

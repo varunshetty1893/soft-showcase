@@ -6,7 +6,6 @@
 // - isAdmin is read from the users table and propagated to the session.
 
 import NextAuth from "next-auth";
-import { skipCSRFCheck } from "@auth/core";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -14,40 +13,16 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET || "soft-showcase-fallback-auth-secret-key-32chars",
-  trustHost: true,
-  skipCSRFCheck: skipCSRFCheck,
+const isProduction = process.env.NODE_ENV === "production";
+const useSecureCookies = isProduction && !process.env.NEXTAUTH_URL?.startsWith("http://localhost");
 
-  // ── Cookies for Iframe / Cross-Origin Preview Environment ────────────────
-  cookies: {
-    sessionToken: {
-      name: "authjs.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "none",
-        path: "/",
-        secure: true,
-      },
-    },
-    callbackUrl: {
-      name: "authjs.callback-url",
-      options: {
-        sameSite: "none",
-        path: "/",
-        secure: true,
-      },
-    },
-    csrfToken: {
-      name: "authjs.csrf-token",
-      options: {
-        httpOnly: true,
-        sameSite: "none",
-        path: "/",
-        secure: true,
-      },
-    },
-  },
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = "soft-showcase-fallback-auth-secret-key-32chars";
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
 
   // ── Adapter ──────────────────────────────────────────────────────────────
   adapter: PrismaAdapter(db),
