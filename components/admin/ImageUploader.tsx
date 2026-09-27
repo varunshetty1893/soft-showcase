@@ -254,15 +254,15 @@ export function ImageUploader({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4 text-indigo-600" />
+          <h3 className="text-sm font-bold text-[#102124] flex items-center gap-2">
+            <ImageIcon className="w-4 h-4 text-[#155761]" />
             Project Screenshots
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-[#526267] mt-0.5">
             Upload screenshots for the catalog gallery. Star one image as the primary cover.
           </p>
         </div>
-        <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-100 text-gray-700">
+        <span className="text-xs font-semibold px-2 py-1 rounded bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761]">
           {images.length} / {MAX_IMAGES_PER_PROJECT} images
         </span>
       </div>
@@ -284,8 +284,8 @@ export function ImageUploader({
           onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
             dragActive
-              ? "border-indigo-600 bg-indigo-50/50"
-              : "border-gray-300 hover:border-indigo-400 bg-gray-50/50"
+              ? "border-[#155761] bg-[#F3F7F7]"
+              : "border-[#D9E2E4] hover:border-[#155761]/40 bg-[#F8FAFA]"
           }`}
         >
           <input
@@ -299,11 +299,11 @@ export function ImageUploader({
             }}
             disabled={uploading}
           />
-          <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-xs font-semibold text-gray-700">
+          <UploadCloud className="w-8 h-8 text-[#526267] mx-auto mb-2" />
+          <p className="text-xs font-semibold text-[#102124]">
             {uploading ? "Uploading to Cloudinary..." : "Click or drag & drop screenshots here"}
           </p>
-          <p className="text-[11px] text-gray-400 mt-1">
+          <p className="text-[11px] text-[#526267] mt-1">
             JPG, PNG, WebP up to {MAX_IMAGE_SIZE_MB}MB each. Maximum {MAX_IMAGES_PER_PROJECT} images.
           </p>
         </div>
@@ -316,11 +316,11 @@ export function ImageUploader({
             <div
               key={img.id}
               className={`relative bg-white border rounded-xl overflow-hidden shadow-xs group transition-all ${
-                img.isPrimary ? "border-indigo-600 ring-2 ring-indigo-600/20" : "border-gray-200"
+                img.isPrimary ? "border-[#155761] ring-2 ring-[#155761]/20" : "border-[#D9E2E4]"
               }`}
             >
               {/* Thumbnail */}
-              <div className="relative aspect-video bg-gray-100 overflow-hidden">
+              <div className="relative aspect-video bg-[#F3F7F7] overflow-hidden">
                 <img
                   src={img.url}
                   alt={img.altText || "Project screenshot"}
@@ -329,7 +329,7 @@ export function ImageUploader({
 
                 {/* Primary Badge */}
                 {img.isPrimary && (
-                  <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                  <div className="absolute top-2 left-2 bg-[#155761] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
                     <Star className="w-3 h-3 fill-current" /> Primary Cover
                   </div>
                 )}
@@ -418,7 +418,7 @@ export function ImageUploader({
                         setEditingAltId(img.id);
                         setAltTextDraft(img.altText || "");
                       }}
-                      className="text-gray-400 hover:text-indigo-600 transition"
+                      className="text-[#526267] hover:text-[#155761] transition cursor-pointer"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>

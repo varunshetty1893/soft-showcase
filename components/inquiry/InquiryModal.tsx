@@ -56,26 +56,26 @@ export function InquiryModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="inquiry-dialog-title"
-        className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 sm:p-8 z-10 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-[#D9E2E4] p-6 sm:p-8 z-10 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150"
       >
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-gray-100">
+        <div className="flex items-start justify-between pb-4 border-b border-[#F3F7F7]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center shrink-0">
               <Mail className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="inquiry-dialog-title" className="text-lg font-bold text-gray-900 leading-snug">
+              <h2 id="inquiry-dialog-title" className="text-lg font-bold text-[#102124] leading-snug">
                 Send Project Inquiry
               </h2>
-              <p className="text-xs text-gray-500 line-clamp-1">{projectTitle}</p>
+              <p className="text-xs text-[#526267] line-clamp-1">{projectTitle}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer"
+            className="text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] p-1.5 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

@@ -35,10 +35,10 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-gray-200 bg-white min-h-[calc(100vh-4rem)] flex flex-col justify-between py-6 shrink-0 hidden md:flex">
+    <aside className="w-64 border-r border-[#D9E2E4] bg-white min-h-[calc(100vh-4rem)] flex flex-col justify-between py-6 shrink-0 hidden md:flex">
       <div className="space-y-6 px-4">
         <div className="px-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#526267]">
             Platform Management
           </span>
         </div>
@@ -53,19 +53,19 @@ export function AdminSidebar() {
                 href={item.href}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   active
-                    ? "bg-indigo-50 text-indigo-700 font-semibold"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]"
+                    : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Icon
                     className={`w-4 h-4 ${
-                      active ? "text-indigo-600" : "text-gray-400"
+                      active ? "text-[#155761]" : "text-[#526267]"
                     }`}
                   />
                   <span>{item.label}</span>
                 </div>
-                {active && <ChevronRight className="w-4 h-4 text-indigo-500" />}
+                {active && <ChevronRight className="w-4 h-4 text-[#155761]" />}
               </Link>
             );
           })}
@@ -73,17 +73,17 @@ export function AdminSidebar() {
       </div>
 
       {/* Public site link */}
-      <div className="px-4 pt-6 border-t border-gray-100">
+      <div className="px-4 pt-6 border-t border-[#F3F7F7]">
         <Link
           href="/"
           target="_blank"
-          className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124] transition-colors"
         >
           <div className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+            <ExternalLink className="w-3.5 h-3.5 text-[#526267]" />
             <span>Open Public Website</span>
           </div>
-          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] bg-[#DDF4EC] text-[#155761] font-bold px-1.5 py-0.5 rounded">
             Live
           </span>
         </Link>

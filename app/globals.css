@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #eefcfe;
-  --foreground: #111d1f;
-  --surface: #eefcfe;
+  --background: #F8FAFA;
+  --foreground: #102124;
+  --surface: #F8FAFA;
   --surface-container-lowest: #ffffff;
-  --surface-container-low: #e9f6f8;
-  --surface-container: #e3f0f3;
-  --surface-container-high: #ddebed;
-  --surface-container-highest: #d8e5e7;
-  --border: #d8e5e7;
-  --primary: #00373f;
-  --primary-container: #184e58;
-  --secondary: #006c50;
-  --secondary-container: #8cf7ce;
-  --tertiary: #00523d;
-  --on-surface: #111d1f;
-  --on-surface-variant: #40484a;
-  --success: #006c50;
+  --surface-container-low: #F3F7F7;
+  --surface-container: #EEF3F4;
+  --surface-container-high: #E5ECEE;
+  --surface-container-highest: #D9E2E4;
+  --border: #D9E2E4;
+  --primary: #155761;
+  --primary-container: #1C6B77;
+  --secondary: #2F7D78;
+  --secondary-container: #DDF4EC;
+  --tertiary: #10474F;
+  --on-surface: #102124;
+  --on-surface-variant: #526267;
+  --success: #2F7D78;
   --warning: #f59e0b;
   --error: #ba1a1a;
 }
@@ -26,23 +26,23 @@
   --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-plus-jakarta), var(--font-inter), sans-serif;
 
-  --color-primary: #00373f;
-  --color-primary-container: #184e58;
-  --color-secondary: #006c50;
-  --color-secondary-container: #8cf7ce;
-  --color-secondary-fixed: #8cf7ce;
-  --color-secondary-fixed-dim: #6fdab3;
-  --color-surface: #eefcfe;
-  --color-surface-dim: #cfdcdf;
-  --color-surface-container-low: #e9f6f8;
-  --color-surface-container: #e3f0f3;
-  --color-surface-container-high: #ddebed;
-  --color-surface-container-highest: #d8e5e7;
+  --color-primary: #155761;
+  --color-primary-container: #1C6B77;
+  --color-secondary: #2F7D78;
+  --color-secondary-container: #DDF4EC;
+  --color-secondary-fixed: #DDF4EC;
+  --color-secondary-fixed-dim: #C5EBE0;
+  --color-surface: #F8FAFA;
+  --color-surface-dim: #EEF3F4;
+  --color-surface-container-low: #F3F7F7;
+  --color-surface-container: #EEF3F4;
+  --color-surface-container-high: #E5ECEE;
+  --color-surface-container-highest: #D9E2E4;
   --color-surface-container-lowest: #ffffff;
-  --color-on-surface: #111d1f;
-  --color-on-surface-variant: #40484a;
+  --color-on-surface: #102124;
+  --color-on-surface-variant: #526267;
   --color-outline: #70787b;
-  --color-outline-variant: #c0c8ca;
+  --color-outline-variant: #D9E2E4;
 }
 
 body {
@@ -54,6 +54,6 @@ body {
 }
 
 ::selection {
-  background-color: #8cf7ce;
-  color: #002116;
+  background-color: #DDF4EC;
+  color: #102124;
 }

@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,65 +25,74 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
   const navLinks = [
     { label: "Browse Projects", href: "/projects" },
-    { label: "Request Custom Software", href: "/custom-project" },
+    { label: "Categories", href: "/#categories" },
+    { label: "How It Works", href: "/#how-it-works" },
+    { label: "Why Us", href: "/#why-us" },
   ];
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => {
+    if (href.startsWith("/#")) return false;
+    return pathname === href;
+  };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#d8e5e7]/80 bg-white/90 backdrop-blur-md shadow-[0_1px_8px_rgba(24,78,88,0.04)]">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand */}
-        <div className="flex items-center gap-8">
+    <header className="sticky top-0 z-40 w-full border-b border-[#D9E2E4] bg-white/95 backdrop-blur-md shadow-[0_1px_4px_rgba(16,33,36,0.02)]">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 relative">
+        {/* Brand: Real Soft Showcase Logo */}
+        <div className="flex items-center shrink-0">
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-[#00373f] hover:opacity-90 transition-opacity"
+            className="flex items-center group py-1"
           >
-            <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#00373f] text-[#8cf7ce] font-extrabold text-sm shadow-sm border border-[#184e58]">
-              SS
-            </span>
-            <span className="font-extrabold tracking-tight">Soft Showcase</span>
+            <Image
+              src="/logo.png"
+              alt="Soft Showcase"
+              width={140}
+              height={29}
+              className="h-7 w-auto object-contain"
+              priority
+            />
           </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-all ${
-                  isActive(link.href)
-                    ? "bg-[#e9f6f8] text-[#00373f]"
-                    : "text-[#40484a] hover:text-[#00373f] hover:bg-[#e9f6f8]/60"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
         </div>
 
+        {/* Desktop Navigation Links — Centered */}
+        <nav className="hidden md:flex items-center justify-center gap-1 lg:gap-2 md:relative lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                isActive(link.href)
+                  ? "bg-[#F3F7F7] text-[#155761] font-semibold"
+                  : "text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7]"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
         {/* Desktop Auth & CTAs */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3 shrink-0">
           {user ? (
             <div className="flex items-center gap-3">
               {user.isAdmin && (
                 <Link href="/admin">
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                    <LayoutDashboard className="w-3.5 h-3.5" />
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs text-[#102124]">
+                    <LayoutDashboard className="w-3.5 h-3.5 text-[#155761]" />
                     Admin Panel
                   </Button>
                 </Link>
               )}
 
               <Link href="/my-inquiries">
-                <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+                <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-[#526267] hover:text-[#155761]">
                   <MessageSquare className="w-3.5 h-3.5" />
                   My Inquiries
                 </Button>
               </Link>
 
-              <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
+              <div className="flex items-center gap-2 pl-2 border-l border-[#D9E2E4]">
                 <Link
                   href="/profile"
                   title="Profile Settings"
@@ -92,14 +102,14 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                     <img
                       src={user.image}
                       alt={user.name || "User"}
-                      className="w-8 h-8 rounded-full border border-gray-200 object-cover"
+                      className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-xs font-semibold">
                       {user.name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
-                  <span className="text-xs font-medium text-gray-700 max-w-[120px] truncate hover:text-indigo-600 transition-colors">
+                  <span className="text-xs font-medium text-[#102124] max-w-[120px] truncate hover:text-[#155761] transition-colors">
                     {user.name || user.email}
                   </span>
                 </Link>
@@ -108,7 +118,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   <button
                     type="submit"
                     title="Sign Out"
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-md transition-colors cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -116,20 +126,15 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <Link href="/login">
-                <Button variant="ghost" size="sm">
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm font-medium px-4">
                   Sign In
                 </Button>
               </Link>
-              <Link href="/register">
-                <Button variant="outline" size="sm">
-                  Register
-                </Button>
-              </Link>
               <Link href="/custom-project">
-                <Button variant="primary" size="sm" className="gap-1 shadow-sm">
-                  Custom Build
+                <Button variant="primary" size="sm" className="text-xs sm:text-sm gap-1 shadow-xs font-semibold">
+                  Request Software
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </Button>
               </Link>
@@ -142,7 +147,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-gray-600 hover:text-gray-950 focus:outline-none"
+            className="p-2 text-[#526267] hover:text-[#102124] focus:outline-none"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -152,17 +157,17 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-gray-200 bg-white px-4 pt-2 pb-6 space-y-4">
-          <nav className="flex flex-col space-y-3">
+        <div className="md:hidden border-b border-[#D9E2E4] bg-white px-4 pt-2 pb-6 space-y-4">
+          <nav className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`px-3 py-2 rounded-lg text-base font-medium ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium ${
                   isActive(link.href)
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "bg-[#F3F7F7] text-[#155761] font-semibold"
+                    : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
                 }`}
               >
                 {link.label}
@@ -170,7 +175,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
             ))}
           </nav>
 
-          <div className="pt-4 border-t border-gray-100">
+          <div className="pt-4 border-t border-[#D9E2E4]">
             {user ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3 px-3 py-2">
@@ -178,18 +183,18 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                     <img
                       src={user.image}
                       alt={user.name || "User"}
-                      className="w-9 h-9 rounded-full border border-gray-200"
+                      className="w-9 h-9 rounded-full border border-[#D9E2E4]"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-semibold">
+                    <div className="w-9 h-9 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-sm font-semibold">
                       {user.name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-[#102124]">
                       {user.name || "Authenticated User"}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                    <div className="text-xs text-[#526267] truncate">{user.email}</div>
                   </div>
                 </div>
 
@@ -197,9 +202,9 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   <Link
                     href="/admin"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                   >
-                    <LayoutDashboard className="w-4 h-4 text-indigo-600" />
+                    <LayoutDashboard className="w-4 h-4 text-[#155761]" />
                     Admin Panel
                   </Link>
                 )}
@@ -207,56 +212,47 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                 <Link
                   href="/my-inquiries"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                 >
-                  <MessageSquare className="w-4 h-4 text-indigo-600" />
+                  <MessageSquare className="w-4 h-4 text-[#155761]" />
                   My Inquiries
                 </Link>
 
                 <Link
                   href="/my-requests"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                 >
-                  <ArrowUpRight className="w-4 h-4 text-indigo-600" />
+                  <ArrowUpRight className="w-4 h-4 text-[#155761]" />
                   Custom Requests
                 </Link>
 
                 <Link
                   href="/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                 >
-                  <span className="w-4 h-4 flex items-center justify-center text-xs font-bold text-indigo-600 border border-indigo-200 rounded-full">
-                    P
-                  </span>
                   Profile Settings
                 </Link>
 
                 <form action={signOutAction} className="pt-2">
-                  <Button variant="outline" size="sm" className="w-full gap-2">
+                  <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
                     <LogOut className="w-4 h-4" />
                     Sign Out
                   </Button>
                 </form>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="md" className="w-full">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" size="md" className="w-full">
-                      Register
-                    </Button>
-                  </Link>
-                </div>
+              <div className="flex flex-col gap-2.5">
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" size="md" className="w-full text-sm font-medium">
+                    Sign In
+                  </Button>
+                </Link>
                 <Link href="/custom-project" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="md" className="w-full">
+                  <Button variant="primary" size="md" className="w-full text-sm font-semibold gap-1.5">
                     Request Custom Software
+                    <ArrowUpRight className="w-4 h-4" />
                   </Button>
                 </Link>
               </div>

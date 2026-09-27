@@ -72,7 +72,7 @@ export default async function AdminCustomRequestsPage({
               href={href}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
                 isActive
-                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  ? "bg-[#155761] text-white font-semibold shadow-xs"
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -138,7 +138,7 @@ export default async function AdminCustomRequestsPage({
                       <td className="py-3 px-4">
                         <Link
                           href={`/admin/custom-requests/${req.id}`}
-                          className="font-medium text-gray-900 hover:text-indigo-600 truncate block max-w-[190px]"
+                          className="font-medium text-gray-900 hover:text-[#155761] truncate block max-w-[190px]"
                         >
                           {req.projectTitle}
                         </Link>

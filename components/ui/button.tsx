@@ -27,15 +27,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
       primary:
-        "bg-[#00373f] text-white hover:bg-[#184e58] shadow-[0_4px_16px_rgba(0,55,63,0.18)] hover:shadow-[0_6px_20px_rgba(0,55,63,0.25)] focus-visible:ring-[#006c50]",
+        "bg-[#155761] text-white hover:bg-[#10474F] shadow-xs hover:shadow focus-visible:ring-[#155761]",
       mint:
-        "bg-[#8cf7ce] text-[#002116] hover:bg-[#6fdab3] font-bold shadow-[0_4px_16px_rgba(140,247,206,0.3)] hover:shadow-[0_6px_20px_rgba(111,218,179,0.4)] focus-visible:ring-[#006c50]",
+        "bg-[#DDF4EC] text-[#155761] hover:bg-[#cbf0e3] font-semibold border border-[#2F7D78]/25 focus-visible:ring-[#2F7D78]",
       secondary:
-        "bg-[#e9f6f8] text-[#00373f] hover:bg-[#ddebed] focus-visible:ring-[#006c50]",
+        "bg-[#F3F7F7] text-[#155761] hover:bg-[#EEF3F4] border border-[#D9E2E4] focus-visible:ring-[#155761]",
       outline:
-        "border border-[#d8e5e7] bg-white text-[#111d1f] hover:bg-[#e9f6f8] hover:text-[#00373f] hover:border-[#8cf7ce] shadow-xs focus-visible:ring-[#006c50]",
+        "border border-[#D9E2E4] bg-white text-[#102124] hover:bg-[#F3F7F7] hover:text-[#155761] hover:border-[#155761]/40 shadow-xs focus-visible:ring-[#155761]",
       ghost:
-        "text-[#40484a] hover:bg-[#e9f6f8] hover:text-[#00373f] focus-visible:ring-[#006c50]",
+        "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761] focus-visible:ring-[#155761]",
       danger:
         "bg-[#ba1a1a] text-white hover:bg-[#93000a] shadow-sm focus-visible:ring-red-500",
       whatsapp:

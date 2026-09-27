@@ -20,14 +20,14 @@ export function Badge({
   ...props
 }: BadgeProps) {
   const variantStyles: Record<NonNullable<BadgeProps["variant"]>, string> = {
-    default: "bg-[#eefcfe] text-[#00373f] border-[#d8e5e7]",
-    mint: "bg-[#8cf7ce]/25 text-[#006c50] border-[#8cf7ce]/60 font-semibold",
-    secondary: "bg-[#e9f6f8] text-[#00373f] border-[#d8e5e7]",
-    outline: "text-[#40484a] border-[#d8e5e7] bg-white",
-    success: "bg-[#8cf7ce]/20 text-[#006c50] border-[#8cf7ce]/50",
+    default: "bg-[#F3F7F7] text-[#155761] border-[#D9E2E4]",
+    mint: "bg-[#DDF4EC] text-[#155761] border-[#2F7D78]/25 font-semibold",
+    secondary: "bg-[#F3F7F7] text-[#526267] border-[#D9E2E4]",
+    outline: "text-[#526267] border-[#D9E2E4] bg-white",
+    success: "bg-[#DDF4EC] text-[#2F7D78] border-[#2F7D78]/30 font-medium",
     warning: "bg-amber-50 text-amber-800 border-amber-200",
     destructive: "bg-red-50 text-red-700 border-red-200",
-    tech: "bg-[#e9f6f8] text-[#184e58] border-[#d8e5e7] font-mono text-xs",
+    tech: "bg-[#F3F7F7] text-[#155761] border-[#D9E2E4] font-mono text-xs",
   };
 
   return (

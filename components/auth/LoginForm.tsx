@@ -18,15 +18,15 @@ function GoogleIcon() {
   );
 }
 
-// Shared input classes
+// Shared input classes — clean white background, neutral border, dark teal focus ring
 function inputCls(error?: boolean) {
   return [
-    "w-full bg-[#f5fafa] text-[#111d1f] text-sm pl-10 pr-3.5 py-2.5 rounded-lg",
-    "shadow-sm placeholder:text-[#70787b]/70",
+    "w-full bg-white text-[#102124] text-sm pl-10 pr-3.5 py-2.5 rounded-lg",
+    "shadow-xs placeholder:text-[#526267]/60",
     "focus:outline-none focus:bg-white transition-all",
     error
-      ? "border border-[#ba1a1a] focus:shadow-[0_0_0_2px_rgba(186,26,26,0.25)]"
-      : "border border-[#c0c8ca] focus:shadow-[0_0_0_2px_#184e58,0_0_12px_rgba(72,181,144,0.25)] focus:border-[#184e58]",
+      ? "border border-[#ba1a1a] focus:ring-1 focus:ring-[#ba1a1a]"
+      : "border border-[#D9E2E4] focus:border-[#155761] focus:ring-1 focus:ring-[#155761]",
   ].join(" ");
 }
 
@@ -105,11 +105,11 @@ export function LoginForm() {
     <div>
       {/* Email verified notice */}
       {verifiedNotice && (
-        <div className="mb-5 p-3 rounded-lg bg-[#8cf7ce]/20 border border-[#006c50]/20 flex items-start gap-2.5">
-          <CheckCircle2 className="w-5 h-5 text-[#006c50] shrink-0 mt-0.5" />
+        <div className="mb-5 p-3 rounded-lg bg-[#DDF4EC] border border-[#2F7D78]/25 flex items-start gap-2.5">
+          <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-[#006c50]">Email verified!</p>
-            <p className="text-xs text-[#40484a] mt-0.5">You can now sign in with your email and password.</p>
+            <p className="text-sm font-semibold text-[#155761]">Email verified!</p>
+            <p className="text-xs text-[#526267] mt-0.5">You can now sign in with your email and password.</p>
           </div>
         </div>
       )}
@@ -143,25 +143,25 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Google SSO — shown first per design */}
+      {/* Google SSO */}
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={loading || googleLoading}
-        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#e9f6f8] hover:bg-[#ddebed] text-[#111d1f] rounded-lg font-semibold text-sm transition-all shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-60"
+        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] rounded-lg font-semibold text-sm transition-all shadow-xs hover:shadow-sm active:scale-[0.99] disabled:opacity-60 cursor-pointer"
       >
         {googleLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin text-[#40484a]" />
+          <Loader2 className="w-4 h-4 animate-spin text-[#526267]" />
         ) : (
           <GoogleIcon />
         )}
-        <span className="group-hover:text-[#00373f] transition-colors">Continue with Google</span>
+        <span>Continue with Google</span>
       </button>
 
       {/* Divider */}
       <div className="relative flex items-center justify-center my-6">
-        <div className="w-full h-px bg-[#ddebed]" />
-        <span className="absolute px-3 bg-white text-[12px] font-medium text-[#70787b]">
+        <div className="w-full h-px bg-[#D9E2E4]" />
+        <span className="absolute px-3 bg-white text-[12px] font-medium text-[#526267]">
           or continue with email
         </span>
       </div>
@@ -170,11 +170,11 @@ export function LoginForm() {
       <form onSubmit={handleCredentialsSubmit} className="space-y-4" id="sign-in-form">
         {/* Email */}
         <div>
-          <label htmlFor="login-email" className="block text-[12px] font-semibold text-[#111d1f] mb-1.5 tracking-[0.02em]">
+          <label htmlFor="login-email" className="block text-[12px] font-semibold text-[#102124] mb-1.5 tracking-[0.02em]">
             Work or personal email
           </label>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <input
@@ -194,18 +194,18 @@ export function LoginForm() {
         {/* Password */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="login-password" className="block text-[12px] font-semibold text-[#111d1f] tracking-[0.02em]">
+            <label htmlFor="login-password" className="block text-[12px] font-semibold text-[#102124] tracking-[0.02em]">
               Password
             </label>
             <Link
               href="/forgot-password"
-              className="text-[11px] font-semibold text-[#184e58] hover:text-[#006c50] transition-colors"
+              className="text-[11px] font-semibold text-[#155761] hover:text-[#2F7D78] transition-colors"
             >
               Forgot password?
             </Link>
           </div>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <input
@@ -222,7 +222,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 text-[#70787b] hover:text-[#111d1f] p-1 rounded transition-colors"
+              className="absolute right-3 text-[#526267] hover:text-[#102124] p-1 rounded transition-colors"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -239,7 +239,7 @@ export function LoginForm() {
             onClick={() => setRememberMe(!rememberMe)}
             className={[
               "w-4 h-4 rounded flex items-center justify-center transition-colors shrink-0",
-              rememberMe ? "bg-[#006c50]" : "bg-[#ddebed] border border-[#c0c8ca]",
+              rememberMe ? "bg-[#155761]" : "bg-white border border-[#D9E2E4]",
             ].join(" ")}
           >
             {rememberMe && (
@@ -248,7 +248,7 @@ export function LoginForm() {
               </svg>
             )}
           </button>
-          <span className="text-[13px] text-[#40484a]">Remember this device for 30 days</span>
+          <span className="text-[13px] text-[#526267]">Remember this device for 30 days</span>
         </div>
 
         {/* Submit */}
@@ -257,7 +257,7 @@ export function LoginForm() {
             id="sign-in-submit"
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-[#184e58] hover:bg-[#00373f] text-white rounded-xl font-semibold text-sm shadow-[0_4px_14px_rgba(24,78,88,0.22)] hover:shadow-[0_6px_20px_rgba(24,78,88,0.32)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-[#155761] hover:bg-[#10474F] text-white rounded-xl font-semibold text-sm shadow-xs hover:shadow hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all disabled:opacity-60 cursor-pointer"
           >
             {loading ? (
               <>

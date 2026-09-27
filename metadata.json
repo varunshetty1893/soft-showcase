@@ -1,0 +1,8 @@
+{
+  "name": "Soft Showcase",
+  "description": "Curated software project discovery platform connecting buyers directly with verified builders.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

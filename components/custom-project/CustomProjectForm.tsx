@@ -107,14 +107,14 @@ export function CustomProjectForm() {
 
   if (success) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 p-8 sm:p-12 text-center shadow-xs">
-        <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-6">
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-8 sm:p-12 text-center shadow-xs">
+        <div className="w-16 h-16 rounded-full bg-[#DDF4EC] text-[#2F7D78] border border-[#2F7D78]/25 flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 className="w-10 h-10" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold text-[#102124]">
           Request Received Successfully!
         </h2>
-        <p className="mt-3 text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
+        <p className="mt-3 text-sm text-[#526267] max-w-md mx-auto leading-relaxed">
           Thank you for trusting <strong>Soft Showcase</strong> with your software vision.
           Our team will analyze your requirements and reach out via email or WhatsApp soon.
         </p>
@@ -139,7 +139,7 @@ export function CustomProjectForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-10 shadow-xs space-y-8"
+      className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-10 shadow-xs space-y-8"
     >
       {errorMessage && (
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-3">
@@ -153,12 +153,12 @@ export function CustomProjectForm() {
 
       {/* ── Section: Contact Details ────────────────────────────────────── */}
       <div>
-        <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 mb-4">
+        <h3 className="text-base font-semibold text-[#102124] pb-2 border-b border-[#F3F7F7] mb-4">
           1. Your Contact Information
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="name">Full Name *</Label>
+            <Label htmlFor="name" className="text-[#102124]">Full Name *</Label>
             <Input
               id="name"
               required
@@ -170,7 +170,7 @@ export function CustomProjectForm() {
           </div>
 
           <div>
-            <Label htmlFor="email">Email Address *</Label>
+            <Label htmlFor="email" className="text-[#102124]">Email Address *</Label>
             <Input
               id="email"
               type="email"
@@ -183,7 +183,7 @@ export function CustomProjectForm() {
           </div>
 
           <div className="sm:col-span-2">
-            <Label htmlFor="whatsapp">WhatsApp Number (Optional)</Label>
+            <Label htmlFor="whatsapp" className="text-[#102124]">WhatsApp Number (Optional)</Label>
             <Input
               id="whatsapp"
               type="tel"
@@ -192,7 +192,7 @@ export function CustomProjectForm() {
               onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
               className="mt-1.5"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[#526267] mt-1">
               Provide this if you prefer rapid direct communication via WhatsApp.
             </p>
           </div>
@@ -201,12 +201,12 @@ export function CustomProjectForm() {
 
       {/* ── Section: Project Overview ───────────────────────────────────── */}
       <div>
-        <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 mb-4">
+        <h3 className="text-base font-semibold text-[#102124] pb-2 border-b border-[#F3F7F7] mb-4">
           2. Project Overview
         </h3>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="projectTitle">Project Title / Name *</Label>
+            <Label htmlFor="projectTitle" className="text-[#102124]">Project Title / Name *</Label>
             <Input
               id="projectTitle"
               required
@@ -218,10 +218,10 @@ export function CustomProjectForm() {
           </div>
 
           <div>
-            <Label htmlFor="category">Category *</Label>
+            <Label htmlFor="category" className="text-[#102124]">Category *</Label>
             <select
               id="category"
-              className="mt-1.5 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:border-transparent"
+              className="mt-1.5 flex h-10 w-full rounded-lg border border-[#D9E2E4] bg-white px-3 py-2 text-sm text-[#102124] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#155761] focus-visible:border-[#155761]"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
@@ -234,7 +234,7 @@ export function CustomProjectForm() {
           </div>
 
           <div>
-            <Label>Preferred Technologies (Select relevant tags)</Label>
+            <Label className="text-[#102124]">Preferred Technologies (Select relevant tags)</Label>
             <div className="mt-2 flex flex-wrap gap-2">
               {POPULAR_TECHNOLOGIES.map((tech) => {
                 const selected = formData.technologyPreferences.includes(tech);
@@ -245,8 +245,8 @@ export function CustomProjectForm() {
                     onClick={() => toggleTechnology(tech)}
                     className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
                       selected
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                        ? "bg-[#155761] text-white border-[#155761] shadow-xs"
+                        : "bg-[#F3F7F7] text-[#526267] border-[#D9E2E4] hover:bg-[#EEF3F4] hover:text-[#102124]"
                     }`}
                   >
                     {tech}
@@ -260,14 +260,14 @@ export function CustomProjectForm() {
 
       {/* ── Section: Technical Requirements ─────────────────────────────── */}
       <div>
-        <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 mb-4">
+        <h3 className="text-base font-semibold text-[#102124] pb-2 border-b border-[#F3F7F7] mb-4">
           3. Detailed Requirements
         </h3>
         <div className="space-y-4">
           <div>
             <div className="flex justify-between items-center">
-              <Label htmlFor="description">Detailed Description *</Label>
-              <span className="text-xs text-gray-400">
+              <Label htmlFor="description" className="text-[#102124]">Detailed Description *</Label>
+              <span className="text-xs text-[#526267]">
                 {formData.description.length} / 50 min characters
               </span>
             </div>
@@ -283,7 +283,7 @@ export function CustomProjectForm() {
           </div>
 
           <div>
-            <Label htmlFor="requiredFeatures">Required Features (Must-Haves) *</Label>
+            <Label htmlFor="requiredFeatures" className="text-[#102124]">Required Features (Must-Haves) *</Label>
             <Textarea
               id="requiredFeatures"
               required
@@ -299,12 +299,12 @@ export function CustomProjectForm() {
 
       {/* ── Section: Scope & Budget ─────────────────────────────────────── */}
       <div>
-        <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 mb-4">
+        <h3 className="text-base font-semibold text-[#102124] pb-2 border-b border-[#F3F7F7] mb-4">
           4. Budget & Timeline (Optional)
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="budget">Target Budget</Label>
+            <Label htmlFor="budget" className="text-[#102124]">Target Budget</Label>
             <Input
               id="budget"
               placeholder="e.g. $1,000 - $3,000 or Flexible"
@@ -315,7 +315,7 @@ export function CustomProjectForm() {
           </div>
 
           <div>
-            <Label htmlFor="deadline">Target Deadline</Label>
+            <Label htmlFor="deadline" className="text-[#102124]">Target Deadline</Label>
             <Input
               id="deadline"
               placeholder="e.g. Within 1 month, Q2 2027"
@@ -326,7 +326,7 @@ export function CustomProjectForm() {
           </div>
 
           <div className="sm:col-span-2">
-            <Label htmlFor="additionalRequirements">Additional Notes or Links</Label>
+            <Label htmlFor="additionalRequirements" className="text-[#102124]">Additional Notes or Links</Label>
             <Textarea
               id="additionalRequirements"
               rows={2}
@@ -341,15 +341,15 @@ export function CustomProjectForm() {
         </div>
       </div>
 
-      <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-        <p className="text-xs text-gray-500">
+      <div className="pt-4 border-t border-[#D9E2E4] flex items-center justify-between">
+        <p className="text-xs text-[#526267]">
           Strict confidentiality. Your project idea is safe with our team.
         </p>
         <Button
           type="submit"
           size="lg"
           isLoading={isLoading}
-          className="gap-2 shadow-sm"
+          className="gap-2 shadow-xs cursor-pointer"
         >
           <Send className="w-4 h-4" />
           Submit Custom Request

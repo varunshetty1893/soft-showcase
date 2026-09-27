@@ -41,16 +41,16 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
 
   return (
     <aside className="w-full lg:w-64 shrink-0 space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
-            <Filter className="w-4 h-4 text-indigo-600" />
+      <div className="bg-white rounded-xl border border-[#D9E2E4] p-5 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-[#F3F7F7]">
+          <div className="flex items-center gap-2 text-sm font-bold text-[#102124]">
+            <Filter className="w-4 h-4 text-[#155761]" />
             <span>Categories</span>
           </div>
           {hasActiveFilters && (
             <button
               onClick={clearAll}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+              className="text-xs text-[#155761] hover:text-[#2F7D78] font-medium cursor-pointer"
             >
               Reset
             </button>
@@ -63,8 +63,8 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
             onClick={() => updateFilter("category", null)}
             className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
               !activeCategory
-                ? "bg-indigo-50 text-indigo-700 font-semibold"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]"
+                : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
             }`}
           >
             All Categories
@@ -77,8 +77,8 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
                 onClick={() => updateFilter("category", isSelected ? null : cat.slug)}
                 className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-indigo-50 text-indigo-700 font-semibold"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]"
+                    : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
                 }`}
               >
                 {cat.name}

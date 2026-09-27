@@ -66,9 +66,9 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
   return (
     <div className="space-y-6">
       {/* Edit Basic Info Card */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 p-6 sm:p-8 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-950 mb-1">Personal Information</h2>
-        <p className="text-sm text-gray-500 mb-6">
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
+        <h2 className="text-lg font-bold text-[#102124] mb-1">Personal Information</h2>
+        <p className="text-sm text-[#526267] mb-6">
           Update your public name displayed when communicating with project providers.
         </p>
 
@@ -76,12 +76,12 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
           <div
             className={`p-4 rounded-xl mb-6 flex items-start gap-3 text-sm ${
               message.type === "success"
-                ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                ? "bg-[#DDF4EC] border border-[#2F7D78]/25 text-[#155761]"
                 : "bg-rose-50 border border-rose-200 text-rose-800"
             }`}
           >
             {message.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0 mt-0.5" />
             ) : (
               <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             )}
@@ -91,11 +91,11 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
               Display Name
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <User className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
                 type="text"
                 value={name}
@@ -110,20 +110,20 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
                 type="email"
                 value={user.email}
                 disabled
-                className="pl-10 text-sm bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200"
+                className="pl-10 text-sm bg-[#F8FAFA] text-[#526267] cursor-not-allowed border-[#D9E2E4]"
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">
-              Email is managed by your Google OAuth account and cannot be changed here.
+            <p className="text-xs text-[#526267] mt-1.5">
+              Email is managed by your account and cannot be changed here.
             </p>
           </div>
 
@@ -148,31 +148,31 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
       </div>
 
       {/* Account Details Card */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 p-6 sm:p-8 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-950 mb-1">Account Credentials & Status</h2>
-        <p className="text-sm text-gray-500 mb-6">
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
+        <h2 className="text-lg font-bold text-[#102124] mb-1">Account Credentials & Status</h2>
+        <p className="text-sm text-[#526267] mb-6">
           System metadata associated with your Soft Showcase account.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-gray-50 border border-gray-200/70">
-            <span className="text-xs font-medium text-gray-500 block mb-1">Account Role</span>
+          <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
+            <span className="text-xs font-medium text-[#526267] block mb-1">Account Role</span>
             <div className="flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-indigo-600" />
-              <span className="text-sm font-bold text-gray-900">
+              <Shield className="w-4 h-4 text-[#155761]" />
+              <span className="text-sm font-bold text-[#102124]">
                 {user.isAdmin ? "Platform Administrator" : "Verified Customer"}
               </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-gray-50 border border-gray-200/70">
-            <span className="text-xs font-medium text-gray-500 block mb-1">Member Since</span>
-            <span className="text-sm font-bold text-gray-900">{formattedDate}</span>
+          <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
+            <span className="text-xs font-medium text-[#526267] block mb-1">Member Since</span>
+            <span className="text-sm font-bold text-[#102124]">{formattedDate}</span>
           </div>
 
-          <div className="p-4 rounded-xl bg-gray-50 border border-gray-200/70">
-            <span className="text-xs font-medium text-gray-500 block mb-1">Auth Provider</span>
-            <span className="text-sm font-bold text-gray-900">Google OAuth 2.0</span>
+          <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
+            <span className="text-xs font-medium text-[#526267] block mb-1">Auth Provider</span>
+            <span className="text-sm font-bold text-[#102124]">Email & OAuth</span>
           </div>
         </div>
       </div>

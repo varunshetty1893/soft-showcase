@@ -47,9 +47,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const primaryImage = project.images?.[0];
 
   return (
-    <article className="group relative flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md hover:border-gray-300 transition-all duration-200">
+    <article className="group relative flex flex-col bg-white rounded-xl border border-[#D9E2E4] overflow-hidden shadow-xs hover:shadow-md hover:border-[#155761]/40 transition-all duration-200">
       {/* ── Image Thumbnail ─────────────────────────────────────────────── */}
-      <div className="relative aspect-video w-full bg-gray-100 overflow-hidden border-b border-gray-100">
+      <div className="relative aspect-video w-full bg-[#F3F7F7] overflow-hidden border-b border-[#D9E2E4]">
         {primaryImage?.url ? (
           <img
             src={primaryImage.url}
@@ -57,23 +57,23 @@ export function ProjectCard({ project }: ProjectCardProps) {
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50/50 to-gray-100 text-gray-400 p-6 text-center">
-            <span className="text-2xl font-black text-indigo-300 mb-1">11</span>
-            <span className="text-xs font-medium text-gray-500">{project.title}</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] p-6 text-center">
+            <span className="text-xl font-bold text-[#155761] mb-1">Soft Showcase</span>
+            <span className="text-xs font-medium text-[#526267]">{project.title}</span>
           </div>
         )}
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
           {project.category ? (
-            <Badge variant="secondary" className="bg-white/90 backdrop-blur-xs shadow-xs text-xs font-medium">
+            <Badge variant="secondary" className="bg-white/95 backdrop-blur-xs shadow-xs text-xs font-medium border-[#D9E2E4] text-[#155761]">
               {project.category.name}
             </Badge>
           ) : <div />}
 
           {project.featured && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 font-bold text-[11px] shadow-sm">
-              <Sparkles className="w-3 h-3 fill-amber-950" />
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/25 font-bold text-[11px] shadow-xs">
+              <Sparkles className="w-3 h-3 text-[#2F7D78]" />
               <span>Featured</span>
             </div>
           )}
@@ -83,14 +83,14 @@ export function ProjectCard({ project }: ProjectCardProps) {
       {/* ── Card Content ────────────────────────────────────────────────── */}
       <div className="flex-1 p-5 flex flex-col justify-between">
         <div>
-          <h3 className="text-base font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+          <h3 className="text-base font-bold text-[#102124] group-hover:text-[#155761] transition-colors line-clamp-1">
             <Link href={`/projects/${project.slug}`}>
               <span className="absolute inset-0 z-10" />
               {project.title}
             </Link>
           </h3>
 
-          <p className="mt-2 text-xs text-gray-600 line-clamp-2 leading-relaxed">
+          <p className="mt-2 text-xs text-[#526267] line-clamp-2 leading-relaxed">
             {project.shortDescription}
           </p>
 
@@ -105,20 +105,20 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
 
         {/* ── Footer / Meta ───────────────────────────────────────────────── */}
-        <div className="mt-5 pt-3.5 border-t border-gray-100 flex items-center justify-between">
+        <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex items-center justify-between">
           <PriceBadge priceMode={project.priceMode} price={project.price} />
 
           {/* Provider Snippet */}
           {project.provider && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium">
               {project.provider.avatarUrl ? (
                 <img
                   src={project.provider.avatarUrl}
                   alt={project.provider.displayName}
-                  className="w-4 h-4 rounded-full border border-gray-200"
+                  className="w-4 h-4 rounded-full border border-[#D9E2E4]"
                 />
               ) : (
-                <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                <UserIcon className="w-3.5 h-3.5 text-[#526267]" />
               )}
               <span className="truncate max-w-[100px]">{project.provider.displayName}</span>
             </div>

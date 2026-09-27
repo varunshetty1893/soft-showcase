@@ -70,7 +70,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
           {/* Customer Details Card */}
           <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm">
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-              <User className="w-4 h-4 text-indigo-600" />
+              <User className="w-4 h-4 text-[#155761]" />
               Customer Contact Information
             </h2>
 
@@ -86,7 +86,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
                 <span className="text-gray-400 block mb-0.5">Email Address</span>
                 <a
                   href={`mailto:${inquiry.email}`}
-                  className="font-semibold text-indigo-600 hover:underline text-sm truncate block"
+                  className="font-semibold text-[#155761] hover:underline text-sm truncate block"
                 >
                   {inquiry.email}
                 </a>
@@ -120,7 +120,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
           {/* Submitted Message Card */}
           <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm">
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-indigo-600" />
+              <Mail className="w-4 h-4 text-[#155761]" />
               Submitted Inquiry Message
             </h2>
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
@@ -131,7 +131,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
           {/* Project & Provider Card */}
           <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm">
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-              <FolderGit2 className="w-4 h-4 text-indigo-600" />
+              <FolderGit2 className="w-4 h-4 text-[#155761]" />
               Associated Project & Provider
             </h2>
 
@@ -148,7 +148,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
                   <Link
                     href={`/projects/${inquiry.project.slug}`}
                     target="_blank"
-                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-[#155761] hover:underline"
                   >
                     View Live <ExternalLink className="w-3 h-3" />
                   </Link>

@@ -2,6 +2,7 @@
 // Admin layout — enforces isAdmin: true on every admin route and renders admin navigation.
 
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/lib/auth/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
@@ -29,19 +30,23 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#F8FAFA] text-[#102124] flex flex-col">
       {/* ── Top Bar ────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 h-16 border-b border-gray-200 bg-white px-4 sm:px-6 flex items-center justify-between shadow-xs">
+      <header className="sticky top-0 z-30 h-16 border-b border-[#D9E2E4] bg-white px-4 sm:px-6 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-4">
           <Link
             href="/admin"
-            className="flex items-center gap-2 text-lg font-black tracking-tight text-gray-950"
+            className="flex items-center gap-3 py-1"
           >
-            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs shadow-xs">
-              11
-            </span>
-            <span>Projects</span>
-            <span className="ml-1.5 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
+            <Image
+              src="/logo.png"
+              alt="Soft Showcase"
+              width={130}
+              height={27}
+              className="h-7 w-auto object-contain"
+              priority
+            />
+            <span className="px-2 py-0.5 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] text-[10px] font-bold uppercase tracking-wider">
               Admin
             </span>
           </Link>
@@ -49,31 +54,31 @@ export default async function AdminLayout({
 
         <div className="flex items-center gap-4">
           <Link href="/" target="_blank" className="hidden sm:inline-flex">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-gray-600">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-[#526267] hover:text-[#155761]">
               <ExternalLink className="w-3.5 h-3.5" />
               View Site
             </Button>
           </Link>
 
           {/* User profile snippet */}
-          <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+          <div className="flex items-center gap-3 pl-3 border-l border-[#D9E2E4]">
             {session.user.image ? (
               <img
                 src={session.user.image}
                 alt={session.user.name || "Admin"}
-                className="w-8 h-8 rounded-full border border-gray-200"
+                className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+              <div className="w-8 h-8 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-xs font-bold">
                 {session.user.name?.[0]?.toUpperCase() || "A"}
               </div>
             )}
             <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-gray-900 flex items-center gap-1">
+              <div className="text-xs font-bold text-[#102124] flex items-center gap-1">
                 <span>{session.user.name || "Administrator"}</span>
-                <ShieldCheck className="w-3 h-3 text-indigo-600" />
+                <ShieldCheck className="w-3 h-3 text-[#2F7D78]" />
               </div>
-              <div className="text-[11px] text-gray-400 truncate max-w-[140px]">
+              <div className="text-[11px] text-[#526267] truncate max-w-[140px]">
                 {session.user.email}
               </div>
             </div>
@@ -82,7 +87,7 @@ export default async function AdminLayout({
               <button
                 type="submit"
                 title="Sign Out"
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-lg transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>

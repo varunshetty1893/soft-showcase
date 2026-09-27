@@ -91,18 +91,18 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fafafa]">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <Navbar />
 
       <main className="flex-1 py-10 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Header & Search */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-[#D9E2E4]">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-gray-950">
+              <h1 className="text-3xl font-bold tracking-tight text-[#102124]">
                 Software Project Catalog
               </h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-[#526267]">
                 Showing {projectsData.total}{" "}
                 {projectsData.total === 1 ? "project" : "projects"} available for deployment or customization.
               </p>

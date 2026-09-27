@@ -21,10 +21,10 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
 
   if (!images || images.length === 0) {
     return (
-      <div className="w-full aspect-video rounded-2xl bg-gradient-to-br from-indigo-50/50 to-gray-100 border border-gray-200 flex flex-col items-center justify-center p-8 text-center">
-        <span className="text-3xl font-black text-indigo-300 mb-2">11</span>
-        <span className="text-sm font-medium text-gray-500">{projectTitle}</span>
-        <span className="text-xs text-gray-400 mt-1">No screenshots uploaded yet</span>
+      <div className="w-full aspect-video rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] flex flex-col items-center justify-center p-8 text-center">
+        <span className="text-xl font-bold text-[#155761] mb-2">Soft Showcase</span>
+        <span className="text-sm font-medium text-[#102124]">{projectTitle}</span>
+        <span className="text-xs text-[#526267] mt-1">No screenshots uploaded yet</span>
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
   return (
     <div className="space-y-4">
       {/* Primary Hero Image View */}
-      <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-gray-200 bg-gray-900 shadow-sm">
+      <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#102124] shadow-xs">
         <img
           src={currentImage.url}
           alt={currentImage.altText || `${projectTitle} screenshot ${selectedIdx + 1}`}
@@ -57,8 +57,8 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
               onClick={() => setSelectedIdx(idx)}
               className={`relative aspect-video w-24 shrink-0 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                 selectedIdx === idx
-                  ? "border-indigo-600 ring-2 ring-indigo-600/30 scale-102"
-                  : "border-gray-200 opacity-70 hover:opacity-100 hover:border-gray-300"
+                  ? "border-[#155761] ring-2 ring-[#155761]/20 scale-102"
+                  : "border-[#D9E2E4] opacity-70 hover:opacity-100 hover:border-[#155761]/40"
               }`}
             >
               <img

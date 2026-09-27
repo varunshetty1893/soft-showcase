@@ -75,7 +75,7 @@ export default async function AdminInquiriesPage({
               href={href}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
                 isActive
-                  ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                  ? "bg-[#155761] text-white font-semibold shadow-xs"
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -143,7 +143,7 @@ export default async function AdminInquiriesPage({
                         <Link
                           href={`/projects/${inq.project.slug}`}
                           target="_blank"
-                          className="font-medium text-gray-900 hover:text-indigo-600 truncate block max-w-[180px]"
+                          className="font-medium text-gray-900 hover:text-[#155761] truncate block max-w-[180px]"
                         >
                           {inq.project.title}
                         </Link>
@@ -162,8 +162,8 @@ export default async function AdminInquiriesPage({
                             WhatsApp
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-indigo-700 font-medium">
-                            <Mail className="w-3 h-3 text-indigo-600" />
+                          <span className="inline-flex items-center gap-1 text-[#155761] font-medium">
+                            <Mail className="w-3 h-3 text-[#155761]" />
                             Email
                           </span>
                         )}

@@ -19,15 +19,15 @@ function GoogleIcon() {
   );
 }
 
-// Shared input classes
+// Shared input classes — clean white background, neutral border, dark teal focus ring
 function inputCls(error?: boolean) {
   return [
-    "w-full bg-[#f5fafa] text-[#111d1f] text-sm pl-10 pr-3.5 py-2.5 rounded-lg",
-    "shadow-sm placeholder:text-[#70787b]/70 border",
+    "w-full bg-white text-[#102124] text-sm pl-10 pr-3.5 py-2.5 rounded-lg border",
+    "shadow-xs placeholder:text-[#526267]/60",
     "focus:outline-none focus:bg-white transition-all",
     error
-      ? "border-[#ba1a1a] focus:shadow-[0_0_0_2px_rgba(186,26,26,0.25)]"
-      : "border-[#c0c8ca] focus:shadow-[0_0_0_2px_#184e58,0_0_12px_rgba(72,181,144,0.25)] focus:border-[#184e58]",
+      ? "border-[#ba1a1a] focus:ring-1 focus:ring-[#ba1a1a]"
+      : "border-[#D9E2E4] focus:border-[#155761] focus:ring-1 focus:ring-[#155761]",
   ].join(" ");
 }
 
@@ -40,7 +40,7 @@ function StrengthBar({ password }: { password: string }) {
     /[^A-Za-z0-9]/.test(password),
   ];
   const filled = checks.filter(Boolean).length;
-  const colors = ["#ba1a1a", "#e8a000", "#006c50", "#006c50"];
+  const colors = ["#ba1a1a", "#e8a000", "#2F7D78", "#155761"];
   const labels = ["Too short", "Weak", "Good", "Strong"];
 
   if (!password) return null;
@@ -51,11 +51,11 @@ function StrengthBar({ password }: { password: string }) {
           <div
             key={i}
             className="flex-1 h-1 rounded-full transition-all duration-300"
-            style={{ backgroundColor: i < filled ? colors[filled - 1] : "#e3f0f3" }}
+            style={{ backgroundColor: i < filled ? colors[filled - 1] : "#EEF3F4" }}
           />
         ))}
       </div>
-      <p className="text-[11px]" style={{ color: filled > 0 ? colors[filled - 1] : "#70787b" }}>
+      <p className="text-[11px]" style={{ color: filled > 0 ? colors[filled - 1] : "#526267" }}>
         {filled > 0 ? labels[filled - 1] : ""}
       </p>
     </div>
@@ -169,25 +169,25 @@ export function RegisterForm() {
         </div>
       )}
 
-      {/* Google SSO — first */}
+      {/* Google SSO */}
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={loading || googleLoading}
-        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#e9f6f8] hover:bg-[#ddebed] text-[#111d1f] rounded-lg font-semibold text-sm transition-all shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-60"
+        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] rounded-lg font-semibold text-sm transition-all shadow-xs hover:shadow-sm active:scale-[0.99] disabled:opacity-60 cursor-pointer"
       >
         {googleLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin text-[#40484a]" />
+          <Loader2 className="w-4 h-4 animate-spin text-[#526267]" />
         ) : (
           <GoogleIcon />
         )}
-        Sign up with Google
+        <span>Sign up with Google</span>
       </button>
 
       {/* Divider */}
       <div className="relative flex items-center justify-center my-6">
-        <div className="w-full h-px bg-[#ddebed]" />
-        <span className="absolute px-3 bg-white text-[12px] font-medium text-[#70787b] uppercase tracking-[0.05em]">
+        <div className="w-full h-px bg-[#D9E2E4]" />
+        <span className="absolute px-3 bg-white text-[12px] font-medium text-[#526267]">
           or register with email
         </span>
       </div>
@@ -197,11 +197,11 @@ export function RegisterForm() {
 
         {/* Full Name */}
         <div>
-          <label htmlFor="reg-name" className="block text-[12px] font-semibold text-[#111d1f] mb-1.5 tracking-[0.02em]">
+          <label htmlFor="reg-name" className="block text-[12px] font-semibold text-[#102124] mb-1.5 tracking-[0.02em]">
             Full Name <span className="text-[#ba1a1a]">*</span>
           </label>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <input
@@ -222,11 +222,11 @@ export function RegisterForm() {
 
         {/* Email */}
         <div>
-          <label htmlFor="reg-email" className="block text-[12px] font-semibold text-[#111d1f] mb-1.5 tracking-[0.02em]">
+          <label htmlFor="reg-email" className="block text-[12px] font-semibold text-[#102124] mb-1.5 tracking-[0.02em]">
             Email address <span className="text-[#ba1a1a]">*</span>
           </label>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <input
@@ -248,13 +248,13 @@ export function RegisterForm() {
         {/* Password */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="reg-password" className="block text-[12px] font-semibold text-[#111d1f] tracking-[0.02em]">
+            <label htmlFor="reg-password" className="block text-[12px] font-semibold text-[#102124] tracking-[0.02em]">
               Password <span className="text-[#ba1a1a]">*</span>
             </label>
-            <span className="text-[11px] text-[#70787b]">Needs 8+ characters</span>
+            <span className="text-[11px] text-[#526267]">Needs 8+ characters</span>
           </div>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <input
@@ -270,17 +270,17 @@ export function RegisterForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 text-[#70787b] hover:text-[#111d1f] p-1 rounded transition-colors"
+              className="absolute right-3 text-[#526267] hover:text-[#102124] p-1 rounded transition-colors"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           <StrengthBar password={password} />
-          {/* Requirement pills */}
+          {/* Requirement hints */}
           {!fieldErrors.password && (
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${password.length >= 8 ? "bg-[#8cf7ce]/40 text-[#006c50]" : "bg-[#e3f0f3] text-[#70787b]"}`}>
+              <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 ${password.length >= 8 ? "bg-[#DDF4EC] text-[#155761]" : "bg-[#F3F7F7] border border-[#D9E2E4] text-[#526267]"}`}>
                 <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   {password.length >= 8
                     ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -289,7 +289,7 @@ export function RegisterForm() {
                 </svg>
                 8+ characters
               </span>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${/[0-9]/.test(password) ? "bg-[#8cf7ce]/40 text-[#006c50]" : "bg-[#e3f0f3] text-[#70787b]"}`}>
+              <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 ${/[0-9]/.test(password) ? "bg-[#DDF4EC] text-[#155761]" : "bg-[#F3F7F7] border border-[#D9E2E4] text-[#526267]"}`}>
                 <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   {/[0-9]/.test(password)
                     ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -307,11 +307,11 @@ export function RegisterForm() {
 
         {/* Confirm Password */}
         <div>
-          <label htmlFor="reg-confirm" className="block text-[12px] font-semibold text-[#111d1f] mb-1.5 tracking-[0.02em]">
+          <label htmlFor="reg-confirm" className="block text-[12px] font-semibold text-[#102124] mb-1.5 tracking-[0.02em]">
             Confirm password <span className="text-[#ba1a1a]">*</span>
           </label>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#70787b] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <input
@@ -327,7 +327,7 @@ export function RegisterForm() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 text-[#70787b] hover:text-[#111d1f] p-1 rounded transition-colors"
+              className="absolute right-3 text-[#526267] hover:text-[#102124] p-1 rounded transition-colors"
               aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             >
               {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -348,7 +348,7 @@ export function RegisterForm() {
               onClick={() => setAgreedToTerms(!agreedToTerms)}
               className={[
                 "w-4 h-4 mt-0.5 rounded shrink-0 flex items-center justify-center transition-colors",
-                agreedToTerms ? "bg-[#006c50]" : "bg-[#ddebed] border border-[#c0c8ca]",
+                agreedToTerms ? "bg-[#155761]" : "bg-white border border-[#D9E2E4]",
               ].join(" ")}
             >
               {agreedToTerms && (
@@ -357,13 +357,13 @@ export function RegisterForm() {
                 </svg>
               )}
             </button>
-            <span className="text-[13px] text-[#40484a] leading-5">
+            <span className="text-[13px] text-[#526267] leading-5">
               I agree to the{" "}
-              <Link href="/terms" className="text-[#006c50] font-semibold hover:text-[#00373f] underline underline-offset-2 transition-colors">
+              <Link href="/terms" className="text-[#155761] font-semibold hover:text-[#2F7D78] underline underline-offset-2 transition-colors">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="text-[#006c50] font-semibold hover:text-[#00373f] underline underline-offset-2 transition-colors">
+              <Link href="/privacy" className="text-[#155761] font-semibold hover:text-[#2F7D78] underline underline-offset-2 transition-colors">
                 Privacy Policy
               </Link>
               , and consent to receive curated product updates.
@@ -377,7 +377,7 @@ export function RegisterForm() {
             id="reg-submit"
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-[#184e58] hover:bg-[#00373f] text-white rounded-xl font-semibold text-sm shadow-[0_4px_14px_rgba(24,78,88,0.22)] hover:shadow-[0_6px_20px_rgba(24,78,88,0.32)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-[#155761] hover:bg-[#10474F] text-white rounded-xl font-semibold text-sm shadow-xs hover:shadow hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all disabled:opacity-60 cursor-pointer"
           >
             {loading ? (
               <>

@@ -28,10 +28,10 @@ export default async function CustomerProfilePage() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold tracking-tight text-gray-950">
+        <h2 className="text-xl font-bold tracking-tight text-[#102124]">
           Account Settings
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-[#526267] mt-1">
           Review and update your profile information.
         </p>
       </div>

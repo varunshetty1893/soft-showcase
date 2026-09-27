@@ -134,7 +134,7 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as InquiryStatus)}
-          className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="w-full bg-white border border-[#D9E2E4] text-[#102124] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#155761] focus:border-[#155761]"
         >
           {ALL_STATUSES.map((st) => (
             <option key={st} value={st}>
@@ -146,7 +146,7 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
 
       {/* Internal Admin Notes */}
       <div>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
+        <label className="block text-xs font-semibold uppercase tracking-wider text-[#102124] mb-2">
           Internal Admin Notes
         </label>
         <Textarea
@@ -154,12 +154,12 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
           onChange={(e) => setAdminNotes(e.target.value)}
           placeholder="Private notes on provider response, quotes sent, negotiations, etc. (Not visible to customer)"
           rows={4}
-          className="text-sm bg-gray-50/50"
+          className="text-sm bg-white"
         />
       </div>
 
       {/* Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#F3F7F7]">
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -180,12 +180,12 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
 
         {/* Retry Notification Email */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-[#526267]">
             Email Delivery:{" "}
             <strong
               className={`font-semibold ${
                 inquiry.notificationStatus === "SENT"
-                  ? "text-emerald-600"
+                  ? "text-[#2F7D78]"
                   : inquiry.notificationStatus === "FAILED"
                   ? "text-rose-600"
                   : "text-amber-600"
@@ -206,7 +206,7 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
             {retryingEmail ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <RotateCw className="w-3.5 h-3.5 text-indigo-600" />
+              <RotateCw className="w-3.5 h-3.5 text-[#155761]" />
             )}
             Retry Email
           </Button>

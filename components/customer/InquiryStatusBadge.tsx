@@ -12,33 +12,33 @@ const STATUS_CONFIG: Record<
 > = {
   NEW: {
     label: "New",
-    bg: "bg-blue-50 border-blue-200",
-    text: "text-blue-700",
-    dot: "bg-blue-500",
+    bg: "bg-[#F3F7F7] border-[#D9E2E4]",
+    text: "text-[#155761]",
+    dot: "bg-[#155761]",
   },
   CONTACTED: {
     label: "Contacted",
-    bg: "bg-purple-50 border-purple-200",
-    text: "text-purple-700",
-    dot: "bg-purple-500",
+    bg: "bg-[#DDF4EC] border-[#2F7D78]/25",
+    text: "text-[#155761]",
+    dot: "bg-[#2F7D78]",
   },
   DISCUSSING: {
     label: "In Discussion",
     bg: "bg-amber-50 border-amber-200",
-    text: "text-amber-700",
+    text: "text-amber-800",
     dot: "bg-amber-500",
   },
   QUOTED: {
     label: "Quoted",
-    bg: "bg-indigo-50 border-indigo-200",
-    text: "text-indigo-700",
-    dot: "bg-indigo-500",
+    bg: "bg-[#DDF4EC] border-[#2F7D78]/25",
+    text: "text-[#2F7D78]",
+    dot: "bg-[#2F7D78]",
   },
   CLOSED: {
     label: "Closed",
-    bg: "bg-gray-100 border-gray-200",
-    text: "text-gray-700",
-    dot: "bg-gray-400",
+    bg: "bg-[#F3F7F7] border-[#D9E2E4]",
+    text: "text-[#526267]",
+    dot: "bg-[#526267]",
   },
 };
 

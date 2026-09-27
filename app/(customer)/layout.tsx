@@ -23,7 +23,7 @@ export default async function CustomerLayout({
   const stats = await getCustomerStats(session.user.id, session.user.email);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fafafa]">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFA]">
       <Navbar />
 
       <main className="flex-1 py-8 sm:py-12">

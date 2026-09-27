@@ -124,7 +124,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fafafa]">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -134,29 +134,29 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       <main className="flex-1 py-8 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* ── Breadcrumb Navigation ──────────────────────────────────── */}
-          <nav className="flex items-center gap-2 text-xs text-gray-500 mb-6 flex-wrap">
-            <Link href="/" className="hover:text-gray-900 transition-colors">
+          <nav className="flex items-center gap-2 text-xs text-[#526267] mb-6 flex-wrap">
+            <Link href="/" className="hover:text-[#155761] transition-colors">
               Home
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-400" />
-            <Link href="/projects" className="hover:text-gray-900 transition-colors">
+            <ChevronRight className="w-3 h-3 text-[#526267]" />
+            <Link href="/projects" className="hover:text-[#155761] transition-colors">
               Projects
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-400" />
+            <ChevronRight className="w-3 h-3 text-[#526267]" />
             <Link
               href={`/projects?category=${project.category.slug}`}
-              className="hover:text-gray-900 transition-colors"
+              className="hover:text-[#155761] transition-colors"
             >
               {project.category.name}
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-400" />
-            <span className="text-gray-900 font-medium truncate max-w-[200px]">
+            <ChevronRight className="w-3 h-3 text-[#526267]" />
+            <span className="text-[#102124] font-medium truncate max-w-[200px]">
               {project.title}
             </span>
           </nav>
 
           {/* ── Project Header ─────────────────────────────────────────── */}
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-8 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-8 border-b border-[#D9E2E4]">
             <div className="space-y-3">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <Badge variant="default" className="text-xs font-semibold">
@@ -167,17 +167,17 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                   price={project.price ? project.price.toString() : null}
                 />
                 {project.featured && (
-                  <Badge variant="warning" className="text-xs font-bold">
+                  <Badge variant="mint" className="text-xs font-bold">
                     Featured Project
                   </Badge>
                 )}
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-950">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#102124]">
                 {project.title}
               </h1>
 
-              <p className="text-base text-gray-600 max-w-3xl leading-relaxed">
+              <p className="text-base text-[#526267] max-w-3xl leading-relaxed">
                 {project.shortDescription}
               </p>
             </div>
@@ -208,8 +208,8 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
               {/* Technologies Pill Row */}
               {project.technologies.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 shadow-xs">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#526267] mb-3">
                     Technology Stack
                   </h3>
                   <div className="flex flex-wrap gap-2">
@@ -222,9 +222,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
               {/* Full Description / Overview */}
               {project.fullDescription && (
-                <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Project Overview</h2>
-                  <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line">
+                <section className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
+                  <h2 className="text-xl font-bold text-[#102124] mb-4">Project Overview</h2>
+                  <div className="prose prose-sm max-w-none text-[#526267] leading-relaxed whitespace-pre-line">
                     {project.fullDescription}
                   </div>
                 </section>
@@ -250,22 +250,22 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               />
 
               {/* Meta details card */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4 text-xs">
-                <h4 className="font-bold text-gray-900 text-sm">Project Details</h4>
-                <div className="space-y-3 text-gray-600">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <span className="text-gray-500">Project Type</span>
-                    <span className="font-medium text-gray-900">{project.projectType}</span>
+              <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 shadow-xs space-y-4 text-xs">
+                <h4 className="font-bold text-[#102124] text-sm">Project Details</h4>
+                <div className="space-y-3 text-[#526267]">
+                  <div className="flex justify-between items-center py-1 border-b border-[#F3F7F7]">
+                    <span className="text-[#526267]">Project Type</span>
+                    <span className="font-medium text-[#102124]">{project.projectType}</span>
                   </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-100">
-                    <span className="text-gray-500">Published Date</span>
-                    <span className="font-medium text-gray-900">
+                  <div className="flex justify-between items-center py-1 border-b border-[#F3F7F7]">
+                    <span className="text-[#526267]">Published Date</span>
+                    <span className="font-medium text-[#102124]">
                       {formatDate(project.createdAt)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-gray-500">Direct Contact</span>
-                    <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                    <span className="text-[#526267]">Direct Contact</span>
+                    <span className="font-semibold text-[#2F7D78] flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       Available
                     </span>

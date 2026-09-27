@@ -101,7 +101,7 @@ export function CustomRequestDetailManager({
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as CustomRequestStatus)}
-          className="w-full bg-white border border-gray-300 text-gray-900 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="w-full bg-white border border-[#D9E2E4] text-[#102124] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#155761] focus:border-[#155761]"
         >
           {ALL_STATUSES.map((st) => (
             <option key={st} value={st}>

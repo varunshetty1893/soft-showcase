@@ -180,13 +180,13 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
               type="checkbox"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-1 w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
             />
             <div>
-              <span className="text-sm font-semibold text-gray-900 block">
+              <span className="text-sm font-semibold text-[#102124] block">
                 Active Provider
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-[#526267]">
                 If deactivated, contact buttons are hidden across all this provider’s projects.
               </span>
             </div>
@@ -197,13 +197,13 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
               type="checkbox"
               checked={formData.showWhatsapp}
               onChange={(e) => setFormData({ ...formData, showWhatsapp: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-1 w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
             />
             <div>
-              <span className="text-sm font-semibold text-gray-900 block">
+              <span className="text-sm font-semibold text-[#102124] block">
                 Enable WhatsApp Routing
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-[#526267]">
                 Allow visitors to open a direct WhatsApp chat with this provider.
               </span>
             </div>
@@ -214,13 +214,13 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
               type="checkbox"
               checked={formData.showEmail}
               onChange={(e) => setFormData({ ...formData, showEmail: e.target.checked })}
-              className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-1 w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
             />
             <div>
-              <span className="text-sm font-semibold text-gray-900 block">
+              <span className="text-sm font-semibold text-[#102124] block">
                 Enable Email Inquiries
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-[#526267]">
                 Allow visitors to submit email inquiries routed to this provider.
               </span>
             </div>
@@ -229,10 +229,10 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
       </div>
 
       {/* ── 3. Compliance & Consent ─────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-4">
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <ShieldCheck className="w-5 h-5 text-indigo-600" />
-          <h3 className="text-base font-bold text-gray-900">
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-[#F3F7F7] pb-3">
+          <ShieldCheck className="w-5 h-5 text-[#155761]" />
+          <h3 className="text-base font-bold text-[#102124]">
             3. Mandatory Provider Consent
           </h3>
         </div>
@@ -253,10 +253,10 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, providerConsentConfirmed: e.target.checked })
             }
-            className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="mt-1 w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
           />
           <div>
-            <span className="text-sm font-semibold text-gray-900 block">
+            <span className="text-sm font-semibold text-[#102124] block">
               Provider Consent Confirmed *
             </span>
             <span className="text-xs text-gray-600 leading-relaxed">

@@ -100,12 +100,12 @@ export function InquiryForm({
   if (isSuccess) {
     return (
       <div className="py-8 text-center space-y-4">
-        <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+        <div className="w-12 h-12 bg-[#DDF4EC] text-[#2F7D78] border border-[#2F7D78]/25 rounded-full flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-7 h-7" />
         </div>
-        <h3 className="text-xl font-bold text-gray-900">Inquiry Sent Successfully!</h3>
-        <p className="text-sm text-gray-600 max-w-sm mx-auto leading-relaxed">
-          Your inquiry for <strong className="text-gray-900">{projectTitle}</strong> has been
+        <h3 className="text-xl font-bold text-[#102124]">Inquiry Sent Successfully!</h3>
+        <p className="text-sm text-[#526267] max-w-sm mx-auto leading-relaxed">
+          Your inquiry for <strong className="text-[#102124]">{projectTitle}</strong> has been
           forwarded to the project provider. They will contact you shortly via {formData.contactMethod.toLowerCase()}.
         </p>
         <div className="pt-4">
@@ -141,7 +141,7 @@ export function InquiryForm({
       )}
 
       <div className="space-y-1.5">
-        <Label htmlFor="inquiry-name" className="text-xs font-semibold text-gray-700">
+        <Label htmlFor="inquiry-name" className="text-xs font-semibold text-[#102124]">
           Your Name <span className="text-red-500">*</span>
         </Label>
         <Input
@@ -161,7 +161,7 @@ export function InquiryForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="inquiry-email" className="text-xs font-semibold text-gray-700">
+          <Label htmlFor="inquiry-email" className="text-xs font-semibold text-[#102124]">
             Email Address <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -180,8 +180,8 @@ export function InquiryForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="inquiry-whatsapp" className="text-xs font-semibold text-gray-700">
-            WhatsApp Number <span className="text-gray-400 font-normal">(Optional)</span>
+          <Label htmlFor="inquiry-whatsapp" className="text-xs font-semibold text-[#102124]">
+            WhatsApp Number <span className="text-[#526267] font-normal">(Optional)</span>
           </Label>
           <Input
             id="inquiry-whatsapp"
@@ -199,29 +199,29 @@ export function InquiryForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold text-gray-700">
+        <Label className="text-xs font-semibold text-[#102124]">
           Preferred Contact Method
         </Label>
         <div className="flex gap-4 pt-1">
-          <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-[#102124] cursor-pointer">
             <input
               type="radio"
               name="contactMethod"
               value="EMAIL"
               checked={formData.contactMethod === "EMAIL"}
               onChange={() => setFormData((p) => ({ ...p, contactMethod: "EMAIL" }))}
-              className="text-indigo-600 focus:ring-indigo-500"
+              className="text-[#155761] focus:ring-[#155761]"
             />
             Email
           </label>
-          <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-[#102124] cursor-pointer">
             <input
               type="radio"
               name="contactMethod"
               value="WHATSAPP"
               checked={formData.contactMethod === "WHATSAPP"}
               onChange={() => setFormData((p) => ({ ...p, contactMethod: "WHATSAPP" }))}
-              className="text-indigo-600 focus:ring-indigo-500"
+              className="text-[#155761] focus:ring-[#155761]"
             />
             WhatsApp
           </label>
@@ -230,10 +230,10 @@ export function InquiryForm({
 
       <div className="space-y-1.5">
         <div className="flex justify-between items-center">
-          <Label htmlFor="inquiry-message" className="text-xs font-semibold text-gray-700">
+          <Label htmlFor="inquiry-message" className="text-xs font-semibold text-[#102124]">
             Message <span className="text-red-500">*</span>
           </Label>
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-[#526267]">
             {formData.message.length}/2000
           </span>
         </div>
@@ -253,7 +253,7 @@ export function InquiryForm({
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#D9E2E4]">
         {onCancel && (
           <Button
             type="button"

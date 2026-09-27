@@ -33,7 +33,7 @@ export default async function AdminAuditLogsPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-950 flex items-center gap-2">
-            <History className="w-6 h-6 text-indigo-600" />
+            <History className="w-6 h-6 text-[#155761]" />
             <span>Audit Trail & Activity Logs</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -86,7 +86,7 @@ export default async function AdminAuditLogsPage({
 
                       {/* Action */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-mono text-[11px] font-semibold">
+                        <span className="px-2 py-0.5 rounded-md bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] font-mono text-[11px] font-semibold">
                           {log.action}
                         </span>
                       </td>
@@ -105,7 +105,7 @@ export default async function AdminAuditLogsPage({
                       <td className="py-3 px-4 whitespace-nowrap">
                         {log.userId ? (
                           <span className="inline-flex items-center gap-1 font-mono text-gray-600 text-[11px]">
-                            <Shield className="w-3 h-3 text-indigo-600" />
+                            <Shield className="w-3 h-3 text-[#155761]" />
                             {log.userId.slice(0, 10)}...
                           </span>
                         ) : (
@@ -117,7 +117,7 @@ export default async function AdminAuditLogsPage({
                       <td className="py-3 px-4 max-w-sm">
                         {log.details ? (
                           <details className="cursor-pointer group">
-                            <summary className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium select-none">
+                            <summary className="text-[11px] text-[#155761] hover:text-[#10474F] font-medium select-none">
                               View Payload
                             </summary>
                             <pre className="mt-1.5 p-2 bg-gray-900 text-gray-100 rounded-lg text-[10px] font-mono overflow-x-auto max-h-36">

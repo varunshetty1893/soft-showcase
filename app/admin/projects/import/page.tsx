@@ -234,7 +234,7 @@ export default function ProjectImportPage() {
           {/* Post-import checklist from docs/22-project-import.md */}
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-left max-w-md mx-auto space-y-3">
             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-              <ListChecks className="w-4 h-4 text-indigo-600" />
+              <ListChecks className="w-4 h-4 text-[#155761]" />
               Recommended Next Steps
             </h3>
             <ul className="text-xs text-gray-600 space-y-2">
@@ -295,7 +295,7 @@ export default function ProjectImportPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-            <Link href="/admin/projects" className="hover:text-indigo-600 transition-colors">
+            <Link href="/admin/projects" className="hover:text-[#155761] transition-colors">
               Projects
             </Link>
             <span>/</span>
@@ -338,7 +338,7 @@ export default function ProjectImportPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileCode className="w-5 h-5 text-indigo-600" />
+              <FileCode className="w-5 h-5 text-[#155761]" />
               <h2 className="text-base font-bold text-gray-900">Project JSON Input</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ export default function ProjectImportPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setJsonText(SAMPLE_IMPORT_JSON)}
-                className="gap-1.5 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                className="gap-1.5 text-xs text-[#155761] border-[#D9E2E4] hover:bg-[#F3F7F7]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Load Sample JSON
@@ -372,7 +372,7 @@ export default function ProjectImportPage() {
               onChange={(e) => setJsonText(e.target.value)}
               rows={16}
               placeholder='Paste project JSON here... e.g. { "title": "My App", "category": "AI / Machine Learning", ... }'
-              className="w-full font-mono text-xs p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all leading-relaxed"
+              className="w-full font-mono text-xs p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#155761] focus:border-transparent transition-all leading-relaxed"
             />
             <p className="text-[11px] text-gray-400">
               Follows the schema documented in <code className="bg-gray-100 px-1 py-0.5 rounded">docs/23-project-import-template.md</code>.
@@ -399,7 +399,7 @@ export default function ProjectImportPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
             <div>
-              <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Step 2 of 2</span>
+              <span className="text-xs font-bold text-[#155761] uppercase tracking-wider">Step 2 of 2</span>
               <h2 className="text-xl font-bold text-gray-900 mt-0.5">Project Import Preview</h2>
             </div>
             <Button
@@ -431,7 +431,7 @@ export default function ProjectImportPage() {
                       Existing ✓
                     </span>
                   ) : (
-                    <span className="bg-indigo-50 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-indigo-200">
+                    <span className="bg-[#F3F7F7] text-[#155761] text-[10px] font-semibold px-2 py-0.5 rounded border border-[#D9E2E4]">
                       New (will be created)
                     </span>
                   )}
@@ -487,10 +487,10 @@ export default function ProjectImportPage() {
                   {previewData.technologies.new.map((tech) => (
                     <span
                       key={tech}
-                      className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-1"
+                      className="bg-[#F3F7F7] text-[#155761] border border-[#D9E2E4] text-[11px] font-medium px-2 py-0.5 rounded flex items-center gap-1"
                     >
                       {tech}
-                      <span className="text-[9px] text-indigo-500 font-semibold">+new</span>
+                      <span className="text-[9px] text-[#2F7D78] font-semibold">+new</span>
                     </span>
                   ))}
                 </div>

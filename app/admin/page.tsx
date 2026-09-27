@@ -51,7 +51,7 @@ export default async function AdminDashboardPage() {
           </Link>
           <Link href="/admin/projects/import">
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <UploadCloud className="w-3.5 h-3.5 text-indigo-600" />
+              <UploadCloud className="w-3.5 h-3.5 text-[#155761]" />
               Import JSON
             </Button>
           </Link>
@@ -100,7 +100,7 @@ export default async function AdminDashboardPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Link
                         href={`/admin/projects/${p.id}/edit`}
-                        className="font-medium text-indigo-600 hover:text-indigo-800 underline"
+                        className="font-medium text-[#155761] hover:text-[#10474F] underline"
                       >
                         Edit Project
                       </Link>
@@ -128,7 +128,7 @@ export default async function AdminDashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">
               Total Projects
             </span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#F3F7F7] text-[#155761] flex items-center justify-center">
               <FolderGit2 className="w-4 h-4" />
             </div>
           </div>
@@ -218,7 +218,7 @@ export default async function AdminDashboardPage() {
             </div>
             <Link
               href="/admin/inquiries"
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              className="text-xs font-semibold text-[#155761] hover:text-[#10474F] flex items-center gap-1"
             >
               <span>View All</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -239,7 +239,7 @@ export default async function AdminDashboardPage() {
                   <div className="min-w-0">
                     <Link
                       href={`/admin/inquiries/${inq.id}`}
-                      className="font-semibold text-gray-900 hover:text-indigo-600 truncate block"
+                      className="font-semibold text-gray-900 hover:text-[#155761] truncate block"
                     >
                       {inq.name}
                     </Link>
@@ -273,7 +273,7 @@ export default async function AdminDashboardPage() {
             </div>
             <Link
               href="/admin/custom-requests"
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              className="text-xs font-semibold text-[#155761] hover:text-[#10474F] flex items-center gap-1"
             >
               <span>View All</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -294,7 +294,7 @@ export default async function AdminDashboardPage() {
                   <div className="min-w-0">
                     <Link
                       href={`/admin/custom-requests/${req.id}`}
-                      className="font-semibold text-gray-900 hover:text-indigo-600 truncate block"
+                      className="font-semibold text-gray-900 hover:text-[#155761] truncate block"
                     >
                       {req.projectTitle}
                     </Link>
@@ -322,12 +322,12 @@ export default async function AdminDashboardPage() {
       <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-indigo-600" />
+            <History className="w-4 h-4 text-[#155761]" />
             <h2 className="text-base font-bold text-gray-950">Recent Audit Trail</h2>
           </div>
           <Link
             href="/admin/audit-logs"
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            className="text-xs font-semibold text-[#155761] hover:text-[#10474F] flex items-center gap-1"
           >
             <span>Full Audit Log</span>
             <ArrowUpRight className="w-3.5 h-3.5" />

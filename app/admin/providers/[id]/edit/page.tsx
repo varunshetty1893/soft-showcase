@@ -40,13 +40,13 @@ export default async function EditProviderPage({ params }: EditProviderPageProps
       <div className="space-y-2 pb-6 border-b border-gray-200">
         <Link
           href="/admin/providers"
-          className="text-xs font-semibold text-gray-500 hover:text-indigo-600 inline-flex items-center gap-1 transition-colors"
+          className="text-xs font-semibold text-gray-500 hover:text-[#155761] inline-flex items-center gap-1 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to Providers
         </Link>
         <div className="flex items-center gap-2">
-          <UserCheck className="w-5 h-5 text-indigo-600" />
+          <UserCheck className="w-5 h-5 text-[#155761]" />
           <h1 className="text-2xl font-bold tracking-tight text-gray-950">
             Edit Provider: {provider.displayName}
           </h1>

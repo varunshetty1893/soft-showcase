@@ -37,31 +37,31 @@ export default async function MyInquiriesPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-gray-950">
+          <h2 className="text-xl font-bold tracking-tight text-[#102124]">
             Project Inquiries
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-[#526267] mt-1">
             Track inquiries you have sent to software providers.
           </p>
         </div>
 
         <Link href="/projects">
           <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-            <Layers className="w-3.5 h-3.5 text-indigo-600" />
+            <Layers className="w-3.5 h-3.5 text-[#155761]" />
             Explore More Projects
           </Button>
         </Link>
       </div>
 
       {inquiries.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white rounded-2xl border border-[#D9E2E4] p-12 text-center shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-7 h-7" />
           </div>
-          <h3 className="text-base font-bold text-gray-900 mb-1">
+          <h3 className="text-base font-bold text-[#102124] mb-1">
             No inquiries submitted yet
           </h3>
-          <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+          <p className="text-sm text-[#526267] max-w-md mx-auto mb-6">
             Found a software project you are interested in? Inquire directly from any
             project detail page to discuss details and pricing with the verified builder.
           </p>
@@ -85,7 +85,7 @@ export default async function MyInquiriesPage() {
             return (
               <div
                 key={inquiry.id}
-                className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm hover:border-indigo-200 transition-colors"
+                className="bg-white rounded-2xl border border-[#D9E2E4] p-6 shadow-xs hover:border-[#155761]/40 transition-colors"
               >
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
                   {/* Project Info */}
@@ -94,11 +94,11 @@ export default async function MyInquiriesPage() {
                       <img
                         src={primaryImage}
                         alt={inquiry.project.title}
-                        className="w-16 h-16 rounded-xl object-cover border border-gray-100 shrink-0"
+                        className="w-16 h-16 rounded-xl object-cover border border-[#D9E2E4] shrink-0"
                       />
                     ) : (
-                      <div className="w-16 h-16 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center shrink-0">
-                        <Store className="w-6 h-6 text-gray-400" />
+                      <div className="w-16 h-16 rounded-xl bg-[#F8FAFA] text-[#526267] border border-[#D9E2E4] flex items-center justify-center shrink-0">
+                        <Store className="w-6 h-6 text-[#526267]" />
                       </div>
                     )}
 
@@ -106,38 +106,38 @@ export default async function MyInquiriesPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <Link
                           href={`/projects/${inquiry.project.slug}`}
-                          className="font-bold text-gray-900 hover:text-indigo-600 transition-colors text-base inline-flex items-center gap-1 group"
+                          className="font-bold text-[#102124] hover:text-[#155761] transition-colors text-base inline-flex items-center gap-1 group"
                         >
                           <span>{inquiry.project.title}</span>
-                          <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-indigo-600 transition-opacity" />
+                          <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-[#155761] transition-opacity" />
                         </Link>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#526267]">
                         <span className="flex items-center gap-1">
-                          <Store className="w-3.5 h-3.5 text-gray-400" />
+                          <Store className="w-3.5 h-3.5 text-[#526267]" />
                           <span>Provider:</span>
-                          <strong className="text-gray-700 font-medium">
+                          <strong className="text-[#102124] font-medium">
                             {inquiry.provider.displayName}
                           </strong>
                         </span>
 
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-gray-400" />
+                          <Clock className="w-3.5 h-3.5 text-[#526267]" />
                           <span>Submitted:</span>
-                          <span className="text-gray-700">{formattedDate}</span>
+                          <span className="text-[#102124]">{formattedDate}</span>
                         </span>
 
                         <span className="flex items-center gap-1">
                           {inquiry.contactMethod === "WHATSAPP" ? (
                             <>
-                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-700 font-medium">WhatsApp</span>
+                              <Phone className="w-3.5 h-3.5 text-[#2F7D78]" />
+                              <span className="text-[#2F7D78] font-medium">WhatsApp</span>
                             </>
                           ) : (
                             <>
-                              <Mail className="w-3.5 h-3.5 text-indigo-600" />
-                              <span className="text-indigo-700 font-medium">Email</span>
+                              <Mail className="w-3.5 h-3.5 text-[#155761]" />
+                              <span className="text-[#155761] font-medium">Email</span>
                             </>
                           )}
                         </span>
@@ -152,11 +152,11 @@ export default async function MyInquiriesPage() {
                 </div>
 
                 {/* Inquiry Message Details */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                <div className="mt-4 pt-4 border-t border-[#F3F7F7]">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[#526267] mb-1.5">
                     Your Message
                   </div>
-                  <p className="text-sm text-gray-700 bg-gray-50/80 rounded-xl p-3.5 border border-gray-100 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-sm text-[#102124] bg-[#F8FAFA] rounded-xl p-3.5 border border-[#D9E2E4] whitespace-pre-wrap leading-relaxed">
                     {inquiry.message}
                   </p>
                 </div>

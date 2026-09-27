@@ -104,7 +104,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                           className="w-9 h-9 rounded-full border border-gray-200 object-cover"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                        <div className="w-9 h-9 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] font-bold flex items-center justify-center text-xs">
                           {provider.displayName[0]?.toUpperCase() || "P"}
                         </div>
                       )}

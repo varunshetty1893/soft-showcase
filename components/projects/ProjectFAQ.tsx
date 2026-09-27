@@ -24,9 +24,9 @@ export function ProjectFAQ({ faqs }: ProjectFAQProps) {
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h2>
-      <div className="divide-y divide-gray-100">
+    <section className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
+      <h2 className="text-xl font-bold text-[#102124] mb-6">Frequently Asked Questions</h2>
+      <div className="divide-y divide-[#F3F7F7]">
         {faqs.map((faq) => {
           const isOpen = Boolean(openIds[faq.id]);
           return (
@@ -34,17 +34,17 @@ export function ProjectFAQ({ faqs }: ProjectFAQProps) {
               <button
                 type="button"
                 onClick={() => toggle(faq.id)}
-                className="w-full flex items-center justify-between text-left font-semibold text-sm text-gray-900 hover:text-indigo-600 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between text-left font-semibold text-sm text-[#102124] hover:text-[#155761] transition-colors cursor-pointer"
               >
                 <span>{faq.question}</span>
                 <ChevronDown
-                  className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                    isOpen ? "rotate-180 text-indigo-600" : ""
+                  className={`w-4 h-4 text-[#526267] transition-transform duration-200 ${
+                    isOpen ? "rotate-180 text-[#155761]" : ""
                   }`}
                 />
               </button>
               {isOpen && (
-                <p className="mt-2.5 text-xs sm:text-sm text-gray-600 leading-relaxed pl-1">
+                <p className="mt-2.5 text-xs sm:text-sm text-[#526267] leading-relaxed pl-1">
                   {faq.answer}
                 </p>
               )}
