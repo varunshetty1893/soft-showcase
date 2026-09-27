@@ -1,0 +1,781 @@
+"use client";
+// components/admin/ProjectForm.tsx
+// Reusable form for creating and editing projects.
+// Handles: basic info, pricing, lists (features, specs, FAQs), technology selection, images.
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { ImageUploader, type ProjectImageItem } from "@/components/admin/ImageUploader";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Category = { id: string; name: string; slug: string };
+type Technology = { id: string; name: string; slug: string };
+type Provider = {
+  id: string;
+  displayName: string;
+  email: string;
+  whatsappNumber: string | null;
+};
+
+type FeatureItem = { id: string; feature: string };
+type SpecItem = { id: string; key: string; value: string };
+type FaqItem = { id: string; question: string; answer: string };
+
+type ProjectFormData = {
+  // Core
+  title: string;
+  slug: string;
+  shortDescription: string;
+  fullDescription: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  featured: boolean;
+  // Pricing
+  priceMode: "CONTACT" | "FIXED" | "STARTING_FROM" | "FREE";
+  price: string;
+  // Details
+  demoUrl: string;
+  projectType: string;
+  categoryId: string;
+  providerId: string;
+  // Lists
+  whatsIncluded: string[];
+  features: FeatureItem[];
+  specifications: SpecItem[];
+  faqs: FaqItem[];
+  technologyIds: string[];
+};
+
+type ProjectFormProps = {
+  /** Pass existing project data to populate an edit form */
+  initialData?: Partial<ProjectFormData>;
+  /** ID of the project being edited (undefined for new) */
+  projectId?: string;
+  /** Existing images for the project (edit mode only) */
+  initialImages?: ProjectImageItem[];
+};
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+function generateId() {
+  return Math.random().toString(36).slice(2);
+}
+
+function slugify(str: string) {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 150);
+}
+
+const EMPTY: ProjectFormData = {
+  title: "",
+  slug: "",
+  shortDescription: "",
+  fullDescription: "",
+  status: "DRAFT",
+  featured: false,
+  priceMode: "CONTACT",
+  price: "",
+  demoUrl: "",
+  projectType: "",
+  categoryId: "",
+  providerId: "",
+  whatsIncluded: [],
+  features: [],
+  specifications: [],
+  faqs: [],
+  technologyIds: [],
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function ListEditor<T extends { id: string }>({
+  label,
+  items,
+  renderItem,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  items: T[];
+  renderItem: (item: T, onChange: (updated: T) => void) => React.ReactNode;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="block text-sm font-medium text-gray-300">{label}</label>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition"
+        >
+          + Add
+        </button>
+      </div>
+      <div className="space-y-2">
+        {items.map((item, index) => (
+          <div key={item.id} className="flex gap-2 items-start">
+            <span className="mt-2 text-xs text-gray-500 w-5 shrink-0">{index + 1}.</span>
+            <div className="flex-1">
+              {renderItem(item, (updated) => {
+                // Handled externally by parent's onChange callback
+                void updated;
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => onRemove(item.id)}
+              className="mt-2 text-red-400 hover:text-red-300 text-sm shrink-0"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="text-sm text-gray-500 italic">No items yet. Click + Add to start.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function ProjectForm({ initialData, projectId, initialImages }: ProjectFormProps) {
+  const router = useRouter();
+  const isEditing = !!projectId;
+
+  // ── Form state ──────────────────────────────────────────────────────────────
+  const [form, setForm] = useState<ProjectFormData>({ ...EMPTY, ...initialData });
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(isEditing);
+  const [whatsIncludedInput, setWhatsIncludedInput] = useState(
+    initialData?.whatsIncluded?.join("\n") ?? ""
+  );
+
+  // ── Selector data ────────────────────────────────────────────────────────────
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectorsLoading, setSelectorsLoading] = useState(true);
+
+  // ── Submission state ─────────────────────────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // ── Load selectors ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function loadSelectors() {
+      try {
+        const res = await fetch("/api/admin/projects/selectors");
+        if (!res.ok) throw new Error("Failed to load selectors");
+        const data = await res.json();
+        setCategories(data.categories);
+        setTechnologies(data.technologies);
+        setProviders(data.providers);
+      } catch {
+        setGlobalError("Failed to load form data. Please refresh the page.");
+      } finally {
+        setSelectorsLoading(false);
+      }
+    }
+    loadSelectors();
+  }, []);
+
+  // ── Auto-slug from title ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!slugManuallyEdited && form.title) {
+      setForm((prev) => ({ ...prev, slug: slugify(form.title) }));
+    }
+  }, [form.title, slugManuallyEdited]);
+
+  // ── Field helpers ────────────────────────────────────────────────────────────
+  const set = useCallback(
+    <K extends keyof ProjectFormData>(key: K, value: ProjectFormData[K]) => {
+      setForm((prev) => ({ ...prev, [key]: value }));
+      setErrors((prev) => ({ ...prev, [key]: [] }));
+    },
+    []
+  );
+
+  // ── Feature list ─────────────────────────────────────────────────────────────
+  const addFeature = () =>
+    setForm((p) => ({ ...p, features: [...p.features, { id: generateId(), feature: "" }] }));
+  const removeFeature = (id: string) =>
+    setForm((p) => ({ ...p, features: p.features.filter((f) => f.id !== id) }));
+  const updateFeature = (id: string, value: string) =>
+    setForm((p) => ({
+      ...p,
+      features: p.features.map((f) => (f.id === id ? { ...f, feature: value } : f)),
+    }));
+
+  // ── Spec list ────────────────────────────────────────────────────────────────
+  const addSpec = () =>
+    setForm((p) => ({
+      ...p,
+      specifications: [...p.specifications, { id: generateId(), key: "", value: "" }],
+    }));
+  const removeSpec = (id: string) =>
+    setForm((p) => ({ ...p, specifications: p.specifications.filter((s) => s.id !== id) }));
+  const updateSpec = (id: string, field: "key" | "value", value: string) =>
+    setForm((p) => ({
+      ...p,
+      specifications: p.specifications.map((s) =>
+        s.id === id ? { ...s, [field]: value } : s
+      ),
+    }));
+
+  // ── FAQ list ──────────────────────────────────────────────────────────────────
+  const addFaq = () =>
+    setForm((p) => ({
+      ...p,
+      faqs: [...p.faqs, { id: generateId(), question: "", answer: "" }],
+    }));
+  const removeFaq = (id: string) =>
+    setForm((p) => ({ ...p, faqs: p.faqs.filter((f) => f.id !== id) }));
+  const updateFaq = (id: string, field: "question" | "answer", value: string) =>
+    setForm((p) => ({
+      ...p,
+      faqs: p.faqs.map((f) => (f.id === id ? { ...f, [field]: value } : f)),
+    }));
+
+  // ── Technology toggle ─────────────────────────────────────────────────────────
+  const toggleTechnology = (techId: string) => {
+    setForm((p) => ({
+      ...p,
+      technologyIds: p.technologyIds.includes(techId)
+        ? p.technologyIds.filter((id) => id !== techId)
+        : [...p.technologyIds, techId],
+    }));
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────────
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setErrors({});
+    setGlobalError(null);
+
+    // Parse whatsIncluded from textarea
+    const whatsIncluded = whatsIncludedInput
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const payload = {
+      title: form.title,
+      slug: form.slug,
+      shortDescription: form.shortDescription,
+      fullDescription: form.fullDescription,
+      status: form.status,
+      featured: form.featured,
+      priceMode: form.priceMode,
+      price:
+        form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM"
+          ? parseFloat(form.price) || null
+          : null,
+      demoUrl: form.demoUrl || null,
+      projectType: form.projectType || null,
+      categoryId: form.categoryId,
+      providerId: form.providerId,
+      whatsIncluded,
+      features: form.features
+        .filter((f) => f.feature.trim())
+        .map((f, i) => ({ feature: f.feature.trim(), sortOrder: i })),
+      specifications: form.specifications
+        .filter((s) => s.key.trim() && s.value.trim())
+        .map((s, i) => ({ key: s.key.trim(), value: s.value.trim(), sortOrder: i })),
+      faqs: form.faqs
+        .filter((faq) => faq.question.trim() && faq.answer.trim())
+        .map((faq, i) => ({
+          question: faq.question.trim(),
+          answer: faq.answer.trim(),
+          sortOrder: i,
+        })),
+      technologyIds: form.technologyIds,
+    };
+
+    try {
+      const url = isEditing
+        ? `/api/admin/projects/${projectId}`
+        : "/api/admin/projects";
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.details) {
+          setErrors(data.details);
+        } else {
+          setGlobalError(data.error ?? "An error occurred. Please try again.");
+        }
+        return;
+      }
+
+      router.push("/admin/projects");
+      router.refresh();
+    } catch {
+      setGlobalError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Provider info preview ────────────────────────────────────────────────────
+  const selectedProvider = providers.find((p) => p.id === form.providerId);
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+  const fieldClass =
+    "w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-500";
+  const labelClass = "block text-sm font-medium text-gray-300 mb-1";
+  const errorClass = "text-red-400 text-xs mt-1";
+  const sectionClass = "bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4";
+
+  if (selectorsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-gray-400">Loading form data…</div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Global error */}
+      {globalError && (
+        <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
+          {globalError}
+        </div>
+      )}
+
+      {/* ── Section: Basic Info ─────────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Basic Information</h2>
+
+        {/* Title */}
+        <div>
+          <label className={labelClass}>Title *</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            placeholder="e.g. E-Commerce Store with Admin Dashboard"
+            className={fieldClass}
+            required
+          />
+          {errors.title?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+        </div>
+
+        {/* Slug */}
+        <div>
+          <label className={labelClass}>Slug *</label>
+          <input
+            type="text"
+            value={form.slug}
+            onChange={(e) => {
+              setSlugManuallyEdited(true);
+              set("slug", e.target.value);
+            }}
+            placeholder="e.g. ecommerce-store-admin-dashboard"
+            className={fieldClass}
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            URL: /projects/{form.slug || "…"}
+          </p>
+          {errors.slug?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+        </div>
+
+        {/* Short Description */}
+        <div>
+          <label className={labelClass}>Short Description * (10–300 chars)</label>
+          <textarea
+            value={form.shortDescription}
+            onChange={(e) => set("shortDescription", e.target.value)}
+            rows={2}
+            placeholder="One or two sentences shown in the project card."
+            className={fieldClass}
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">{form.shortDescription.length}/300</p>
+          {errors.shortDescription?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+        </div>
+
+        {/* Full Description */}
+        <div>
+          <label className={labelClass}>Full Description * (min 50 chars)</label>
+          <textarea
+            value={form.fullDescription}
+            onChange={(e) => set("fullDescription", e.target.value)}
+            rows={8}
+            placeholder="Detailed project description shown on the detail page."
+            className={fieldClass}
+            required
+          />
+          {errors.fullDescription?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+        </div>
+
+        {/* Row: Category + Provider */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Category *</label>
+            <select
+              value={form.categoryId}
+              onChange={(e) => set("categoryId", e.target.value)}
+              className={fieldClass}
+              required
+            >
+              <option value="">Select a category…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {errors.categoryId?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+          </div>
+
+          <div>
+            <label className={labelClass}>Provider *</label>
+            <select
+              value={form.providerId}
+              onChange={(e) => set("providerId", e.target.value)}
+              className={fieldClass}
+              required
+            >
+              <option value="">Select a provider…</option>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+            {errors.providerId?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+          </div>
+        </div>
+
+        {/* Provider info preview */}
+        {selectedProvider && (
+          <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-sm">
+            <p className="text-blue-300 font-medium">{selectedProvider.displayName}</p>
+            <p className="text-gray-400">📧 {selectedProvider.email}</p>
+            {selectedProvider.whatsappNumber && (
+              <p className="text-gray-400">📱 {selectedProvider.whatsappNumber}</p>
+            )}
+          </div>
+        )}
+
+        {/* Row: Type + Demo URL */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Project Type</label>
+            <input
+              type="text"
+              value={form.projectType}
+              onChange={(e) => set("projectType", e.target.value)}
+              placeholder="e.g. Web Application"
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Demo URL</label>
+            <input
+              type="url"
+              value={form.demoUrl}
+              onChange={(e) => set("demoUrl", e.target.value)}
+              placeholder="https://demo.example.com"
+              className={fieldClass}
+            />
+            {errors.demoUrl?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section: Status & Visibility ───────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Status & Visibility</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Status</label>
+            <select
+              value={form.status}
+              onChange={(e) =>
+                set("status", e.target.value as ProjectFormData["status"])
+              }
+              className={fieldClass}
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3 pt-6">
+            <input
+              id="featured"
+              type="checkbox"
+              checked={form.featured}
+              onChange={(e) => set("featured", e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500"
+            />
+            <label htmlFor="featured" className="text-sm text-gray-300">
+              Featured project (shown in homepage highlights)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section: Pricing ────────────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Pricing</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Price Mode</label>
+            <select
+              value={form.priceMode}
+              onChange={(e) =>
+                set("priceMode", e.target.value as ProjectFormData["priceMode"])
+              }
+              className={fieldClass}
+            >
+              <option value="CONTACT">Contact for Price</option>
+              <option value="FIXED">Fixed Price</option>
+              <option value="STARTING_FROM">Starting From</option>
+              <option value="FREE">Free</option>
+            </select>
+          </div>
+
+          {(form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM") && (
+            <div>
+              <label className={labelClass}>Price (₹) *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={(e) => set("price", e.target.value)}
+                placeholder="e.g. 4999"
+                className={fieldClass}
+              />
+              {errors.price?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section: Technologies ────────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Technologies</h2>
+        <div className="flex flex-wrap gap-2">
+          {technologies.map((tech) => {
+            const selected = form.technologyIds.includes(tech.id);
+            return (
+              <button
+                key={tech.id}
+                type="button"
+                onClick={() => toggleTechnology(tech.id)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                  selected
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
+                }`}
+              >
+                {tech.name}
+              </button>
+            );
+          })}
+          {technologies.length === 0 && (
+            <p className="text-sm text-gray-500 italic">No technologies available. Add them in the Technologies admin section.</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section: What's Included ─────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">What&apos;s Included</h2>
+        <p className="text-xs text-gray-500">One item per line (max 20 items).</p>
+        <textarea
+          value={whatsIncludedInput}
+          onChange={(e) => setWhatsIncludedInput(e.target.value)}
+          rows={5}
+          placeholder={"Source code\nDeployment guide\n6 months support"}
+          className={fieldClass}
+        />
+      </div>
+
+      {/* ── Section: Features ────────────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Features</h2>
+        <ListEditor
+          label="Feature list"
+          items={form.features}
+          onAdd={addFeature}
+          onRemove={removeFeature}
+          renderItem={(item) => (
+            <input
+              type="text"
+              value={item.feature}
+              onChange={(e) => updateFeature(item.id, e.target.value)}
+              placeholder="e.g. User authentication with JWT"
+              className={fieldClass}
+            />
+          )}
+        />
+      </div>
+
+      {/* ── Section: Specifications ──────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Specifications</h2>
+        <ListEditor
+          label="Specification table"
+          items={form.specifications}
+          onAdd={addSpec}
+          onRemove={removeSpec}
+          renderItem={(item) => (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={item.key}
+                onChange={(e) => updateSpec(item.id, "key", e.target.value)}
+                placeholder="Label (e.g. Database)"
+                className={fieldClass}
+              />
+              <input
+                type="text"
+                value={item.value}
+                onChange={(e) => updateSpec(item.id, "value", e.target.value)}
+                placeholder="Value (e.g. PostgreSQL)"
+                className={fieldClass}
+              />
+            </div>
+          )}
+        />
+      </div>
+
+      {/* ── Section: FAQs ────────────────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <h2 className="text-base font-semibold text-white">Frequently Asked Questions</h2>
+        <ListEditor
+          label="FAQ list"
+          items={form.faqs}
+          onAdd={addFaq}
+          onRemove={removeFaq}
+          renderItem={(item) => (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={item.question}
+                onChange={(e) => updateFaq(item.id, "question", e.target.value)}
+                placeholder="Question"
+                className={fieldClass}
+              />
+              <textarea
+                value={item.answer}
+                onChange={(e) => updateFaq(item.id, "answer", e.target.value)}
+                placeholder="Answer"
+                rows={2}
+                className={fieldClass}
+              />
+            </div>
+          )}
+        />
+      </div>
+
+      {/* ── Section: Project Images ──────────────────────────────────────────── */}
+      <div className={sectionClass}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-white">Project Screenshots</h2>
+          {!projectId && (
+            <span className="text-xs text-gray-500">
+              Save the project first, then add images
+            </span>
+          )}
+        </div>
+
+        {projectId ? (
+          <ImageUploader
+            projectId={projectId}
+            initialImages={initialImages}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-700 rounded-lg gap-2">
+            <svg
+              className="w-10 h-10 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <p className="text-sm text-gray-500">
+              Create the project, then upload screenshots from the edit page.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Submit Bar ───────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 pt-2">
+        <button
+          type="button"
+          onClick={() => router.push("/admin/projects")}
+          className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition"
+        >
+          Cancel
+        </button>
+
+        <div className="flex gap-3">
+          {/* Save as Draft shortcut */}
+          {!isEditing && form.status !== "DRAFT" && (
+            <button
+              type="button"
+              onClick={() => {
+                set("status", "DRAFT");
+                setTimeout(
+                  () => document.querySelector<HTMLButtonElement>('[data-submit]')?.click(),
+                  50
+                );
+              }}
+              disabled={saving}
+              className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition disabled:opacity-50"
+            >
+              Save as Draft
+            </button>
+          )}
+
+          <button
+            type="submit"
+            data-submit
+            disabled={saving}
+            className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving && (
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+            {saving ? "Saving…" : isEditing ? "Update Project" : "Create Project"}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}

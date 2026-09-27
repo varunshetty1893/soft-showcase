@@ -1,0 +1,92 @@
+// components/projects/ProjectFilters.tsx
+"use client";
+
+import * as React from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Filter } from "lucide-react";
+
+interface CategoryOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface ProjectFiltersProps {
+  categories: CategoryOption[];
+}
+
+export function ProjectFilters({ categories }: ProjectFiltersProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeCategory = searchParams.get("category") || "";
+
+  const updateFilter = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    params.set("page", "1");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const clearAll = () => {
+    router.push(pathname);
+  };
+
+  const hasActiveFilters = Boolean(activeCategory || searchParams.get("q"));
+
+  return (
+    <aside className="w-full lg:w-64 shrink-0 space-y-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+            <Filter className="w-4 h-4 text-indigo-600" />
+            <span>Categories</span>
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={clearAll}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
+        {/* Category list */}
+        <div className="mt-3 flex flex-col space-y-1">
+          <button
+            onClick={() => updateFilter("category", null)}
+            className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              !activeCategory
+                ? "bg-indigo-50 text-indigo-700 font-semibold"
+                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            }`}
+          >
+            All Categories
+          </button>
+          {categories.map((cat) => {
+            const isSelected = activeCategory === cat.slug;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => updateFilter("category", isSelected ? null : cat.slug)}
+                className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  isSelected
+                    ? "bg-indigo-50 text-indigo-700 font-semibold"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
+  );
+}

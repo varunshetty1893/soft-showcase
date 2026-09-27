@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eefcfe;
+  --foreground: #111d1f;
+  --surface: #eefcfe;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #e9f6f8;
+  --surface-container: #e3f0f3;
+  --surface-container-high: #ddebed;
+  --surface-container-highest: #d8e5e7;
+  --border: #d8e5e7;
+  --primary: #00373f;
+  --primary-container: #184e58;
+  --secondary: #006c50;
+  --secondary-container: #8cf7ce;
+  --tertiary: #00523d;
+  --on-surface: #111d1f;
+  --on-surface-variant: #40484a;
+  --success: #006c50;
+  --warning: #f59e0b;
+  --error: #ba1a1a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-plus-jakarta), var(--font-inter), sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: #00373f;
+  --color-primary-container: #184e58;
+  --color-secondary: #006c50;
+  --color-secondary-container: #8cf7ce;
+  --color-secondary-fixed: #8cf7ce;
+  --color-secondary-fixed-dim: #6fdab3;
+  --color-surface: #eefcfe;
+  --color-surface-dim: #cfdcdf;
+  --color-surface-container-low: #e9f6f8;
+  --color-surface-container: #e3f0f3;
+  --color-surface-container-high: #ddebed;
+  --color-surface-container-highest: #d8e5e7;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #111d1f;
+  --color-on-surface-variant: #40484a;
+  --color-outline: #70787b;
+  --color-outline-variant: #c0c8ca;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: #8cf7ce;
+  color: #002116;
 }

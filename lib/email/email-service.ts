@@ -1,0 +1,169 @@
+// lib/email/email-service.ts
+// Public email service for transactional emails across Soft Showcase.
+// Source of truth: docs/18-email-architecture.md
+
+import { createEmailProvider, EmailResult } from "./providers/email-provider";
+import { renderProviderInquiryEmail } from "./templates/provider-inquiry";
+import { renderCustomerConfirmationEmail } from "./templates/customer-confirmation";
+import {
+  renderAdminCustomRequestEmail,
+  type AdminCustomRequestEmailData,
+} from "./templates/admin-notification";
+import {
+  renderCustomerCustomRequestConfirmationEmail,
+  type CustomerCustomRequestConfirmationData,
+} from "./templates/custom-request-customer";
+import {
+  renderVerificationOtpEmail,
+  type VerificationOtpTemplateData,
+} from "./templates/verification-otp";
+import { APP_URL } from "@/config/constants";
+
+export interface InquiryEmailData {
+  inquiry: {
+    name: string;
+    email: string;
+    whatsapp?: string | null;
+    message: string;
+  };
+  project: {
+    title: string;
+    id: string;
+    slug: string;
+  };
+  provider: {
+    displayName: string;
+    email: string;
+  };
+}
+
+export type EmailPayload = {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  from?: string;
+  fromName?: string;
+};
+
+/**
+ * Send a raw transactional email via configured provider.
+ */
+export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
+  const provider = createEmailProvider();
+  return provider.send(payload);
+}
+
+/**
+ * Send inquiry notification email to the project provider.
+ */
+export async function sendProviderInquiryEmail(data: InquiryEmailData): Promise<EmailResult> {
+  const projectUrl = `${APP_URL}/projects/${data.project.slug}`;
+  const { subject, html, text } = renderProviderInquiryEmail({
+    providerName: data.provider.displayName,
+    projectTitle: data.project.title,
+    projectUrl,
+    customerName: data.inquiry.name,
+    customerEmail: data.inquiry.email,
+    customerWhatsapp: data.inquiry.whatsapp,
+    message: data.inquiry.message,
+  });
+
+  return sendEmail({
+    to: data.provider.email,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send confirmation email to the customer who submitted an inquiry.
+ */
+export async function sendCustomerConfirmationEmail(data: InquiryEmailData): Promise<EmailResult> {
+  const projectUrl = `${APP_URL}/projects/${data.project.slug}`;
+  const { subject, html, text } = renderCustomerConfirmationEmail({
+    customerName: data.inquiry.name,
+    projectTitle: data.project.title,
+    projectUrl,
+    providerName: data.provider.displayName,
+  });
+
+  return sendEmail({
+    to: data.inquiry.email,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send notification to system administrator.
+ */
+export async function sendAdminNotification(subject: string, bodyHtml: string): Promise<EmailResult> {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) {
+    console.warn("[Email] ADMIN_EMAIL not configured. Skipping admin notification.");
+    return { success: false, error: "ADMIN_EMAIL not configured" };
+  }
+
+  return sendEmail({
+    to: adminEmail,
+    subject,
+    html: bodyHtml,
+  });
+}
+
+/**
+ * Send custom project notification email to system administrator.
+ */
+export async function sendAdminCustomRequestEmail(
+  data: AdminCustomRequestEmailData
+): Promise<EmailResult> {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) {
+    console.warn("[Email] ADMIN_EMAIL not configured. Skipping admin custom request notification.");
+    return { success: false, error: "ADMIN_EMAIL not configured" };
+  }
+
+  const { subject, html, text } = renderAdminCustomRequestEmail(data);
+  return sendEmail({
+    to: adminEmail,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send confirmation email to the customer who submitted a custom project request.
+ */
+export async function sendCustomerCustomRequestConfirmationEmail(
+  customerEmail: string,
+  data: CustomerCustomRequestConfirmationData
+): Promise<EmailResult> {
+  const { subject, html, text } = renderCustomerCustomRequestConfirmationEmail(data);
+  return sendEmail({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send email verification code (OTP) and 1-click verification link to a registered user.
+ */
+export async function sendVerificationEmail(
+  email: string,
+  data: VerificationOtpTemplateData
+): Promise<EmailResult> {
+  const { subject, html, text } = renderVerificationOtpEmail(data);
+  return sendEmail({
+    to: email,
+    subject,
+    html,
+    text,
+  });
+}
+

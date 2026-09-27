@@ -1,0 +1,175 @@
+// app/api/admin/projects/route.ts
+// Admin: list all projects / create a new project.
+// Source of truth: docs/15-api-architecture.md, docs/13-database-design.md
+
+import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db/client";
+import { ProjectSchema } from "@/lib/validation/project.schema";
+import { getAdminProjects } from "@/lib/db/queries/admin-projects";
+import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
+import { slugify } from "@/lib/utils/slug";
+
+// ─── GET /api/admin/projects ──────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
+  try {
+    await requireAdmin();
+
+    const { searchParams } = new URL(req.url);
+    const page = Number(searchParams.get("page") ?? 1);
+    const pageSize = Number(searchParams.get("pageSize") ?? 20);
+    const status = searchParams.get("status") as
+      | "DRAFT"
+      | "PUBLISHED"
+      | "ARCHIVED"
+      | null;
+    const search = searchParams.get("search") ?? undefined;
+
+    const data = await getAdminProjects({
+      page,
+      pageSize,
+      status: status ?? undefined,
+      search,
+    });
+
+    return NextResponse.json(data);
+  } catch (error) {
+    if (error instanceof AuthError) return authErrorResponse(error);
+    console.error("GET /api/admin/projects error:", error);
+    return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
+  }
+}
+
+// ─── POST /api/admin/projects ─────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await requireAdmin();
+
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+
+    // Auto-generate slug from title if not provided
+    if (!body.slug && body.title) {
+      body.slug = slugify(body.title as string);
+    }
+
+    const parsed = ProjectSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+        { status: 422 }
+      );
+    }
+
+    const {
+      title,
+      slug,
+      shortDescription,
+      fullDescription,
+      status,
+      featured,
+      priceMode,
+      price,
+      demoUrl,
+      projectType,
+      whatsIncluded,
+      categoryId,
+      providerId,
+    } = parsed.data;
+
+    // Lists are outside ProjectSchema — validate and extract from raw body
+    const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
+      ? body.features
+      : [];
+    const specifications: { key: string; value: string; sortOrder?: number }[] = Array.isArray(
+      body.specifications
+    )
+      ? body.specifications
+      : [];
+    const faqs: { question: string; answer: string; sortOrder?: number }[] = Array.isArray(
+      body.faqs
+    )
+      ? body.faqs
+      : [];
+    const technologyIds: string[] = Array.isArray(body.technologyIds)
+      ? body.technologyIds
+      : [];
+
+    // Slug uniqueness check
+    const existing = await db.project.findUnique({ where: { slug } });
+    if (existing) {
+      return NextResponse.json(
+        { error: "A project with this slug already exists" },
+        { status: 409 }
+      );
+    }
+
+    const project = await db.project.create({
+      data: {
+        title,
+        slug,
+        shortDescription,
+        fullDescription,
+        status,
+        featured,
+        priceMode,
+        price: price ?? null,
+        demoUrl: demoUrl ?? null,
+        projectType: projectType ?? null,
+        whatsIncluded,
+        categoryId,
+        providerId,
+        features: {
+          create: features.map((f, i) => ({
+            feature: f.feature,
+            sortOrder: f.sortOrder ?? i,
+          })),
+        },
+        specifications: {
+          create: specifications.map((s, i) => ({
+            key: s.key,
+            value: s.value,
+            sortOrder: s.sortOrder ?? i,
+          })),
+        },
+        faqs: {
+          create: faqs.map((faq, i) => ({
+            question: faq.question,
+            answer: faq.answer,
+            sortOrder: faq.sortOrder ?? i,
+          })),
+        },
+        technologies: {
+          create: technologyIds.map((technologyId) => ({ technologyId })),
+        },
+      },
+    });
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "PROJECT_CREATED",
+        entityType: "Project",
+        entityId: project.id,
+        details: { title: project.title, status: project.status },
+      },
+    });
+
+    // Revalidate public catalog
+    revalidatePath("/projects");
+
+    return NextResponse.json(
+      { success: true, message: "Project created successfully", project },
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof AuthError) return authErrorResponse(error);
+    console.error("POST /api/admin/projects error:", error);
+    return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+  }
+}

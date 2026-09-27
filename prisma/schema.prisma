@@ -1,0 +1,387 @@
+// prisma/schema.prisma
+// Soft Showcase — Full Database Schema
+// Source of truth: docs/13-database-design.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// AUTH TABLES (NextAuth.js v5 — database session strategy)
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  isAdmin       Boolean   @default(false)
+
+  accounts  Account[]
+  sessions  Session[]
+  inquiries Inquiry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+// =============================================================================
+// PROVIDER
+// =============================================================================
+
+model ProjectProvider {
+  id             String   @id @default(cuid())
+  displayName    String
+  email          String   @unique
+  whatsappNumber String?
+  bio            String?
+  avatarUrl      String?
+  isActive       Boolean  @default(true)
+  showEmail      Boolean  @default(false)
+  showWhatsapp   Boolean  @default(true)
+
+  // Provider consent: admin must confirm that permission was obtained
+  // from the provider before publishing their projects on Soft Showcase.
+  providerConsentConfirmed   Boolean   @default(false)
+  providerConsentConfirmedAt DateTime?
+
+  projects  Project[]
+  inquiries Inquiry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("project_providers")
+}
+
+// =============================================================================
+// CATEGORIES & TECHNOLOGIES
+// =============================================================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  iconName    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  projects Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Technology {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  iconUrl  String?
+  isActive Boolean @default(true)
+
+  projects ProjectTechnology[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("technologies")
+}
+
+// =============================================================================
+// PROJECTS
+// =============================================================================
+
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PriceMode {
+  CONTACT
+  FIXED
+  STARTING_FROM
+  FREE
+}
+
+model Project {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  shortDescription String
+  fullDescription  String        @db.Text
+  status           ProjectStatus @default(DRAFT)
+  featured         Boolean       @default(false)
+  priceMode        PriceMode     @default(CONTACT)
+  price            Decimal?      @db.Decimal(10, 2)
+  demoUrl          String?
+  projectType      String?
+  whatsIncluded    String[]      @default([])
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  providerId String
+  provider   ProjectProvider @relation(fields: [providerId], references: [id])
+
+  images         ProjectImage[]
+  features       ProjectFeature[]
+  specifications ProjectSpecification[]
+  faqs           ProjectFaq[]
+  technologies   ProjectTechnology[]
+  inquiries      Inquiry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([featured])
+  @@index([categoryId])
+  @@index([providerId])
+  @@map("projects")
+}
+
+model ProjectImage {
+  id         String  @id @default(cuid())
+  projectId  String
+  url        String // CDN URL from storage provider
+  storageKey String // Storage provider's public_id / key — required for deletion
+  altText    String?
+  isPrimary  Boolean @default(false)
+  sortOrder  Int     @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("project_images")
+}
+
+model ProjectFeature {
+  id        String @id @default(cuid())
+  projectId String
+  feature   String
+  sortOrder Int    @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_features")
+}
+
+model ProjectSpecification {
+  id        String @id @default(cuid())
+  projectId String
+  key       String
+  value     String
+  sortOrder Int    @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_specifications")
+}
+
+model ProjectFaq {
+  id        String @id @default(cuid())
+  projectId String
+  question  String
+  answer    String @db.Text
+  sortOrder Int    @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_faqs")
+}
+
+model ProjectTechnology {
+  projectId    String
+  technologyId String
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  technology Technology @relation(fields: [technologyId], references: [id])
+
+  @@id([projectId, technologyId])
+  @@map("project_technologies")
+}
+
+// =============================================================================
+// INQUIRIES
+// =============================================================================
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  DISCUSSING
+  QUOTED
+  CLOSED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ContactMethod {
+  EMAIL
+  WHATSAPP
+}
+
+model Inquiry {
+  id        String        @id @default(cuid())
+  projectId String
+  // providerId is captured at submission time. If the project is later
+  // reassigned to a different provider, old inquiries still reference
+  // the original provider — preserving historical accuracy.
+  providerId String
+  customerId String?
+  name      String
+  email     String
+  whatsapp  String?
+  message   String        @db.Text
+  contactMethod ContactMethod      @default(EMAIL)
+  status        InquiryStatus      @default(NEW)
+  // notificationStatus tracks whether the email to the provider was sent.
+  // An inquiry can be saved (NEW) even if the notification email fails (FAILED).
+  notificationStatus NotificationStatus @default(PENDING)
+  adminNotes    String?            @db.Text
+
+  project  Project         @relation(fields: [projectId], references: [id])
+  provider ProjectProvider @relation(fields: [providerId], references: [id])
+  customer User?           @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([notificationStatus])
+  @@index([createdAt])
+  @@map("inquiries")
+}
+
+// =============================================================================
+// CUSTOM PROJECT REQUESTS
+// =============================================================================
+
+enum CustomRequestStatus {
+  NEW
+  REVIEWING
+  CONTACTED
+  IN_PROGRESS
+  COMPLETED
+  DECLINED
+}
+
+model CustomProjectRequest {
+  id                     String              @id @default(cuid())
+  name                   String
+  email                  String
+  whatsapp               String?
+  projectTitle           String
+  category               String?
+  technologyPreferences  String[]
+  description            String              @db.Text
+  requiredFeatures       String              @db.Text
+  // deadline is stored as a String to allow flexible input (e.g. "Q1 2027",
+  // "March 2027", or a date string). It is not enforced as a date type.
+  deadline               String?
+  budget                 String?
+  additionalRequirements String?             @db.Text
+  status                 CustomRequestStatus @default(NEW)
+  adminNotes             String?             @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("custom_project_requests")
+}
+
+// =============================================================================
+// SITE SETTINGS
+// =============================================================================
+
+// site_settings stores a small set of admin-configurable platform values.
+// Keys are defined constants (see docs/26-site-settings.md equivalent section).
+// This is NOT a generic data bucket — only documented keys are valid.
+model SiteSetting {
+  // Valid keys:
+  //   site_name         — Display name of the platform
+  //   site_tagline      — Homepage tagline
+  //   contact_email     — Public contact email shown on /contact page
+  //   maintenance_mode  — "true" | "false"
+  //   footer_text       — Footer copyright / custom text
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+model AuditLog {
+  id         String  @id @default(cuid())
+  userId     String? // ID of the admin who performed the action; null for system actions
+  action     String  // Action constant (see docs/32-audit-logging.md)
+  entityType String  // "Project", "ProjectProvider", "Inquiry", etc.
+  entityId   String? // ID of the affected entity
+  details    Json?   // Additional context specific to the action
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
