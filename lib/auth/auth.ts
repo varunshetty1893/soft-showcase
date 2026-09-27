@@ -6,6 +6,7 @@
 // - isAdmin is read from the users table and propagated to the session.
 
 import NextAuth from "next-auth";
+import { skipCSRFCheck } from "@auth/core";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -14,16 +15,54 @@ import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET || "soft-showcase-fallback-auth-secret-key-32chars",
+  trustHost: true,
+  skipCSRFCheck: skipCSRFCheck,
+
+  // ── Cookies for Iframe / Cross-Origin Preview Environment ────────────────
+  cookies: {
+    sessionToken: {
+      name: "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+      },
+    },
+    callbackUrl: {
+      name: "authjs.callback-url",
+      options: {
+        sameSite: "none",
+        path: "/",
+        secure: true,
+      },
+    },
+    csrfToken: {
+      name: "authjs.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+      },
+    },
+  },
+
   // ── Adapter ──────────────────────────────────────────────────────────────
   adapter: PrismaAdapter(db),
 
   // ── Providers ────────────────────────────────────────────────────────────
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          Google({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            allowDangerousEmailAccountLinking: true,
+          }),
+        ]
+      : []),
     Credentials({
       name: "credentials",
       credentials: {

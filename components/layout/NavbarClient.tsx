@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,14 @@ interface NavbarClientProps {
 export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const pathname = usePathname();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      if (signOutAction) await signOutAction();
+    }
+  };
 
   const navLinks = [
     { label: "Browse Projects", href: "/projects" },
@@ -114,15 +123,14 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   </span>
                 </Link>
 
-                <form action={signOutAction}>
-                  <button
-                    type="submit"
-                    title="Sign Out"
-                    className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-md transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  title="Sign Out"
+                  className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-md transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ) : (
@@ -235,12 +243,17 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   Profile Settings
                 </Link>
 
-                <form action={signOutAction} className="pt-2">
-                  <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="w-full gap-2 text-xs"
+                  >
                     <LogOut className="w-4 h-4" />
                     Sign Out
                   </Button>
-                </form>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">

@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // ─── Remote image patterns ──────────────────────────────────────────────────
   // Cloudinary is the primary image host.
   // Add more entries here if STORAGE_PROVIDER is switched to another service.

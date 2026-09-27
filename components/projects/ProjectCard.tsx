@@ -105,12 +105,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </div>
 
         {/* ── Footer / Meta ───────────────────────────────────────────────── */}
-        <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex items-center justify-between">
-          <PriceBadge priceMode={project.priceMode} price={project.price} />
+        <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex flex-col sm:flex-row sm:items-end justify-between gap-2.5">
+          <PriceBadge priceMode={project.priceMode} price={project.price} variant="card" />
 
           {/* Provider Snippet */}
           {project.provider && (
-            <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium self-end sm:self-auto shrink-0">
               {project.provider.avatarUrl ? (
                 <img
                   src={project.provider.avatarUrl}
@@ -120,7 +120,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
               ) : (
                 <UserIcon className="w-3.5 h-3.5 text-[#526267]" />
               )}
-              <span className="truncate max-w-[100px]">{project.provider.displayName}</span>
+              <span className="truncate max-w-[110px]">{project.provider.displayName}</span>
             </div>
           )}
         </div>

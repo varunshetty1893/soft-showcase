@@ -4,7 +4,8 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PriceBadge } from "@/components/projects/PriceBadge";
@@ -24,7 +25,7 @@ import {
   getAllPublishedSlugs,
 } from "@/lib/db/queries/projects";
 import { APP_NAME, APP_URL } from "@/config/constants";
-import { ChevronRight, ExternalLink, ShieldCheck } from "lucide-react";
+import { ChevronRight, ExternalLink, ShieldCheck, CheckCircle2, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 
 export const revalidate = 3600; // 1 hour
@@ -83,6 +84,12 @@ export async function generateMetadata({
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
 
+  // Enforce authentication: No user can access any project without logging in
+  const session = await auth();
+  if (!session?.user) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/projects/${slug}`)}`);
+  }
+
   let project = null;
   try {
     project = await getProjectBySlug(slug);
@@ -114,7 +121,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     offers: {
       "@type": "Offer",
       price: project.price ? String(project.price) : "0",
-      priceCurrency: "USD",
+      priceCurrency: "INR",
       availability: "https://schema.org/InStock",
     },
     author: {
@@ -157,15 +164,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
           {/* ── Project Header ─────────────────────────────────────────── */}
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-8 border-b border-[#D9E2E4]">
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <Badge variant="default" className="text-xs font-semibold">
                   {project.category.name}
                 </Badge>
-                <PriceBadge
-                  priceMode={project.priceMode}
-                  price={project.price ? project.price.toString() : null}
-                />
                 {project.featured && (
                   <Badge variant="mint" className="text-xs font-bold">
                     Featured Project
@@ -180,6 +183,16 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <p className="text-base text-[#526267] max-w-3xl leading-relaxed">
                 {project.shortDescription}
               </p>
+
+              {/* Amazon / Flipkart Style Price Header */}
+              <div className="pt-2">
+                <PriceBadge
+                  priceMode={project.priceMode}
+                  price={project.price ? project.price.toString() : null}
+                  variant="detail"
+                  showTaxNotice={true}
+                />
+              </div>
             </div>
 
             {/* External Links (Live Demo, GitHub) */}
@@ -242,6 +255,33 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
             {/* Right Column: Provider Card & Project Summary */}
             <div className="space-y-6 lg:sticky lg:top-24">
+              {/* Amazon / Flipkart Style Order Box */}
+              <div className="bg-white rounded-2xl border border-[#D9E2E4] p-5 shadow-xs space-y-3.5">
+                <div className="border-b border-[#F3F7F7] pb-3">
+                  <PriceBadge
+                    priceMode={project.priceMode}
+                    price={project.price ? project.price.toString() : null}
+                    variant="card"
+                    showTaxNotice={true}
+                  />
+                </div>
+
+                <div className="space-y-2 text-xs text-[#526267]">
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>In Stock • Direct Builder Handover</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#155761] shrink-0" />
+                    <span>Verified Maker: <strong className="text-[#102124] ml-0.5">{project.provider.displayName}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-[#526267] shrink-0" />
+                    <span>Direct WhatsApp &amp; Authenticated Email</span>
+                  </div>
+                </div>
+              </div>
+
               <ProviderCard
                 provider={project.provider}
                 projectTitle={project.title}

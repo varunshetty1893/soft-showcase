@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Lock } from "lucide-react";
 
 // Google "G" SVG
 function GoogleIcon() {
@@ -110,6 +110,17 @@ export function LoginForm() {
           <div>
             <p className="text-sm font-semibold text-[#155761]">Email verified!</p>
             <p className="text-xs text-[#526267] mt-0.5">You can now sign in with your email and password.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Access required notice when redirected from /projects */}
+      {callbackUrl.includes("/projects") && !errorMessage && !verifiedNotice && (
+        <div className="mb-5 p-3 rounded-xl bg-[#F3F7F7] border border-[#D9E2E4] flex items-start gap-2.5">
+          <Lock className="w-5 h-5 text-[#155761] shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-[#102124]">Sign in required to view projects</p>
+            <p className="text-xs text-[#526267] mt-0.5">Please sign in to browse software projects, view prices, and connect directly with providers.</p>
           </div>
         </div>
       )}

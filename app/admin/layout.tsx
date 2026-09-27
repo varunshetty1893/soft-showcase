@@ -4,9 +4,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { LogOut, ExternalLink, ShieldCheck } from "lucide-react";
+import { AdminSignOutButton } from "@/components/admin/AdminSignOutButton";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminLayout({
@@ -22,11 +23,6 @@ export default async function AdminLayout({
 
   if (!session.user.isAdmin) {
     redirect("/");
-  }
-
-  async function handleSignOut() {
-    "use server";
-    await signOut({ redirectTo: "/" });
   }
 
   return (
@@ -83,15 +79,7 @@ export default async function AdminLayout({
               </div>
             </div>
 
-            <form action={handleSignOut}>
-              <button
-                type="submit"
-                title="Sign Out"
-                className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-lg transition-colors cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </form>
+            <AdminSignOutButton />
           </div>
         </div>
       </header>

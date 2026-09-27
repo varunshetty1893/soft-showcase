@@ -78,7 +78,7 @@ const initialProjects = [
     status: "PUBLISHED",
     featured: true,
     priceMode: "FIXED",
-    price: 499,
+    price: 24999,
     demoUrl: "https://example.com/demo/resume-analyzer",
     projectType: "Full-Stack Web App",
     whatsIncluded: [
@@ -103,7 +103,7 @@ const initialProjects = [
     status: "PUBLISHED",
     featured: true,
     priceMode: "STARTING_FROM",
-    price: 799,
+    price: 49999,
     demoUrl: "https://example.com/demo/omnicart",
     projectType: "E-Commerce System",
     whatsIncluded: [
