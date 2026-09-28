@@ -6,8 +6,8 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { AdminSignOutButton } from "@/components/admin/AdminSignOutButton";
-import { ExternalLink, ShieldCheck } from "lucide-react";
+import { AdminUserMenu } from "@/components/admin/AdminUserMenu";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default async function AdminLayout({
@@ -56,30 +56,17 @@ export default async function AdminLayout({
             </Button>
           </Link>
 
-          {/* User profile snippet */}
-          <div className="flex items-center gap-3 pl-3 border-l border-[#D9E2E4]">
-            {session.user.image ? (
-              <img
-                src={session.user.image}
-                alt={session.user.name || "Admin"}
-                className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-xs font-bold">
-                {session.user.name?.[0]?.toUpperCase() || "A"}
-              </div>
-            )}
-            <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-[#102124] flex items-center gap-1">
-                <span>{session.user.name || "Administrator"}</span>
-                <ShieldCheck className="w-3 h-3 text-[#2F7D78]" />
-              </div>
-              <div className="text-[11px] text-[#526267] truncate max-w-[140px]">
-                {session.user.email}
-              </div>
-            </div>
-
-            <AdminSignOutButton />
+          {/* Admin User Menu Dropdown */}
+          <div className="pl-3 border-l border-[#D9E2E4]">
+            <AdminUserMenu
+              user={{
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+                image: session.user.image,
+                isAdmin: session.user.isAdmin,
+              }}
+            />
           </div>
         </div>
       </header>

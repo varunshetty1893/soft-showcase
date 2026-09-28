@@ -14,6 +14,7 @@ import {
   ExternalLink,
   History,
   ChevronRight,
+  UserCheck,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { label: "Custom Requests", href: "/admin/custom-requests", icon: FileQuestion },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: History },
   { label: "Import Projects", href: "/admin/projects/import", icon: UploadCloud },
+  { label: "Admin Profile", href: "/admin/profile", icon: UserCheck },
 ];
 
 export function AdminSidebar() {

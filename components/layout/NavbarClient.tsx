@@ -6,8 +6,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Menu, X, ArrowUpRight, LogOut, LayoutDashboard, MessageSquare } from "lucide-react";
+import { Menu, X, ArrowUpRight, LayoutDashboard, MessageSquare, LogOut, KeyRound, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UserNavDropdown } from "@/components/layout/UserNavDropdown";
 
 interface NavbarClientProps {
   user?: {
@@ -64,13 +65,13 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
           </Link>
         </div>
 
-        {/* Desktop Navigation Links — Centered */}
-        <nav className="hidden md:flex items-center justify-center gap-1 lg:gap-2 md:relative lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+        {/* Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-1 xl:gap-2">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 isActive(link.href)
                   ? "bg-[#F3F7F7] text-[#155761] font-semibold"
                   : "text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7]"
@@ -82,56 +83,28 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
         </nav>
 
         {/* Desktop Auth & CTAs */}
-        <div className="hidden md:flex items-center gap-3 shrink-0">
+        <div className="hidden md:flex items-center gap-2.5 shrink-0">
           {user ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {user.isAdmin && (
                 <Link href="/admin">
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs text-[#102124]">
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs text-[#155761] font-semibold border-[#155761]/30 hover:bg-[#F3F7F7]">
                     <LayoutDashboard className="w-3.5 h-3.5 text-[#155761]" />
                     Admin Panel
                   </Button>
                 </Link>
               )}
 
-              <Link href="/my-inquiries">
-                <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-[#526267] hover:text-[#155761]">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  My Inquiries
-                </Button>
-              </Link>
-
-              <div className="flex items-center gap-2 pl-2 border-l border-[#D9E2E4]">
-                <Link
-                  href="/profile"
-                  title="Profile Settings"
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  {user.image ? (
-                    <img
-                      src={user.image}
-                      alt={user.name || "User"}
-                      className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-xs font-semibold">
-                      {user.name?.[0]?.toUpperCase() || "U"}
-                    </div>
-                  )}
-                  <span className="text-xs font-medium text-[#102124] max-w-[120px] truncate hover:text-[#155761] transition-colors">
-                    {user.name || user.email}
-                  </span>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  title="Sign Out"
-                  className="p-1.5 text-[#526267] hover:text-[#102124] hover:bg-[#F3F7F7] rounded-md transition-colors cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
+              <UserNavDropdown
+                user={{
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  image: user.image,
+                  isAdmin: user.isAdmin,
+                }}
+                onSignOut={handleSignOut}
+              />
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
@@ -207,13 +180,42 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                 </div>
 
                 {user.isAdmin && (
+                  <>
+                    <Link
+                      href="/admin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-[#155761] bg-[#F3F7F7]"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-[#155761]" />
+                      Admin Dashboard
+                    </Link>
+                    <Link
+                      href="/admin/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
+                    >
+                      <User className="w-4 h-4 text-[#155761]" />
+                      Admin Profile
+                    </Link>
+                    <Link
+                      href="/admin/profile?tab=password"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
+                    >
+                      <KeyRound className="w-4 h-4 text-[#2F7D78]" />
+                      Change Admin Password
+                    </Link>
+                  </>
+                )}
+
+                {!user.isAdmin && (
                   <Link
-                    href="/admin"
+                    href="/profile"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                   >
-                    <LayoutDashboard className="w-4 h-4 text-[#155761]" />
-                    Admin Panel
+                    <User className="w-4 h-4 text-[#526267]" />
+                    Profile Settings
                   </Link>
                 )}
 
@@ -222,7 +224,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                 >
-                  <MessageSquare className="w-4 h-4 text-[#155761]" />
+                  <MessageSquare className="w-4 h-4 text-[#526267]" />
                   My Inquiries
                 </Link>
 
@@ -231,16 +233,8 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
                 >
-                  <ArrowUpRight className="w-4 h-4 text-[#155761]" />
+                  <ArrowUpRight className="w-4 h-4 text-[#526267]" />
                   Custom Requests
-                </Link>
-
-                <Link
-                  href="/profile"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#155761]"
-                >
-                  Profile Settings
                 </Link>
 
                 <div className="pt-2">
