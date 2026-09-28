@@ -34,6 +34,8 @@ export async function createAuditLog(options: AuditOptions): Promise<void> {
   }
 }
 
+export const recordAuditLog = createAuditLog;
+
 /**
  * Query audit logs for the admin panel with filtering and pagination.
  */

@@ -3,7 +3,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckCircle2, AlertCircle, ArrowLeft, Send } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { CheckCircle2, AlertCircle, ArrowLeft, Send, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,8 @@ const POPULAR_TECHNOLOGIES = [
 ];
 
 export function CustomProjectForm() {
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
@@ -43,6 +46,16 @@ export function CustomProjectForm() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+
+  React.useEffect(() => {
+    if (session?.user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || session.user?.name || "",
+        email: prev.email || session.user?.email || "",
+      }));
+    }
+  }, [session]);
 
   const toggleTechnology = (tech: string) => {
     setFormData((prev) => {
@@ -66,6 +79,12 @@ export function CustomProjectForm() {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
+
+    if (!session?.user) {
+      setErrorMessage("Please sign in before submitting your custom software build request.");
+      setIsLoading(false);
+      return;
+    }
 
     // Basic client validation
     if (formData.description.trim().length < 50) {
@@ -148,6 +167,22 @@ export function CustomProjectForm() {
             <p className="font-medium">Error submitting request</p>
             <p className="text-xs text-red-600 mt-0.5">{errorMessage}</p>
           </div>
+        </div>
+      )}
+
+      {!session?.user && (
+        <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4] text-[#102124] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-sm">
+            <Lock className="w-4 h-4 text-[#155761] shrink-0" />
+            <span>
+              <strong>Authentication required:</strong> Please sign in to submit a custom software build request.
+            </span>
+          </div>
+          <Link href="/login?callbackUrl=/custom-project" className="shrink-0">
+            <Button type="button" size="sm" variant="primary">
+              Sign In to Continue
+            </Button>
+          </Link>
         </div>
       )}
 
@@ -341,19 +376,32 @@ export function CustomProjectForm() {
         </div>
       </div>
 
-      <div className="pt-4 border-t border-[#D9E2E4] flex items-center justify-between">
+      <div className="pt-4 border-t border-[#D9E2E4] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <p className="text-xs text-[#526267]">
           Strict confidentiality. Your project idea is safe with our team.
         </p>
-        <Button
-          type="submit"
-          size="lg"
-          isLoading={isLoading}
-          className="gap-2 shadow-xs cursor-pointer"
-        >
-          <Send className="w-4 h-4" />
-          Submit Custom Request
-        </Button>
+        {!session?.user ? (
+          <Link href="/login?callbackUrl=/custom-project">
+            <Button
+              type="button"
+              size="lg"
+              className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
+            >
+              <Lock className="w-4 h-4" />
+              Sign In to Submit Request
+            </Button>
+          </Link>
+        ) : (
+          <Button
+            type="submit"
+            size="lg"
+            isLoading={isLoading}
+            className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
+          >
+            <Send className="w-4 h-4" />
+            Submit Custom Request
+          </Button>
+        )}
       </div>
     </form>
   );

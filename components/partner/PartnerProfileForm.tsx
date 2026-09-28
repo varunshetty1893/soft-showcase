@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { User, CheckCircle2, AlertCircle, Save, Globe, Github, Linkedin, MessageCircle } from "lucide-react";
+import { User, CheckCircle2, AlertCircle, Save, Globe, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

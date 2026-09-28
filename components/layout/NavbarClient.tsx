@@ -85,7 +85,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
         {/* Desktop Auth & CTAs */}
         <div className="hidden md:flex items-center gap-2.5 shrink-0">
-          <CartNavButton />
+          {user && <CartNavButton />}
 
           {user ? (
             <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   Sign In
                 </Button>
               </Link>
-              <Link href="/custom-project">
+              <Link href="/login?callbackUrl=/custom-project">
                 <Button variant="primary" size="sm" className="text-xs sm:text-sm gap-1 shadow-xs font-semibold">
                   Request Software
                   <ArrowUpRight className="w-3.5 h-3.5" />
@@ -128,7 +128,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
         {/* Mobile Menu & Cart Button */}
         <div className="flex items-center gap-1.5 md:hidden">
-          <CartNavButton />
+          {user && <CartNavButton />}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -260,7 +260,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/custom-project" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/login?callbackUrl=/custom-project" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="primary" size="md" className="w-full text-sm font-semibold gap-1.5">
                     Request Custom Software
                     <ArrowUpRight className="w-4 h-4" />

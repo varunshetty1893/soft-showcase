@@ -86,13 +86,35 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    let baseSlug = slugify(data.title);
+    const baseSlug = slugify(data.title);
     let finalSlug = baseSlug;
     let count = 1;
     while (await db.project.findUnique({ where: { slug: finalSlug } })) {
       finalSlug = `${baseSlug}-${count}`;
       count++;
     }
+
+    const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
+      ? body.features
+      : [];
+    const specifications: { key: string; value: string; sortOrder?: number }[] = Array.isArray(
+      body.specifications
+    )
+      ? body.specifications
+      : [];
+    const faqs: { question: string; answer: string; sortOrder?: number }[] = Array.isArray(
+      body.faqs
+    )
+      ? body.faqs
+      : [];
+    const technologyIds: string[] = Array.isArray(body.technologyIds)
+      ? body.technologyIds
+      : [];
+    const images: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
+      body.images
+    )
+      ? body.images
+      : [];
 
     const newProject = await db.project.create({
       data: {
@@ -110,32 +132,32 @@ export async function POST(req: NextRequest) {
         categoryId: data.categoryId,
         providerId: partner.id,
         features: {
-          create: data.features.map((f, i) => ({
+          create: features.map((f, i) => ({
             feature: f.feature,
             sortOrder: f.sortOrder ?? i + 1,
           })),
         },
         specifications: {
-          create: data.specifications.map((s, i) => ({
+          create: specifications.map((s, i) => ({
             key: s.key,
             value: s.value,
             sortOrder: s.sortOrder ?? i + 1,
           })),
         },
         faqs: {
-          create: data.faqs.map((faq, i) => ({
+          create: faqs.map((faq, i) => ({
             question: faq.question,
             answer: faq.answer,
             sortOrder: faq.sortOrder ?? i + 1,
           })),
         },
         technologies: {
-          create: data.technologyIds.map((techId) => ({
+          create: technologyIds.map((techId) => ({
             technologyId: techId,
           })),
         },
         images: {
-          create: data.images.map((img, i) => ({
+          create: images.map((img, i) => ({
             url: img.url,
             storageKey: img.storageKey || `img-${Date.now()}-${i}`,
             altText: img.altText || data.title,

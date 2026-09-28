@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ShoppingCart, Check, Trash2 } from "lucide-react";
-import { useCart, CartItem } from "@/lib/cart/cart-context";
+import { ShoppingCart, Check, Lock } from "lucide-react";
+import { useCart } from "@/lib/cart/cart-context";
 import { Button } from "@/components/ui/button";
+import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AddToCartButtonProps {
   project: {
@@ -25,12 +27,21 @@ interface AddToCartButtonProps {
 
 export function AddToCartButton({ project, variant = "primary", className = "" }: AddToCartButtonProps) {
   const { addToCart, removeFromCart, isInCart } = useCart();
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
+  const router = useRouter();
+  const pathname = usePathname();
   const inCart = isInCart(project.id);
   const [justAdded, setJustAdded] = React.useState(false);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!session?.user) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(pathname || `/projects/${project.slug}`)}`);
+      return;
+    }
 
     if (inCart) {
       removeFromCart(project.id);
@@ -52,6 +63,26 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
       setTimeout(() => setJustAdded(false), 2000);
     }
   };
+
+  if (!session?.user) {
+    if (variant === "compact") {
+      // Don't show cart option at all when user is not logged in
+      return null;
+    }
+
+    return (
+      <Button
+        type="button"
+        onClick={handleToggle}
+        variant="primary"
+        size="lg"
+        className={`w-full gap-2 text-sm font-bold bg-[#155761] hover:bg-[#10474F] text-white transition-all cursor-pointer ${className}`}
+      >
+        <Lock className="w-4 h-4" />
+        <span>Sign In to Buy / Access</span>
+      </Button>
+    );
+  }
 
   if (variant === "compact") {
     return (

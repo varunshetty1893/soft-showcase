@@ -84,9 +84,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Check if user is logged in (optional association)
+    // 5. Require customer authentication to communicate with partners
     const user = await getCurrentUser();
-    const customerId = user?.id || null;
+    if (!user) {
+      return NextResponse.json(
+        { error: "You must be signed in to send an inquiry to the Solution Partner." },
+        { status: 401 }
+      );
+    }
+    const customerId = user.id;
 
     // 6. Create inquiry record in DB (capture providerId at submission time)
     const inquiry = await db.inquiry.create({

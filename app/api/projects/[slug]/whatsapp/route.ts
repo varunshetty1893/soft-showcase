@@ -3,6 +3,7 @@
 // Source of truth: docs/20-whatsapp-architecture.md & docs/15-api-architecture.md
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { getClientIp, whatsappLimiter } from "@/lib/utils/rate-limit";
 import { generateWhatsAppUrl } from "@/lib/whatsapp/whatsapp";
@@ -12,6 +13,15 @@ type Params = { params: Promise<{ slug: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    // 0. Verify customer authentication
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Please sign in to contact the Solution Partner on WhatsApp." },
+        { status: 401 }
+      );
+    }
+
     // 1. Rate limiting by client IP
     const ip = getClientIp(request);
     const rateLimitResult = whatsappLimiter.check(ip);

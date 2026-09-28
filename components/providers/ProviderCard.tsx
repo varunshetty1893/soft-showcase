@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ShieldCheck, Mail } from "lucide-react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { ShieldCheck, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WhatsAppButton } from "@/components/inquiry/WhatsAppButton";
 import { InquiryModal } from "@/components/inquiry/InquiryModal";
@@ -29,6 +31,8 @@ export function ProviderCard({
   projectId,
   projectSlug,
 }: ProviderCardProps) {
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const hasWhatsApp = Boolean(provider.whatsappNumber && provider.showWhatsapp !== false);
 
@@ -51,11 +55,11 @@ export function ProviderCard({
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="text-base font-bold text-[#102124]">{provider.displayName}</h3>
-              <span title="Verified Provider">
+              <span title="Verified Solution Partner">
                 <ShieldCheck className="w-4 h-4 text-[#2F7D78]" />
               </span>
             </div>
-            <span className="text-xs text-[#2F7D78] font-medium">Verified Project Provider</span>
+            <span className="text-xs text-[#2F7D78] font-medium">Verified Solution Partner</span>
           </div>
         </div>
 
@@ -66,29 +70,48 @@ export function ProviderCard({
         )}
 
         {/* Action buttons */}
-        <div className="space-y-2.5 pt-2">
-          {hasWhatsApp && (
-            <WhatsAppButton projectSlug={projectSlug} />
-          )}
+        {!session?.user ? (
+          <div className="space-y-3 pt-2">
+            <div className="p-3.5 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267] text-center space-y-2">
+              <div className="flex items-center justify-center gap-1.5 font-bold text-[#102124]">
+                <Lock className="w-3.5 h-3.5 text-[#155761]" />
+                <span>Sign In to Communicate</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-[#526267]">
+                Sign in to your account to chat on WhatsApp or send an inquiry to this Solution Partner.
+              </p>
+              <Link href={`/login?callbackUrl=/projects/${projectSlug}`} className="block pt-1">
+                <Button variant="primary" size="md" className="w-full text-xs font-bold gap-1.5 shadow-xs">
+                  <span>Sign In to Inquire</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2.5 pt-2">
+            {hasWhatsApp && (
+              <WhatsAppButton projectSlug={projectSlug} />
+            )}
 
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => setIsModalOpen(true)}
-            className="w-full gap-2 text-sm font-semibold cursor-pointer"
-          >
-            <Mail className="w-4 h-4 text-[#155761]" />
-            Send Email Inquiry
-          </Button>
-        </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => setIsModalOpen(true)}
+              className="w-full gap-2 text-sm font-semibold cursor-pointer"
+            >
+              <Mail className="w-4 h-4 text-[#155761]" />
+              Send Email Inquiry
+            </Button>
+          </div>
+        )}
 
         <p className="text-[11px] text-[#526267] text-center leading-normal">
-          Direct provider communication. Inquiries are delivered directly to {provider.displayName}.
+          Direct partner communication. Inquiries are delivered directly to {provider.displayName}.
         </p>
       </div>
 
-      {projectId && (
+      {projectId && session?.user && (
         <InquiryModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

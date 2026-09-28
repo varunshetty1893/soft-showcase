@@ -5,7 +5,9 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, AlertCircle, Send } from "lucide-react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { CheckCircle2, AlertCircle, Send, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +26,8 @@ export function InquiryForm({
   onSuccess,
   onCancel,
 }: InquiryFormProps) {
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
@@ -32,10 +36,48 @@ export function InquiryForm({
     message: "",
   });
 
+  React.useEffect(() => {
+    if (session?.user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || session.user.name || "",
+        email: prev.email || session.user.email || "",
+      }));
+    }
+  }, [session]);
+
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const [isSuccess, setIsSuccess] = React.useState(false);
+
+  if (!session?.user) {
+    return (
+      <div className="py-6 text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center mx-auto">
+          <Lock className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-[#102124]">Sign In Required</h3>
+          <p className="text-xs text-[#526267] max-w-sm mx-auto leading-relaxed">
+            Please sign in to send an inquiry and communicate directly with Solution Partners.
+          </p>
+        </div>
+        <div className="pt-2 flex items-center justify-center gap-3">
+          <Link href="/login">
+            <Button variant="primary" size="md">
+              Sign In to Inquire
+            </Button>
+          </Link>
+          {onCancel && (
+            <Button type="button" variant="outline" size="md" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

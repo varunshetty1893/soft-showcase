@@ -48,7 +48,7 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isPartner = user.role === "solution_partner" || user.partnerStatus === "approved" || Boolean(user.partnerId && user.partnerStatus === "approved");
+  const isPartner = user.role === "solution_partner" || user.partnerStatus === "approved" || Boolean(user.partnerId);
   const isPendingPartner = user.partnerStatus === "pending";
 
   return (

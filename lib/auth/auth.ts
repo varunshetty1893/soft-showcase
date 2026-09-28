@@ -71,13 +71,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("EMAIL_NOT_VERIFIED");
         }
 
+        const userRole = (user as { role?: "admin" | "customer" | "solution_partner" }).role;
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           image: user.image,
           isAdmin: user.isAdmin,
-          role: (user as { role?: string }).role || (user.isAdmin ? "admin" : "customer"),
+          role: userRole || (user.isAdmin ? "admin" : "customer"),
         };
       },
     }),

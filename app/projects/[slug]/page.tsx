@@ -214,16 +214,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <p className="text-base text-[#526267] max-w-3xl leading-relaxed">
                 {project.shortDescription}
               </p>
-
-              {/* Amazon / Flipkart Style Price Header */}
-              <div className="pt-2">
-                <PriceBadge
-                  priceMode={project.priceMode}
-                  price={project.price ? project.price.toString() : null}
-                  variant="detail"
-                  showTaxNotice={true}
-                />
-              </div>
             </div>
 
             {/* External Links (Live Demo, GitHub) */}
@@ -245,10 +235,30 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
           {/* ── Main Content Grid ──────────────────────────────────────── */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Left 2 Columns: Gallery, Overview, Features, Specs, FAQ */}
+            {/* Left 2 Columns: Gallery, Price/Deal Box, Overview, Features, Specs, FAQ */}
             <div className="lg:col-span-2 space-y-8">
               {/* Screenshot Gallery */}
               <ProjectGallery images={project.images} projectTitle={project.title} />
+
+              {/* Amazon / Flipkart Style Price, Limited Deal & Discount Section (Below image, above project overview) */}
+              <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-7 shadow-xs">
+                <PriceBadge
+                  priceMode={project.priceMode}
+                  price={project.price ? project.price.toString() : null}
+                  variant="detail"
+                  showTaxNotice={true}
+                />
+              </div>
+
+              {/* Full Description / Overview (Immediately below Price & Limited Deal) */}
+              {project.fullDescription && (
+                <section className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
+                  <h2 className="text-xl font-bold text-[#102124] mb-4">Project Overview</h2>
+                  <div className="prose prose-sm max-w-none text-[#526267] leading-relaxed whitespace-pre-line">
+                    {project.fullDescription}
+                  </div>
+                </section>
+              )}
 
               {/* Technologies Pill Row */}
               {project.technologies.length > 0 && (
@@ -262,16 +272,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* Full Description / Overview */}
-              {project.fullDescription && (
-                <section className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
-                  <h2 className="text-xl font-bold text-[#102124] mb-4">Project Overview</h2>
-                  <div className="prose prose-sm max-w-none text-[#526267] leading-relaxed whitespace-pre-line">
-                    {project.fullDescription}
-                  </div>
-                </section>
               )}
 
               {/* Key Features */}
@@ -304,7 +304,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                   </div>
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#155761] shrink-0" />
-                    <span>Verified Maker: <strong className="text-[#102124] ml-0.5">{project.provider.displayName}</strong></span>
+                    <span>Verified Solution Partner: <strong className="text-[#102124] ml-0.5">{project.provider.displayName}</strong></span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-[#526267] shrink-0" />

@@ -3,6 +3,8 @@
 // Source of truth: docs/26-custom-project-system.md & docs/08-page-specifications.md
 
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CustomProjectForm } from "@/components/custom-project/CustomProjectForm";
@@ -42,7 +44,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CustomProjectPage() {
+export default async function CustomProjectPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login?callbackUrl=/custom-project");
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <Navbar />

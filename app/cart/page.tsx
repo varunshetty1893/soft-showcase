@@ -2,6 +2,8 @@
 // Shopping Cart and Saved Projects page for Soft Showcase.
 
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CartPageContent } from "@/components/cart/CartPageContent";
@@ -39,7 +41,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CartPage() {
+export default async function CartPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login?callbackUrl=/cart");
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA]">
       <Navbar />

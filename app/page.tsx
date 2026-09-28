@@ -37,6 +37,7 @@ import { getPublishedProjects } from "@/lib/db/queries/projects";
 import { ProjectCard, type ProjectCardData } from "@/components/projects/ProjectCard";
 import type { Metadata } from "next";
 import { APP_NAME, APP_URL } from "@/config/constants";
+import { auth } from "@/lib/auth/auth";
 
 export const metadata: Metadata = {
   title: "Soft Showcase - Discover Software Projects",

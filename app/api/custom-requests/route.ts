@@ -3,6 +3,7 @@
 // Source of truth: docs/26-custom-project-system.md & docs/15-api-architecture.md
 
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { CustomRequestSchema } from "@/lib/validation/custom-request.schema";
 import { customRequestLimiter, getClientIp } from "@/lib/utils/rate-limit";
@@ -14,6 +15,14 @@ import { createAuditLog } from "@/lib/db/audit";
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "You must be signed in to submit a custom software request." },
+        { status: 401 }
+      );
+    }
+
     // 1. Rate Limiting Check (3 per IP per hour as per docs/26-custom-project-system.md)
     const ip = getClientIp(request);
     const rateLimit = customRequestLimiter.check(ip);

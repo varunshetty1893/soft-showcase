@@ -7,6 +7,8 @@
 import * as React from "react";
 import { MessageSquare, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface WhatsAppButtonProps {
   projectSlug: string;
@@ -21,14 +23,27 @@ export function WhatsAppButton({
 }: WhatsAppButtonProps) {
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const router = useRouter();
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
 
   async function handleClick() {
+    if (!session?.user) {
+      router.push(`/login?callbackUrl=/projects/${projectSlug}`);
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
 
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/whatsapp`);
       const data = await res.json();
+
+      if (res.status === 401) {
+        router.push(`/login?callbackUrl=/projects/${projectSlug}`);
+        return;
+      }
 
       if (!res.ok || !data.success) {
         if (res.status === 429) {

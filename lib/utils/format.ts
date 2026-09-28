@@ -28,6 +28,17 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
+ * Formats a currency amount into a readable string (defaults to INR ₹).
+ */
+export function formatCurrency(
+  value: number | string | null | undefined,
+  currency = "INR"
+): string {
+  const formatted = formatPrice(value, currency);
+  return formatted || "₹0";
+}
+
+/**
  * Formats a price value with the Indian Rupee (₹) currency symbol and Indian grouping.
  * Returns null if value is null/undefined.
  * Example: 24999 -> "₹24,999"
