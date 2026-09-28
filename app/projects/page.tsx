@@ -21,17 +21,32 @@ import { ProjectCardData } from "@/components/projects/ProjectCard";
 export const metadata: Metadata = {
   title: "Browse Software Projects — Soft Showcase",
   description:
-    "Explore our directory of production-grade software applications, mobile apps, and tools. Contact providers directly via WhatsApp or email.",
+    "Explore our directory of production-grade software applications, mobile apps, and developer tools. Connect with verified builders directly via WhatsApp or email.",
   alternates: {
     canonical: `${APP_URL}/projects`,
   },
   openGraph: {
     title: `Browse Software Projects — ${APP_NAME}`,
     description:
-      "Explore our directory of production-grade software applications, mobile apps, and tools. Contact providers directly via WhatsApp or email.",
+      "Explore our directory of production-grade software applications, mobile apps, and developer tools. Connect with verified builders directly via WhatsApp or email.",
     url: `${APP_URL}/projects`,
     siteName: APP_NAME,
     type: "website",
+    images: [
+      {
+        url: `${APP_URL}/logo.png`,
+        width: 800,
+        height: 600,
+        alt: `${APP_NAME} Catalog`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Browse Software Projects — ${APP_NAME}`,
+    description:
+      "Explore our directory of production-grade software applications, mobile apps, and developer tools. Connect with verified builders directly via WhatsApp or email.",
+    images: [`${APP_URL}/logo.png`],
   },
 };
 

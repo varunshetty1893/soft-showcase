@@ -1,36 +1,44 @@
 // app/sitemap.ts
-// Generates a dynamic XML sitemap for the application.
-// Project detail pages are added dynamically from the database.
-// See: https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap
+// Generates a dynamic XML sitemap for Soft Showcase.
+// Only includes public, indexable URLs on the production domain.
+// Excludes private customer dashboards, admin panels, auth routes, and API endpoints.
 
 import type { MetadataRoute } from "next";
 import { APP_URL } from "@/config/constants";
 import { db } from "@/lib/db/client";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static routes
+  const baseUrl = APP_URL.replace(/\/$/, "");
+
+  // Public indexable static routes
   const staticRoutes: MetadataRoute.Sitemap = [
     {
-      url: APP_URL,
+      url: `${baseUrl}/`,
       lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 1,
+      priority: 1.0,
     },
     {
-      url: `${APP_URL}/projects`,
+      url: `${baseUrl}/projects`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${APP_URL}/custom-project`,
+      url: `${baseUrl}/custom-project`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/cart`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.7,
+      priority: 0.5,
     },
   ];
 
-  // Dynamic project pages — only published projects
+  // Dynamic project pages — only PUBLISHED projects
   let projectRoutes: MetadataRoute.Sitemap = [];
   try {
     const projects = await db.project.findMany({
@@ -39,14 +47,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
 
     projectRoutes = projects.map((project) => ({
-      url: `${APP_URL}/projects/${project.slug}`,
-      lastModified: project.updatedAt,
+      url: `${baseUrl}/projects/${project.slug}`,
+      lastModified: project.updatedAt ? new Date(project.updatedAt) : new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.8,
     }));
-  } catch {
-    // If DB is unreachable during build, return only static routes
-    console.warn("Sitemap: Could not fetch projects from database.");
+  } catch (err) {
+    console.warn("Sitemap: Could not fetch projects from database:", err);
   }
 
   return [...staticRoutes, ...projectRoutes];

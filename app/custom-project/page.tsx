@@ -24,6 +24,21 @@ export const metadata: Metadata = {
     url: `${APP_URL}/custom-project`,
     siteName: APP_NAME,
     type: "website",
+    images: [
+      {
+        url: `${APP_URL}/logo.png`,
+        width: 800,
+        height: 600,
+        alt: `${APP_NAME} Custom Request`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Request Custom Software — ${APP_NAME}`,
+    description:
+      "Need a tailored web app, mobile app, or backend system? Submit your custom software project specifications directly to the Soft Showcase team.",
+    images: [`${APP_URL}/logo.png`],
   },
 };
 

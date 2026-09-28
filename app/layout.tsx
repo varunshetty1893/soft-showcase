@@ -1,7 +1,7 @@
 // app/layout.tsx
 // Root layout for Soft Showcase — applies to all pages.
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, APP_URL } from "@/config/constants";
@@ -21,45 +21,66 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   preload: false,
 });
 
+export const viewport: Viewport = {
+  themeColor: "#155761",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: `${APP_NAME} — Discover Software Projects`,
+    default: "Soft Showcase - Discover Software Projects",
     template: `%s | ${APP_NAME}`,
   },
   description:
-    "Browse and connect with quality software projects. Find web apps, mobile apps, e-commerce solutions, and more — or request a custom build.",
+    "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
   keywords: [
     "software projects",
     "web applications",
     "mobile apps",
     "custom software",
-    "freelance developers",
-    "software marketplace",
+    "software showcase",
+    "developer tools",
+    "software discovery",
   ],
-  authors: [{ name: APP_NAME }],
+  authors: [{ name: APP_NAME, url: APP_URL }],
+  creator: APP_NAME,
+  publisher: APP_NAME,
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: [{ url: "/logo.png" }],
+  },
+  alternates: {
+    canonical: `${APP_URL}/`,
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: APP_URL,
+    url: `${APP_URL}/`,
     siteName: APP_NAME,
-    title: `${APP_NAME} — Discover Software Projects`,
+    title: "Soft Showcase - Discover Software Projects",
     description:
-      "Browse and connect with quality software projects. Find web apps, mobile apps, e-commerce solutions, and more.",
+      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
     images: [
       {
-        url: "/og-default.png",
-        width: 1200,
-        height: 630,
-        alt: `${APP_NAME} — Software Project Discovery Platform`,
+        url: `${APP_URL}/logo.png`,
+        width: 800,
+        height: 600,
+        alt: `${APP_NAME} — Software Discovery Platform`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${APP_NAME} — Discover Software Projects`,
+    title: "Soft Showcase - Discover Software Projects",
     description:
-      "Browse and connect with quality software projects.",
+      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+    images: [`${APP_URL}/logo.png`],
   },
   robots: {
     index: true,
@@ -68,6 +89,8 @@ export const metadata: Metadata = {
       index: true,
       follow: true,
       "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
     },
   },
   verification: {

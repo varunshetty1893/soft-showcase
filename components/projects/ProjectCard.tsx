@@ -54,7 +54,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {primaryImage?.url ? (
           <img
             src={primaryImage.url}
-            alt={primaryImage.altText || project.title}
+            alt={primaryImage.altText || `${project.title} software preview thumbnail`}
+            loading="lazy"
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
         ) : (

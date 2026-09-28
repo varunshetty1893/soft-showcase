@@ -110,8 +110,9 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   }
 
   const primaryImage = project.images.find((i) => i.isPrimary) || project.images[0];
+  const baseUrl = APP_URL.replace(/\/$/, "");
 
-  const jsonLd = {
+  const softwareJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: project.title,
@@ -119,6 +120,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     applicationCategory: project.category?.name || "WebApplication",
     operatingSystem: "Web",
     image: primaryImage?.url,
+    url: `${baseUrl}/projects/${project.slug}`,
     offers: {
       "@type": "Offer",
       price: project.price ? String(project.price) : "0",
@@ -131,11 +133,46 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     },
   };
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: `${baseUrl}/`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Projects",
+        item: `${baseUrl}/projects`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: project.category.name,
+        item: `${baseUrl}/projects?category=${project.category.slug}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: project.title,
+        item: `${baseUrl}/projects/${project.slug}`,
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <Navbar />
 

@@ -63,7 +63,8 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
             >
               <img
                 src={img.url}
-                alt={img.altText || `Thumbnail ${idx + 1}`}
+                alt={img.altText || `${projectTitle} preview thumbnail ${idx + 1}`}
+                loading="lazy"
                 className="w-full h-full object-cover"
               />
             </button>

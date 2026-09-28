@@ -105,7 +105,8 @@ export function CartPageContent() {
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
-                      alt={item.title}
+                      alt={`${item.title} project preview`}
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   ) : (

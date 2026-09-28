@@ -37,19 +37,34 @@ import type { Metadata } from "next";
 import { APP_NAME, APP_URL } from "@/config/constants";
 
 export const metadata: Metadata = {
-  title: "Soft Showcase — Discover & Buy Software Projects",
+  title: "Soft Showcase - Discover Software Projects",
   description:
-    "Browse a curated catalog of software projects. Contact providers directly via WhatsApp or Email. Find AI tools, web apps, e-commerce solutions, and more.",
+    "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
   alternates: {
-    canonical: APP_URL,
+    canonical: `${APP_URL}/`,
   },
   openGraph: {
-    title: "Soft Showcase — Discover & Buy Software Projects",
+    title: "Soft Showcase - Discover Software Projects",
     description:
-      "Browse a curated catalog of software projects. Contact providers directly via WhatsApp or Email. Find AI tools, web apps, e-commerce solutions, and more.",
-    url: APP_URL,
+      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+    url: `${APP_URL}/`,
     siteName: APP_NAME,
     type: "website",
+    images: [
+      {
+        url: `${APP_URL}/logo.png`,
+        width: 800,
+        height: 600,
+        alt: `${APP_NAME} — Software Discovery Platform`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Soft Showcase - Discover Software Projects",
+    description:
+      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+    images: [`${APP_URL}/logo.png`],
   },
 };
 
@@ -76,8 +91,46 @@ const categoryTagsMap: Record<string, string[]> = {
 };
 
 export default function HomePage() {
+  const baseUrl = APP_URL.replace(/\/$/, "");
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Soft Showcase",
+    url: `${baseUrl}/`,
+    description:
+      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${baseUrl}/projects?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Soft Showcase",
+    url: `${baseUrl}/`,
+    logo: `${baseUrl}/logo.png`,
+    description: "Curated software project discovery platform connecting businesses with verified software developers and creators.",
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124] font-sans selection:bg-[#DDF4EC] selection:text-[#102124]">
+      {/* Schema.org Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+
       <Navbar />
 
       <main className="flex-1 w-full">

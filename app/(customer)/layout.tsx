@@ -8,6 +8,11 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import { getCustomerStats } from "@/lib/db/queries/customer";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function CustomerLayout({
   children,
