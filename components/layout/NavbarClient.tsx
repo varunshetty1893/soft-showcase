@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Menu, X, ArrowUpRight, LayoutDashboard, MessageSquare, LogOut, KeyRound, User } from "lucide-react";
+import { Menu, X, ArrowUpRight, LayoutDashboard, MessageSquare, LogOut, KeyRound, User, Sparkles, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserNavDropdown } from "@/components/layout/UserNavDropdown";
 import { CartNavButton } from "@/components/cart/CartNavButton";
@@ -18,6 +18,9 @@ interface NavbarClientProps {
     email?: string | null;
     image?: string | null;
     isAdmin?: boolean;
+    role?: "customer" | "solution_partner" | "admin";
+    partnerStatus?: "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null;
+    partnerId?: string | null;
   } | null;
   signOutAction: () => Promise<void>;
 }
@@ -34,15 +37,38 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
     }
   };
 
+  const isPartner =
+    user?.role === "solution_partner" ||
+    user?.partnerStatus === "approved" ||
+    Boolean(user?.partnerId);
+
   const navLinks = [
     { label: "Browse Projects", href: "/projects" },
     { label: "Categories", href: "/#categories" },
+    {
+      label: isPartner ? "Partner Portal" : "Partners",
+      href: isPartner ? "/partner" : "/become-a-partner",
+    },
     { label: "How It Works", href: "/#how-it-works" },
     { label: "Why Us", href: "/#why-us" },
   ];
 
   const isActive = (href: string) => {
     if (href.startsWith("/#")) return false;
+    if (href === "/become-a-partner") {
+      return (
+        pathname === "/become-a-partner" ||
+        pathname === "/partner/register" ||
+        pathname === "/partner/status"
+      );
+    }
+    if (href === "/partner") {
+      return (
+        pathname.startsWith("/partner") &&
+        pathname !== "/partner/register" &&
+        pathname !== "/partner/status"
+      );
+    }
     return pathname === href;
   };
 
@@ -105,6 +131,9 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   email: user.email,
                   image: user.image,
                   isAdmin: user.isAdmin,
+                  role: user.role,
+                  partnerStatus: user.partnerStatus,
+                  partnerId: user.partnerId,
                 }}
                 onSignOut={handleSignOut}
               />
@@ -241,6 +270,17 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   Custom Requests
                 </Link>
 
+                {isPartner && (
+                  <Link
+                    href="/partner"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-[#2F7D78] bg-[#DDF4EC]/40 hover:bg-[#DDF4EC]/70"
+                  >
+                    <Layers className="w-4 h-4 text-[#2F7D78]" />
+                    Partner Portal
+                  </Link>
+                )}
+
                 <div className="pt-2">
                   <Button
                     variant="outline"
@@ -266,6 +306,16 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                     <ArrowUpRight className="w-4 h-4" />
                   </Button>
                 </Link>
+                <div className="pt-2 text-center border-t border-[#D9E2E4]/60">
+                  <Link
+                    href="/partner/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#155761] hover:underline py-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#2F7D78]" />
+                    <span>Register as a Solution Partner</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
