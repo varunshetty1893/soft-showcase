@@ -3,22 +3,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
   Lock,
   Phone,
   Briefcase,
-  FileText,
-  Code,
   Globe,
   MapPin,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  ShieldCheck,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -37,12 +41,15 @@ function LinkedinIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+
+const STEPS = [
+  { id: 1, title: "Account & Contact", shortTitle: "Account", icon: User },
+  { id: 2, title: "Studio Profile", shortTitle: "Profile", icon: Briefcase },
+  { id: 3, title: "Verification & Links", shortTitle: "Verification", icon: Globe },
+];
 
 export function PartnerRegisterForm() {
-  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -81,13 +88,102 @@ export function PartnerRegisterForm() {
     }
   };
 
+  const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (step === 1) {
+      if (!formData.name.trim() || formData.name.trim().length < 2) {
+        errors.name = "Full name must be at least 2 characters";
+      }
+      if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email.trim())) {
+        errors.email = "Please provide a valid email address";
+      }
+      if (!formData.password || formData.password.length < 8) {
+        errors.password = "Password must be at least 8 characters";
+      } else if (!/[A-Za-z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+        errors.password = "Password must contain at least one letter and one number";
+      }
+      if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = "Passwords do not match";
+      }
+      // Mobile / WhatsApp number is explicitly required
+      if (!formData.whatsappNumber.trim()) {
+        errors.whatsappNumber = "Mobile / WhatsApp number is required for direct buyer routing";
+      } else if (formData.whatsappNumber.trim().replace(/\D/g, "").length < 7) {
+        errors.whatsappNumber = "Please enter a valid mobile number with at least 7 digits";
+      }
+    } else if (step === 2) {
+      if (!formData.displayName.trim() || formData.displayName.trim().length < 2) {
+        errors.displayName = "Studio / display name must be at least 2 characters";
+      }
+      if (!formData.bio.trim() || formData.bio.trim().length < 10) {
+        errors.bio = "Please provide a brief bio/background (at least 10 characters)";
+      }
+      if (!formData.skills.trim()) {
+        errors.skills = "Core skills are required (e.g. Full-Stack, AI, React)";
+      }
+      if (!formData.technologies.trim()) {
+        errors.technologies = "Primary technologies are required (e.g. Next.js, Python)";
+      }
+    } else if (step === 3) {
+      // In step 3: except portfolio, all are required!
+      if (!formData.githubUrl.trim()) {
+        errors.githubUrl = "GitHub profile URL is required for code verification";
+      } else if (!/^https?:\/\//i.test(formData.githubUrl.trim())) {
+        errors.githubUrl = "Please enter a valid URL starting with http:// or https://";
+      }
+
+      if (!formData.linkedinUrl.trim()) {
+        errors.linkedinUrl = "LinkedIn profile URL is required";
+      } else if (!/^https?:\/\//i.test(formData.linkedinUrl.trim())) {
+        errors.linkedinUrl = "Please enter a valid URL starting with http:// or https://";
+      }
+
+      if (formData.portfolioUrl.trim() && !/^https?:\/\//i.test(formData.portfolioUrl.trim())) {
+        errors.portfolioUrl = "Portfolio URL must start with http:// or https://";
+      }
+
+      if (!formData.solutionsOffered.trim() || formData.solutionsOffered.trim().length < 2) {
+        errors.solutionsOffered = "Please specify the types of solutions you build (e.g. Web Apps, Microservices)";
+      }
+
+      if (!formData.location.trim() || formData.location.trim().length < 2) {
+        errors.location = "Location / region is required (e.g. Bengaluru, India or Remote)";
+      }
+    }
+
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setErrorBanner("Please review and complete the highlighted required fields before proceeding.");
+      return false;
+    }
+
+    setErrorBanner(null);
+    return true;
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev) => Math.min(prev + 1, 3));
+      window.scrollTo({ top: 120, behavior: "smooth" });
+    }
+  };
+
+  const handleBack = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setErrorBanner(null);
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorBanner(null);
     setFieldErrors({});
 
-    if (formData.password !== formData.confirmPassword) {
-      setFieldErrors({ confirmPassword: "Passwords do not match" });
+    // Validate all steps
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
       return;
     }
 
@@ -105,6 +201,14 @@ export function PartnerRegisterForm() {
       if (!res.ok) {
         if (data.details) {
           setFieldErrors(data.details);
+          // If errors belong to an earlier step, navigate there
+          if (data.details.name || data.details.email || data.details.password || data.details.whatsappNumber) {
+            setCurrentStep(1);
+          } else if (data.details.displayName || data.details.bio || data.details.skills || data.details.technologies) {
+            setCurrentStep(2);
+          } else {
+            setCurrentStep(3);
+          }
           setErrorBanner("Please review the highlighted fields below.");
         } else {
           setErrorBanner(data.error || "Failed to submit partner application.");
@@ -168,370 +272,606 @@ export function PartnerRegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
+      {/* ── STEPPER PROGRESS BAR ────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 sm:p-5 shadow-xs">
+        <div className="flex items-center justify-between relative">
+          {/* Progress bar background line */}
+          <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-[#E7EFF0] z-0" />
+          {/* Progress fill */}
+          <div
+            className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-[#155761] transition-all duration-300 z-0"
+            style={{
+              width:
+                currentStep === 1
+                  ? "0%"
+                  : currentStep === 2
+                  ? "50%"
+                  : "calc(100% - 48px)",
+            }}
+          />
+
+          {STEPS.map((step) => {
+            const isCompleted = currentStep > step.id;
+            const isCurrent = currentStep === step.id;
+
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => {
+                  if (step.id < currentStep) {
+                    setErrorBanner(null);
+                    setCurrentStep(step.id);
+                  }
+                }}
+                disabled={step.id > currentStep}
+                className={`relative z-10 flex flex-col items-center group ${
+                  step.id <= currentStep ? "cursor-pointer" : "cursor-default"
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border-2 ${
+                    isCompleted
+                      ? "bg-[#2F7D78] text-white border-[#2F7D78] shadow-xs"
+                      : isCurrent
+                      ? "bg-[#155761] text-white border-[#155761] ring-4 ring-[#155761]/15 shadow-sm"
+                      : "bg-white text-[#8A9B9F] border-[#D9E2E4]"
+                  }`}
+                >
+                  {isCompleted ? (
+                    <Check className="w-5 h-5 stroke-[2.5]" />
+                  ) : (
+                    <span>{step.id}</span>
+                  )}
+                </div>
+                <div className="mt-2 text-center">
+                  <div
+                    className={`text-xs font-bold transition-colors whitespace-nowrap ${
+                      isCurrent
+                        ? "text-[#155761]"
+                        : isCompleted
+                        ? "text-[#2F7D78]"
+                        : "text-[#8A9B9F]"
+                    }`}
+                  >
+                    <span className="hidden sm:inline">{step.title}</span>
+                    <span className="sm:hidden">{step.shortTitle}</span>
+                  </div>
+                  <div className="text-[10px] text-[#526267] hidden md:block">
+                    Step {step.id} of 3
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {errorBanner && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex items-start gap-2.5">
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex items-start gap-2.5 shadow-xs animate-in fade-in">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
           <span>{errorBanner}</span>
         </div>
       )}
 
-      {/* ── Section 1: Account Credentials ──────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-5">
-        <div className="border-b border-[#D9E2E4] pb-3">
-          <h3 className="text-base font-bold text-[#102124] flex items-center gap-2">
-            <User className="w-4 h-4 text-[#155761]" />
-            <span>1. Account Credentials</span>
-          </h3>
-          <p className="text-xs text-[#526267] mt-0.5">
-            Basic credentials used to log into the Soft Showcase Partner Portal.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Full Legal / Personal Name *
-            </label>
-            <Input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="e.g. Elena Vance"
-              required
-            />
-            {fieldErrors.name && (
-              <p className="text-rose-600 text-xs mt-1">{fieldErrors.name}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Account Email *
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="developer@example.com"
-                className="pl-9"
-                required
-              />
-            </div>
-            {fieldErrors.email && (
-              <p className="text-rose-600 text-xs mt-1">{fieldErrors.email}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Password *
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Minimum 8 characters"
-                className="pl-9"
-                required
-              />
-            </div>
-            {fieldErrors.password && (
-              <p className="text-rose-600 text-xs mt-1">{fieldErrors.password}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Confirm Password *
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Repeat password"
-                className="pl-9"
-                required
-              />
-            </div>
-            {fieldErrors.confirmPassword && (
-              <p className="text-rose-600 text-xs mt-1">
-                {fieldErrors.confirmPassword}
-              </p>
-            )}
-          </div>
-
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              WhatsApp / Mobile Number (for customer contact)
-            </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                name="whatsappNumber"
-                value={formData.whatsappNumber}
-                onChange={handleChange}
-                placeholder="e.g. +91 98765 43210 or 919876543210"
-                className="pl-9"
-              />
-            </div>
-            <p className="text-[11px] text-[#526267] mt-1">
-              Used when customers initiate direct WhatsApp enquiries regarding your software solutions.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Section 2: Professional / Studio Information ───────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-5">
-        <div className="border-b border-[#D9E2E4] pb-3">
-          <h3 className="text-base font-bold text-[#102124] flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-[#155761]" />
-            <span>2. Professional &amp; Studio Profile</span>
-          </h3>
-          <p className="text-xs text-[#526267] mt-0.5">
-            Information shown to platform reviewers and public solution pages.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Professional / Studio Display Name *
-            </label>
-            <Input
-              name="displayName"
-              value={formData.displayName}
-              onChange={handleChange}
-              placeholder="e.g. Vance Software Studios or Varun Shetty"
-              required
-            />
-            {fieldErrors.displayName && (
-              <p className="text-rose-600 text-xs mt-1">
-                {fieldErrors.displayName}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Professional Bio &amp; Background *
-            </label>
-            <Textarea
-              name="bio"
-              rows={3}
-              value={formData.bio}
-              onChange={handleChange}
-              placeholder="Describe your engineering focus, experience, and the kinds of software solutions you build..."
-              required
-            />
-            {fieldErrors.bio && (
-              <p className="text-rose-600 text-xs mt-1">{fieldErrors.bio}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-                Core Skills (comma-separated) *
-              </label>
-              <Input
-                name="skills"
-                value={formData.skills}
-                onChange={handleChange}
-                placeholder="Full-Stack, AI Agents, E-Commerce, UI/UX"
-                required
-              />
-              {fieldErrors.skills && (
-                <p className="text-rose-600 text-xs mt-1">{fieldErrors.skills}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-                Primary Technologies (comma-separated) *
-              </label>
-              <Input
-                name="technologies"
-                value={formData.technologies}
-                onChange={handleChange}
-                placeholder="Next.js, TypeScript, Python, PostgreSQL"
-                required
-              />
-              {fieldErrors.technologies && (
-                <p className="text-rose-600 text-xs mt-1">
-                  {fieldErrors.technologies}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ── STEP 1: ACCOUNT CREDENTIALS & CONTACT ──────────────────────── */}
+        {currentStep === 1 && (
+          <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="border-b border-[#D9E2E4] pb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3F7F7] text-[#155761] text-[11px] font-bold uppercase tracking-wider mb-1">
+                  <span>Step 1 of 3</span>
+                </div>
+                <h3 className="text-lg font-bold text-[#102124] flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#155761]" />
+                  <span>Account Credentials &amp; Contact</span>
+                </h3>
+                <p className="text-xs text-[#526267] mt-0.5">
+                  Set up your portal login credentials and primary direct contact line.
                 </p>
-              )}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Experience Summary
-            </label>
-            <Input
-              name="experience"
-              value={formData.experience}
-              onChange={handleChange}
-              placeholder="e.g. 5+ years building full-stack applications and production systems"
-            />
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Full Legal / Personal Name <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="e.g. Elena Vance"
+                  className={fieldErrors.name ? "border-rose-400 focus:border-rose-500" : ""}
+                  required
+                />
+                {fieldErrors.name && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.name}
+                  </p>
+                )}
+              </div>
 
-      {/* ── Section 3: Portfolio & Online Presence ──────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-5">
-        <div className="border-b border-[#D9E2E4] pb-3">
-          <h3 className="text-base font-bold text-[#102124] flex items-center gap-2">
-            <Globe className="w-4 h-4 text-[#155761]" />
-            <span>3. Portfolio &amp; Professional Links (Optional)</span>
-          </h3>
-          <p className="text-xs text-[#526267] mt-0.5">
-            Help reviewers assess the technical quality of your previous work.
-          </p>
-        </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Account Email <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="developer@example.com"
+                    className={`pl-9 ${fieldErrors.email ? "border-rose-400 focus:border-rose-500" : ""}`}
+                    required
+                  />
+                </div>
+                {fieldErrors.email && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Portfolio / Website URL
-            </label>
-            <div className="relative">
-              <Globe className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                name="portfolioUrl"
-                value={formData.portfolioUrl}
-                onChange={handleChange}
-                placeholder="https://yourportfolio.dev"
-                className="pl-9 text-xs"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Minimum 8 characters (letters + numbers)"
+                    className={`pl-9 ${fieldErrors.password ? "border-rose-400 focus:border-rose-500" : ""}`}
+                    required
+                  />
+                </div>
+                {fieldErrors.password && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Confirm Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repeat password"
+                    className={`pl-9 ${fieldErrors.confirmPassword ? "border-rose-400 focus:border-rose-500" : ""}`}
+                    required
+                  />
+                </div>
+                {fieldErrors.confirmPassword && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.confirmPassword}
+                  </p>
+                )}
+              </div>
+
+              {/* Mobile / WhatsApp Number (Required) */}
+              <div className="sm:col-span-2 pt-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                    WhatsApp / Mobile Number (Customer Inquiries) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    Required
+                  </span>
+                </div>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    name="whatsappNumber"
+                    value={formData.whatsappNumber}
+                    onChange={handleChange}
+                    placeholder="e.g. +91 98765 43210 or +1 415 555 2671"
+                    className={`pl-9 ${fieldErrors.whatsappNumber ? "border-rose-400 focus:border-rose-500" : ""}`}
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-[#526267] mt-1.5 leading-relaxed">
+                  Direct contact channel used by authenticated buyers on project pages to discuss custom requirements and technical demos.
+                </p>
+                {fieldErrors.whatsappNumber && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.whatsappNumber}
+                  </p>
+                )}
+              </div>
             </div>
-            {fieldErrors.portfolioUrl && (
-              <p className="text-rose-600 text-xs mt-1">
-                {fieldErrors.portfolioUrl}
+
+            {/* Step 1 Actions */}
+            <div className="pt-4 border-t border-[#D9E2E4] flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs text-[#526267]">
+                Already have an account?{" "}
+                <Link href="/login" className="text-[#155761] font-bold hover:underline">
+                  Sign In
+                </Link>
               </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              GitHub Profile URL
-            </label>
-            <div className="relative">
-              <GithubIcon className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                name="githubUrl"
-                value={formData.githubUrl}
-                onChange={handleChange}
-                placeholder="https://github.com/username"
-                className="pl-9 text-xs"
-              />
+              <Button
+                type="button"
+                onClick={handleNext}
+                variant="primary"
+                size="md"
+                className="w-full sm:w-auto gap-2 px-6 font-bold shadow-xs cursor-pointer"
+              >
+                <span>Continue to Studio Profile</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </div>
-            {fieldErrors.githubUrl && (
-              <p className="text-rose-600 text-xs mt-1">
-                {fieldErrors.githubUrl}
+          </div>
+        )}
+
+        {/* ── STEP 2: PROFESSIONAL & STUDIO PROFILE ─────────────────────── */}
+        {currentStep === 2 && (
+          <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="border-b border-[#D9E2E4] pb-4">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3F7F7] text-[#155761] text-[11px] font-bold uppercase tracking-wider mb-1">
+                <span>Step 2 of 3</span>
+              </div>
+              <h3 className="text-lg font-bold text-[#102124] flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-[#155761]" />
+                <span>Professional &amp; Studio Profile</span>
+              </h3>
+              <p className="text-xs text-[#526267] mt-0.5">
+                Technical background and creator branding shown to platform reviewers and on your solutions.
               </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              LinkedIn Profile URL
-            </label>
-            <div className="relative">
-              <LinkedinIcon className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                name="linkedinUrl"
-                value={formData.linkedinUrl}
-                onChange={handleChange}
-                placeholder="https://linkedin.com/in/username"
-                className="pl-9 text-xs"
-              />
             </div>
-            {fieldErrors.linkedinUrl && (
-              <p className="text-rose-600 text-xs mt-1">
-                {fieldErrors.linkedinUrl}
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Professional / Studio Display Name <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  name="displayName"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                  placeholder="e.g. Vance Software Studios or Varun Shetty"
+                  className={fieldErrors.displayName ? "border-rose-400 focus:border-rose-500" : ""}
+                  required
+                />
+                {fieldErrors.displayName && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.displayName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Professional Bio &amp; Engineering Focus <span className="text-rose-500">*</span>
+                </label>
+                <Textarea
+                  name="bio"
+                  rows={3}
+                  value={formData.bio}
+                  onChange={handleChange}
+                  placeholder="Describe your engineering focus, experience, and the kinds of software solutions you build..."
+                  className={fieldErrors.bio ? "border-rose-400 focus:border-rose-500" : ""}
+                  required
+                />
+                {fieldErrors.bio && (
+                  <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {fieldErrors.bio}
+                  </p>
+                )}
+              </div>
+
+              {/* Perfectly Aligned Skills and Technologies Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-1.5 h-5">
+                    <label className="text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Core Skills <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-[#526267] font-medium">comma-separated</span>
+                  </div>
+                  <Input
+                    name="skills"
+                    value={formData.skills}
+                    onChange={handleChange}
+                    placeholder="Full-Stack, AI Agents, E-Commerce, UI/UX"
+                    className={fieldErrors.skills ? "border-rose-400 focus:border-rose-500" : ""}
+                    required
+                  />
+                  {fieldErrors.skills && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {fieldErrors.skills}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-1.5 h-5">
+                    <label className="text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Primary Technologies <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-[#526267] font-medium">comma-separated</span>
+                  </div>
+                  <Input
+                    name="technologies"
+                    value={formData.technologies}
+                    onChange={handleChange}
+                    placeholder="Next.js, TypeScript, Python, PostgreSQL"
+                    className={fieldErrors.technologies ? "border-rose-400 focus:border-rose-500" : ""}
+                    required
+                  />
+                  {fieldErrors.technologies && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {fieldErrors.technologies}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
+                  Experience Summary
+                </label>
+                <Input
+                  name="experience"
+                  value={formData.experience}
+                  onChange={handleChange}
+                  placeholder="e.g. 5+ years building full-stack applications and production systems"
+                />
+              </div>
+            </div>
+
+            {/* Step 2 Actions */}
+            <div className="pt-4 border-t border-[#D9E2E4] flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                onClick={handleBack}
+                variant="outline"
+                size="md"
+                className="gap-1.5 text-xs font-semibold cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Account</span>
+              </Button>
+              <Button
+                type="button"
+                onClick={handleNext}
+                variant="primary"
+                size="md"
+                className="gap-2 px-6 font-bold shadow-xs cursor-pointer"
+              >
+                <span>Continue to Verification &amp; Links</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: VERIFICATION & CREATOR LINKS ──────────────────────── */}
+        {currentStep === 3 && (
+          <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="border-b border-[#D9E2E4] pb-4">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3F7F7] text-[#155761] text-[11px] font-bold uppercase tracking-wider mb-1">
+                <span>Step 3 of 3</span>
+              </div>
+              <h3 className="text-lg font-bold text-[#102124] flex items-center gap-2">
+                <Globe className="w-5 h-5 text-[#155761]" />
+                <span>Verification &amp; Creator Links</span>
+              </h3>
+              <p className="text-xs text-[#526267] mt-0.5">
+                Technical review links. Except portfolio website, all creator credentials are required for verification.
               </p>
-            )}
-          </div>
-        </div>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Types of Solutions You Offer
-            </label>
-            <Input
-              name="solutionsOffered"
-              value={formData.solutionsOffered}
-              onChange={handleChange}
-              placeholder="e.g. Web Apps, Microservices, Mobile Apps"
-            />
-          </div>
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 1. Portfolio / Website (OPTIONAL) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Portfolio / Website
+                    </label>
+                    <span className="text-[10px] text-[#526267] bg-[#F3F7F7] px-1.5 py-0.5 rounded">Optional</span>
+                  </div>
+                  <div className="relative">
+                    <Globe className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      name="portfolioUrl"
+                      value={formData.portfolioUrl}
+                      onChange={handleChange}
+                      placeholder="https://yourportfolio.dev"
+                      className={`pl-9 text-xs ${fieldErrors.portfolioUrl ? "border-rose-400 focus:border-rose-500" : ""}`}
+                    />
+                  </div>
+                  {fieldErrors.portfolioUrl && (
+                    <p className="text-rose-600 text-xs mt-1.5">{fieldErrors.portfolioUrl}</p>
+                  )}
+                </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1">
-              Location / Region
-            </label>
-            <div className="relative">
-              <MapPin className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <Input
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                placeholder="e.g. Bengaluru, India or Remote"
-                className="pl-9"
-              />
+                {/* 2. GitHub Profile (REQUIRED) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      GitHub Profile <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  </div>
+                  <div className="relative">
+                    <GithubIcon className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      name="githubUrl"
+                      value={formData.githubUrl}
+                      onChange={handleChange}
+                      placeholder="https://github.com/username"
+                      className={`pl-9 text-xs ${fieldErrors.githubUrl ? "border-rose-400 focus:border-rose-500" : ""}`}
+                      required
+                    />
+                  </div>
+                  {fieldErrors.githubUrl && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.githubUrl}
+                    </p>
+                  )}
+                </div>
+
+                {/* 3. LinkedIn Profile (REQUIRED) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      LinkedIn Profile <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  </div>
+                  <div className="relative">
+                    <LinkedinIcon className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      name="linkedinUrl"
+                      value={formData.linkedinUrl}
+                      onChange={handleChange}
+                      placeholder="https://linkedin.com/in/username"
+                      className={`pl-9 text-xs ${fieldErrors.linkedinUrl ? "border-rose-400 focus:border-rose-500" : ""}`}
+                      required
+                    />
+                  </div>
+                  {fieldErrors.linkedinUrl && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {fieldErrors.linkedinUrl}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-1">
+                {/* 4. Solutions Offered (REQUIRED) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Types of Solutions You Offer <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  </div>
+                  <Input
+                    name="solutionsOffered"
+                    value={formData.solutionsOffered}
+                    onChange={handleChange}
+                    placeholder="e.g. Web Apps, Microservices, Mobile Apps, SaaS"
+                    className={fieldErrors.solutionsOffered ? "border-rose-400 focus:border-rose-500" : ""}
+                    required
+                  />
+                  {fieldErrors.solutionsOffered && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {fieldErrors.solutionsOffered}
+                    </p>
+                  )}
+                </div>
+
+                {/* 5. Location / Region (REQUIRED) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Location / Region <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-rose-600">Required</span>
+                  </div>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Input
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      placeholder="e.g. Bengaluru, India or Remote"
+                      className={`pl-9 ${fieldErrors.location ? "border-rose-400 focus:border-rose-500" : ""}`}
+                      required
+                    />
+                  </div>
+                  {fieldErrors.location && (
+                    <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {fieldErrors.location}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Reviewer Note */}
+              <div className="p-4 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] text-xs text-[#526267] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-[#102124]">
+                  <ShieldCheck className="w-4 h-4 text-[#2F7D78]" />
+                  <span>Curator Verification Policy</span>
+                </div>
+                <p>
+                  Platform administrators verify that all partner code repositories adhere to software licensing, security standards, and direct maker ownership.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 Actions */}
+            <div className="pt-4 border-t border-[#D9E2E4] space-y-4">
+              <p className="text-[11px] text-[#526267] leading-relaxed">
+                By submitting this application, you agree to Soft Showcase&apos;s code quality standards, direct buyer communication policies, and acknowledge that approval is subject to administrative review.
+              </p>
+
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  onClick={handleBack}
+                  variant="outline"
+                  size="md"
+                  disabled={loading}
+                  className="gap-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Profile</span>
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="primary"
+                  size="lg"
+                  className="px-8 text-sm font-bold shadow-md cursor-pointer gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Submitting Application...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Submit Solution Partner Application</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* ── Submission Button & Terms ───────────────────────────────────── */}
-      <div className="space-y-4">
-        <p className="text-xs text-[#526267] leading-relaxed">
-          By submitting this application, you agree to Soft Showcase&apos;s code quality standards, direct buyer communication policies, and acknowledge that approval is subject to administrative review.
-        </p>
-
-        <Button
-          type="submit"
-          disabled={loading}
-          variant="primary"
-          size="lg"
-          className="w-full text-sm font-bold shadow-md cursor-pointer"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Submitting Application...
-            </>
-          ) : (
-            "Submit Solution Partner Application"
-          )}
-        </Button>
-
-        <div className="text-center pt-2">
-          <p className="text-xs text-[#526267]">
-            Already an approved Solution Partner?{" "}
-            <Link
-              href="/login?callbackUrl=/partner/dashboard"
-              className="text-[#155761] font-bold hover:underline"
-            >
-              Sign In to Partner Portal
-            </Link>
-          </p>
-        </div>
-      </div>
-    </form>
+        )}
+      </form>
+    </div>
   );
 }

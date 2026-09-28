@@ -104,6 +104,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
         token.role = (user as { role?: string }).role || (token.isAdmin ? "admin" : "customer");
+        token.lastChecked = Date.now();
       }
 
       // Check against ADMIN_EMAIL env var or database
@@ -113,8 +114,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = "admin";
       }
 
-      // Keep user info, role and partner status up-to-date directly from database
-      if (token.id) {
+      // Keep user info, role and partner status up-to-date with 60-second caching to avoid DB lag on every click
+      const now = Date.now();
+      const lastChecked = (token.lastChecked as number) || 0;
+      const shouldRefreshFromDb = Boolean(user) || (now - lastChecked > 60_000);
+
+      if (token.id && shouldRefreshFromDb) {
+        token.lastChecked = now;
         try {
           const dbUser = await db.user.findUnique({
             where: { id: token.id as string },

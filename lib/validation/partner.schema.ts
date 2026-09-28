@@ -25,10 +25,8 @@ export const PartnerRegisterSchema = z
     whatsappNumber: z
       .string()
       .trim()
-      .max(20, "Mobile / WhatsApp number is too long")
-      .optional()
-      .nullable()
-      .or(z.literal("")),
+      .min(7, "Mobile / WhatsApp number is required (at least 7 digits)")
+      .max(25, "Mobile / WhatsApp number is too long"),
     displayName: z
       .string()
       .trim()
@@ -58,12 +56,28 @@ export const PartnerRegisterSchema = z
       ),
     ]),
     experience: z.string().trim().max(500).optional().nullable().or(z.literal("")),
-    portfolioUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
-    githubUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
-    linkedinUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
-    solutionsOffered: z.string().trim().max(500).optional().nullable().or(z.literal("")),
+    portfolioUrl: z.union([z.string().url("Please provide a valid portfolio URL (e.g. https://yourportfolio.dev)"), z.literal(""), z.null()]).optional(),
+    githubUrl: z
+      .string()
+      .trim()
+      .min(1, "GitHub profile URL is required")
+      .url("Please provide a valid GitHub profile URL (e.g. https://github.com/username)"),
+    linkedinUrl: z
+      .string()
+      .trim()
+      .min(1, "LinkedIn profile URL is required")
+      .url("Please provide a valid LinkedIn profile URL (e.g. https://linkedin.com/in/username)"),
+    solutionsOffered: z
+      .string()
+      .trim()
+      .min(2, "Types of solutions you offer is required (e.g. Web Apps, Microservices, Mobile Apps)")
+      .max(500),
     expertiseAreas: z.string().trim().max(500).optional().nullable().or(z.literal("")),
-    location: z.string().trim().max(100).optional().nullable().or(z.literal("")),
+    location: z
+      .string()
+      .trim()
+      .min(2, "Location / Region is required (e.g. Bengaluru, India or Remote)")
+      .max(100),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
