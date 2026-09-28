@@ -4,7 +4,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileText, UserCheck, Shield } from "lucide-react";
+import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Lock } from "lucide-react";
+import { useCart } from "@/lib/cart/cart-context";
 
 interface CustomerHeaderProps {
   user: {
@@ -23,6 +24,12 @@ export function CustomerHeader({
   requestCount,
 }: CustomerHeaderProps) {
   const pathname = usePathname();
+  const { totalCount } = useCart();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const tabs = [
     {
@@ -38,7 +45,13 @@ export function CustomerHeader({
       badge: typeof requestCount === "number" ? requestCount : undefined,
     },
     {
-      label: "Profile Settings",
+      label: "Saved Projects & Cart",
+      href: "/cart",
+      icon: ShoppingCart,
+      badge: mounted && totalCount > 0 ? totalCount : undefined,
+    },
+    {
+      label: "Profile & WhatsApp",
       href: "/profile",
       icon: UserCheck,
     },
@@ -77,13 +90,22 @@ export function CustomerHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/cart"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-[#155761] bg-[#DDF4EC] hover:bg-[#c9ede2] border border-[#2F7D78]/25 transition-colors shadow-xs"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span>Cart ({mounted ? totalCount : 0})</span>
+            </Link>
+
             <Link
               href="/projects"
               className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-medium text-[#102124] bg-white hover:bg-[#F3F7F7] border border-[#D9E2E4] transition-colors shadow-xs"
             >
               Browse Projects
             </Link>
+
             <Link
               href="/custom-project"
               className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#155761] hover:bg-[#10474F] shadow-xs transition-colors"
@@ -114,10 +136,10 @@ export function CustomerHeader({
               <span>{tab.label}</span>
               {typeof tab.badge === "number" && (
                 <span
-                  className={`ml-1 text-xs px-2 py-0.5 rounded-full font-bold ${
+                  className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${
                     isActive
                       ? "bg-[#DDF4EC] text-[#155761]"
-                      : "bg-[#F3F7F7] text-[#526267] border border-[#D9E2E4]"
+                      : "bg-[#F3F7F7] text-[#526267]"
                   }`}
                 >
                   {tab.badge}

@@ -7,6 +7,7 @@ import { Sparkles, User as UserIcon } from "lucide-react";
 import { PriceBadge } from "./PriceBadge";
 import { TechBadge } from "./TechBadge";
 import { Badge } from "@/components/ui/badge";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 
 export interface ProjectCardData {
   id: string;
@@ -63,20 +64,38 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </div>
         )}
 
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-          {project.category ? (
-            <Badge variant="secondary" className="bg-white/95 backdrop-blur-xs shadow-xs text-xs font-medium border-[#D9E2E4] text-[#155761]">
-              {project.category.name}
-            </Badge>
-          ) : <div />}
+        {/* Top Badges & Actions */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
+          <div className="flex items-center gap-1.5">
+            {project.category && (
+              <Badge variant="secondary" className="bg-white/95 backdrop-blur-xs shadow-xs text-xs font-medium border-[#D9E2E4] text-[#155761]">
+                {project.category.name}
+              </Badge>
+            )}
 
-          {project.featured && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/25 font-bold text-[11px] shadow-xs">
-              <Sparkles className="w-3 h-3 text-[#2F7D78]" />
-              <span>Featured</span>
-            </div>
-          )}
+            {project.featured && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/25 font-bold text-[11px] shadow-xs">
+                <Sparkles className="w-3 h-3 text-[#2F7D78]" />
+                <span>Featured</span>
+              </div>
+            )}
+          </div>
+
+          <AddToCartButton
+            project={{
+              id: project.id,
+              title: project.title,
+              slug: project.slug,
+              shortDescription: project.shortDescription,
+              priceMode: project.priceMode,
+              price: project.price ? project.price.toString() : null,
+              imageUrl: primaryImage?.url || null,
+              providerName: project.provider?.displayName || null,
+              categoryName: project.category?.name || null,
+            }}
+            variant="compact"
+            className="shadow-sm bg-white/90 backdrop-blur-xs hover:bg-white"
+          />
         </div>
       </div>
 

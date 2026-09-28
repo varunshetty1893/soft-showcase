@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, APP_URL } from "@/config/constants";
+import { AppProviders } from "@/components/providers/AppProviders";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -69,6 +70,9 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
     },
   },
+  verification: {
+    google: "H-ApiXzSdJL2QT8oYgA5nCkeket1TKISTftArJVJEgM",
+  },
 };
 
 export default function RootLayout({
@@ -78,8 +82,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
+      <head>
+        <meta
+          name="google-site-verification"
+          content="H-ApiXzSdJL2QT8oYgA5nCkeket1TKISTftArJVJEgM"
+        />
+      </head>
       <body className="antialiased font-sans bg-[#F8FAFA] text-[#102124]">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

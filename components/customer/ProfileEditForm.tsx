@@ -3,9 +3,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Shield, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Shield, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordChangeForm } from "./PasswordChangeForm";
 
 interface ProfileEditFormProps {
   user: {
@@ -21,13 +22,26 @@ interface ProfileEditFormProps {
 export function ProfileEditForm({ user }: ProfileEditFormProps) {
   const router = useRouter();
   const [name, setName] = React.useState(user.name || "");
+  const [whatsapp, setWhatsapp] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(`customer_whatsapp_${user.id}`) || "";
+    }
+    return "";
+  });
+  const [contactEmail, setContactEmail] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(`customer_contact_email_${user.id}`) || user.email;
+    }
+    return user.email;
+  });
+
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setMessage({ type: "error", text: "Name cannot be empty." });
+      setMessage({ type: "error", text: "Display name cannot be empty." });
       return;
     }
 
@@ -47,7 +61,13 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      setMessage({ type: "success", text: "Profile details updated successfully." });
+      // Persist contact details for auto-filling inquiry & custom request forms
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`customer_whatsapp_${user.id}`, whatsapp.trim());
+        localStorage.setItem(`customer_contact_email_${user.id}`, contactEmail.trim());
+      }
+
+      setMessage({ type: "success", text: "Your profile details and contact preferences have been saved." });
       router.refresh();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Something went wrong.";
@@ -64,12 +84,12 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
   });
 
   return (
-    <div className="space-y-6">
-      {/* Edit Basic Info Card */}
+    <div className="space-y-8">
+      {/* Edit Basic Info & Contact Preferences Card */}
       <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
-        <h2 className="text-lg font-bold text-[#102124] mb-1">Personal Information</h2>
+        <h2 className="text-lg font-bold text-[#102124] mb-1">Personal &amp; Contact Information</h2>
         <p className="text-sm text-[#526267] mb-6">
-          Update your public name displayed when communicating with project providers.
+          Update your public name, preferred WhatsApp number, and primary email for creator communications.
         </p>
 
         {message && (
@@ -90,6 +110,7 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+          {/* Display Name */}
           <div>
             <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
               Display Name
@@ -107,11 +128,15 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
                 maxLength={100}
               />
             </div>
+            <p className="text-xs text-[#526267] mt-1.5">
+              Your name displayed on inquiries and custom project orders.
+            </p>
           </div>
 
+          {/* Account Login Email (Locked) */}
           <div>
             <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
-              Email Address
+              Account Login Email
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -123,7 +148,47 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
               />
             </div>
             <p className="text-xs text-[#526267] mt-1.5">
-              Email is managed by your account and cannot be changed here.
+              Primary authentication identifier linked to this account.
+            </p>
+          </div>
+
+          {/* Preferred Contact WhatsApp Number */}
+          <div>
+            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
+              WhatsApp Contact Number
+            </label>
+            <div className="relative">
+              <Phone className="w-4 h-4 text-[#2F7D78] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                type="tel"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="+91 98765 43210 (with country code)"
+                className="pl-10 text-sm"
+              />
+            </div>
+            <p className="text-xs text-[#526267] mt-1.5">
+              Used to connect with project builders directly for rapid handovers and live demos.
+            </p>
+          </div>
+
+          {/* Preferred Communication Email */}
+          <div>
+            <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
+              Alternative / Inquiry Email
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                type="email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="secondary@example.com"
+                className="pl-10 text-sm"
+              />
+            </div>
+            <p className="text-xs text-[#526267] mt-1.5">
+              Where project creators send code repositories, documents, and technical proposals.
             </p>
           </div>
 
@@ -140,16 +205,19 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
                   Saving...
                 </>
               ) : (
-                "Save Changes"
+                "Save Profile Changes"
               )}
             </Button>
           </div>
         </form>
       </div>
 
+      {/* Password Reset / Change Form Component */}
+      <PasswordChangeForm />
+
       {/* Account Details Card */}
       <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
-        <h2 className="text-lg font-bold text-[#102124] mb-1">Account Credentials & Status</h2>
+        <h2 className="text-lg font-bold text-[#102124] mb-1">Account Credentials &amp; Status</h2>
         <p className="text-sm text-[#526267] mb-6">
           System metadata associated with your Soft Showcase account.
         </p>
@@ -171,8 +239,8 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
           </div>
 
           <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
-            <span className="text-xs font-medium text-[#526267] block mb-1">Auth Provider</span>
-            <span className="text-sm font-bold text-[#102124]">Email & OAuth</span>
+            <span className="text-xs font-medium text-[#526267] block mb-1">Auth Method</span>
+            <span className="text-sm font-bold text-[#102124]">Password &amp; OAuth</span>
           </div>
         </div>
       </div>

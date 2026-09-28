@@ -15,6 +15,7 @@ import { ProjectFeatures } from "@/components/projects/ProjectFeatures";
 import { ProjectSpecs } from "@/components/projects/ProjectSpecs";
 import { ProjectFAQ } from "@/components/projects/ProjectFAQ";
 import { ProviderCard } from "@/components/providers/ProviderCard";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { RelatedProjects } from "@/components/projects/RelatedProjects";
 import { ProjectCardData } from "@/components/projects/ProjectCard";
 import { Badge } from "@/components/ui/badge";
@@ -279,6 +280,24 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     <Lock className="w-4 h-4 text-[#526267] shrink-0" />
                     <span>Direct WhatsApp &amp; Authenticated Email</span>
                   </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#F3F7F7]">
+                  <AddToCartButton
+                    project={{
+                      id: project.id,
+                      title: project.title,
+                      slug: project.slug,
+                      shortDescription: project.shortDescription,
+                      priceMode: project.priceMode,
+                      price: project.price ? project.price.toString() : null,
+                      imageUrl: project.images?.[0]?.url || null,
+                      providerName: project.provider.displayName,
+                      providerWhatsapp: project.provider.whatsappNumber,
+                      providerEmail: project.provider.email,
+                      categoryName: project.category.name,
+                    }}
+                  />
                 </div>
               </div>
 

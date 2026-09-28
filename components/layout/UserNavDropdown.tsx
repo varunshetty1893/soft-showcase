@@ -12,6 +12,7 @@ import {
   FileCode2,
   KeyRound,
   LogOut,
+  ShoppingCart,
 } from "lucide-react";
 
 interface UserNavDropdownProps {
@@ -126,6 +127,15 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
                 <span>Profile Settings</span>
               </Link>
             )}
+
+            <Link
+              href="/cart"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#155761] hover:bg-[#F3F7F7] transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4 text-[#155761]" />
+              <span>Saved Projects &amp; Cart</span>
+            </Link>
 
             <Link
               href="/my-inquiries"

@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { Menu, X, ArrowUpRight, LayoutDashboard, MessageSquare, LogOut, KeyRound, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserNavDropdown } from "@/components/layout/UserNavDropdown";
+import { CartNavButton } from "@/components/cart/CartNavButton";
 
 interface NavbarClientProps {
   user?: {
@@ -84,6 +85,8 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
         {/* Desktop Auth & CTAs */}
         <div className="hidden md:flex items-center gap-2.5 shrink-0">
+          <CartNavButton />
+
           {user ? (
             <div className="flex items-center gap-2">
               {user.isAdmin && (
@@ -123,8 +126,9 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="flex md:hidden">
+        {/* Mobile Menu & Cart Button */}
+        <div className="flex items-center gap-1.5 md:hidden">
+          <CartNavButton />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

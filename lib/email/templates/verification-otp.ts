@@ -23,6 +23,14 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
   const verifyUrl = data.verifyUrl;
   const minutes = data.expiresInMinutes || 15;
 
+  // Use production domain for absolute image URL in email clients
+  const appBaseUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    "https://softshowcase.vercel.app"
+  ).replace(/\/$/, "");
+
+  const logoUrl = `${appBaseUrl}/logo.png`;
   const subject = `${otp} is your Soft Showcase verification code`;
 
   const html = `
@@ -40,19 +48,23 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
         <!-- Main Container Card -->
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border: 1px solid #D9E2E4; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(16, 33, 36, 0.04);">
           
-          <!-- Header Banner -->
+          <!-- Header with Logo -->
           <tr>
-            <td style="padding: 32px 40px 24px; border-bottom: 1px solid #F3F7F7; background: linear-gradient(180deg, #F8FAFA 0%, #FFFFFF 100%);">
+            <td style="padding: 28px 40px 22px; border-bottom: 1px solid #F3F7F7; background: linear-gradient(180deg, #F8FAFA 0%, #FFFFFF 100%);">
               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td>
-                    <!-- Logo / Brand Title -->
-                    <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #102124; text-decoration: none;">
-                      <span style="color: #155761;">Soft</span><span style="color: #2F7D78;">Showcase</span>
-                    </div>
+                  <td valign="middle">
+                    <a href="${appBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img 
+                        src="${logoUrl}" 
+                        alt="Soft Showcase" 
+                        height="32" 
+                        style="height: 32px; width: auto; max-width: 170px; display: block; border: 0;"
+                      />
+                    </a>
                   </td>
-                  <td align="right">
-                    <span style="display: inline-block; background-color: #DDF4EC; color: #155761; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px;">
+                  <td align="right" valign="middle">
+                    <span style="display: inline-block; background-color: #DDF4EC; color: #155761; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 12px; border-radius: 8px;">
                       Verification
                     </span>
                   </td>
@@ -65,7 +77,7 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
           <tr>
             <td style="padding: 36px 40px 28px;">
               <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #102124; line-height: 1.3;">
-                Confirm your email address
+                Verify your email address
               </h1>
               
               <p style="margin: 0 0 20px; font-size: 15px; color: #526267; line-height: 1.6;">
@@ -73,11 +85,11 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
               </p>
               
               <p style="margin: 0 0 28px; font-size: 15px; color: #526267; line-height: 1.6;">
-                Welcome to <strong>Soft Showcase</strong>! Use the 6-digit confirmation code below to activate your account and securely sign in:
+                Welcome to <strong>Soft Showcase</strong>! Use the 6-digit verification code below to complete your registration and activate your account:
               </p>
 
               <!-- OTP Callout Box -->
-              <div style="background-color: #F8FAFA; border: 1.5px dashed #2F7D78; border-radius: 16px; padding: 24px; text-align: center; margin: 0 0 32px;">
+              <div style="background-color: #F8FAFA; border: 1.5px dashed #2F7D78; border-radius: 16px; padding: 26px 20px; text-align: center; margin: 0 0 32px;">
                 <div style="font-size: 11px; font-weight: 700; color: #526267; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px;">
                   Your Verification Code
                 </div>
@@ -100,8 +112,8 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
                 </tr>
               </table>
 
-              <p style="margin: 0 0 12px; font-size: 13px; color: #526267; line-height: 1.5;">
-                Or paste this secure link directly in your browser:
+              <p style="margin: 0 0 10px; font-size: 13px; color: #526267; line-height: 1.5;">
+                Or copy and paste this verification link directly into your browser:
               </p>
               <p style="margin: 0 0 24px; font-size: 12px; color: #155761; word-break: break-all; background-color: #F8FAFA; padding: 10px 14px; border-radius: 8px; border: 1px solid #D9E2E4; font-family: monospace;">
                 ${verifyUrl}
@@ -110,7 +122,7 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
               <hr style="border: none; border-top: 1px solid #F3F7F7; margin: 28px 0;" />
 
               <p style="margin: 0; font-size: 12px; color: #8A979B; line-height: 1.5;">
-                If you did not request this account registration or believe you received this by mistake, no further action is needed — your account will remain unverified.
+                If you did not create an account on Soft Showcase, you can safely ignore this email.
               </p>
             </td>
           </tr>
@@ -119,7 +131,7 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
           <tr>
             <td style="padding: 24px 40px; background-color: #F8FAFA; border-top: 1px solid #D9E2E4; text-align: center;">
               <p style="margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #102124;">
-                Soft Showcase — Curated Software Discovery & Direct Provider Routing
+                Soft Showcase — Curated Software Discovery & Direct Creator Routing
               </p>
               <p style="margin: 0; font-size: 11px; color: #8A979B;">
                 © ${new Date().getFullYear()} Soft Showcase. All rights reserved.
@@ -136,7 +148,7 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
   `.trim();
 
   const text = `
-Soft Showcase — Confirm Your Email Address
+Soft Showcase — Verify Your Email Address
 
 Hi ${data.userName},
 
