@@ -109,11 +109,11 @@ function ListEditor<T extends { id: string }>({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <label className="block text-sm font-medium text-gray-300">{label}</label>
+        <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">{label}</label>
         <button
           type="button"
           onClick={onAdd}
-          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition"
+          className="text-xs px-3 py-1 bg-[#155761] hover:bg-[#10474F] text-white rounded-lg transition font-medium cursor-pointer shadow-xs"
         >
           + Add
         </button>
@@ -339,10 +339,10 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const fieldClass =
-    "w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-500";
-  const labelClass = "block text-sm font-medium text-gray-300 mb-1";
-  const errorClass = "text-red-400 text-xs mt-1";
-  const sectionClass = "bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4";
+    "w-full bg-white border border-[#D9E2E4] text-[#102124] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-[#155761] focus:ring-1 focus:ring-[#155761] placeholder:text-[#526267]/60 shadow-xs";
+  const labelClass = "block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5";
+  const errorClass = "text-rose-600 text-xs mt-1 font-medium";
+  const sectionClass = "bg-white border border-[#D9E2E4] rounded-2xl p-6 sm:p-8 space-y-4 shadow-xs";
 
   if (selectorsLoading) {
     return (
@@ -356,14 +356,14 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Global error */}
       {globalError && (
-        <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
-          {globalError}
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-4 py-3 text-xs flex items-center gap-2">
+          <span>{globalError}</span>
         </div>
       )}
 
       {/* ── Section: Basic Info ─────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Basic Information</h2>
+        <h2 className="text-base font-bold text-[#102124]">Basic Information</h2>
 
         {/* Title */}
         <div>
@@ -506,7 +506,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Status & Visibility ───────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Status & Visibility</h2>
+        <h2 className="text-base font-bold text-[#102124]">Status & Visibility</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -530,10 +530,10 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
               type="checkbox"
               checked={form.featured}
               onChange={(e) => set("featured", e.target.checked)}
-              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500"
+              className="w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
             />
-            <label htmlFor="featured" className="text-sm text-gray-300">
-              Featured project (shown in homepage highlights)
+            <label htmlFor="featured" className="text-sm font-medium text-[#102124] cursor-pointer">
+              Featured project (highlighted on homepage)
             </label>
           </div>
         </div>
@@ -541,7 +541,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Pricing ────────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Pricing</h2>
+        <h2 className="text-base font-bold text-[#102124]">Pricing</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -580,7 +580,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Technologies ────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Technologies</h2>
+        <h2 className="text-base font-bold text-[#102124]">Technologies</h2>
         <div className="flex flex-wrap gap-2">
           {technologies.map((tech) => {
             const selected = form.technologyIds.includes(tech.id);
@@ -589,10 +589,10 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
                 key={tech.id}
                 type="button"
                 onClick={() => toggleTechnology(tech.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
                   selected
-                    ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
+                    ? "bg-[#155761] border-[#155761] text-white shadow-xs"
+                    : "bg-[#F8FAFA] border-[#D9E2E4] text-[#526267] hover:border-[#155761]/50 hover:text-[#102124]"
                 }`}
               >
                 {tech.name}
@@ -600,15 +600,15 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
             );
           })}
           {technologies.length === 0 && (
-            <p className="text-sm text-gray-500 italic">No technologies available. Add them in the Technologies admin section.</p>
+            <p className="text-xs text-[#526267] italic">No technologies available. Add them in the Technologies admin section.</p>
           )}
         </div>
       </div>
 
       {/* ── Section: What's Included ─────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">What&apos;s Included</h2>
-        <p className="text-xs text-gray-500">One item per line (max 20 items).</p>
+        <h2 className="text-base font-bold text-[#102124]">What&apos;s Included</h2>
+        <p className="text-xs text-[#526267]">One item per line (max 20 items).</p>
         <textarea
           value={whatsIncludedInput}
           onChange={(e) => setWhatsIncludedInput(e.target.value)}
@@ -620,7 +620,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Features ────────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Features</h2>
+        <h2 className="text-base font-bold text-[#102124]">Features</h2>
         <ListEditor
           label="Feature list"
           items={form.features}
@@ -640,7 +640,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Specifications ──────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Specifications</h2>
+        <h2 className="text-base font-bold text-[#102124]">Specifications</h2>
         <ListEditor
           label="Specification table"
           items={form.specifications}
@@ -669,7 +669,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: FAQs ────────────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-semibold text-white">Frequently Asked Questions</h2>
+        <h2 className="text-base font-bold text-[#102124]">Frequently Asked Questions</h2>
         <ListEditor
           label="FAQ list"
           items={form.faqs}
@@ -699,9 +699,9 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
       {/* ── Section: Project Images ──────────────────────────────────────────── */}
       <div className={sectionClass}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Project Screenshots</h2>
+          <h2 className="text-base font-bold text-[#102124]">Project Screenshots</h2>
           {!projectId && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-[#526267]">
               Save the project first, then add images
             </span>
           )}
@@ -713,9 +713,9 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
             initialImages={initialImages}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-700 rounded-lg gap-2">
+          <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-[#D9E2E4] rounded-2xl gap-2 bg-[#F8FAFA]">
             <svg
-              className="w-10 h-10 text-gray-600"
+              className="w-10 h-10 text-[#526267]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -727,7 +727,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-[#526267]">
               Create the project, then upload screenshots from the edit page.
             </p>
           </div>
@@ -739,7 +739,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
         <button
           type="button"
           onClick={() => router.push("/admin/projects")}
-          className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition"
+          className="px-4 py-2 text-sm text-[#526267] hover:text-[#102124] border border-[#D9E2E4] hover:bg-[#F3F7F7] rounded-xl transition cursor-pointer"
         >
           Cancel
         </button>
@@ -757,7 +757,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
                 );
               }}
               disabled={saving}
-              className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] rounded-xl transition disabled:opacity-50 cursor-pointer shadow-xs font-medium"
             >
               Save as Draft
             </button>
@@ -767,7 +767,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
             type="submit"
             data-submit
             disabled={saving}
-            className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2 text-sm bg-[#155761] hover:bg-[#10474F] text-white rounded-xl font-semibold transition disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-xs"
           >
             {saving && (
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

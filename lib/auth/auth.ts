@@ -44,24 +44,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) {
-          throw new Error("Invalid credentials format");
+          console.warn("[Auth] Invalid login credentials format");
+          return null;
         }
 
         const { email, password } = parsed.data;
+        const normalizedEmail = email.trim().toLowerCase();
+
         const user = await db.user.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email: normalizedEmail },
         });
 
         if (!user || !user.passwordHash) {
-          throw new Error("Invalid email or password");
+          console.warn(`[Auth] User not found or has no password set: ${normalizedEmail}`);
+          return null;
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
-          throw new Error("Invalid email or password");
+          console.warn(`[Auth] Password mismatch for user: ${normalizedEmail}`);
+          return null;
         }
 
         if (!user.emailVerified) {
+          console.warn(`[Auth] User email not verified: ${normalizedEmail}`);
           throw new Error("EMAIL_NOT_VERIFIED");
         }
 
@@ -93,17 +99,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+      }
+
+      // Check against ADMIN_EMAIL env var or database
+      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+      if (token.email && adminEmail && (token.email as string).toLowerCase() === adminEmail) {
+        token.isAdmin = true;
       }
 
       // Keep isAdmin up-to-date directly from database
       if (token.id) {
         const dbUser = await db.user.findUnique({
           where: { id: token.id as string },
-          select: { isAdmin: true },
+          select: { isAdmin: true, email: true },
         });
         if (dbUser) {
-          token.isAdmin = dbUser.isAdmin;
+          const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
+          token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
+
+          // If db record wasn't updated yet, update it
+          if (isEnvAdmin && !dbUser.isAdmin) {
+            await db.user.update({
+              where: { id: token.id as string },
+              data: { isAdmin: true },
+            }).catch(() => null);
+          }
         }
       }
 

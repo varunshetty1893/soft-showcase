@@ -86,11 +86,15 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
-          <div>
-            <p className="font-semibold">Unable to save provider</p>
-            <p className="text-xs text-red-600 mt-0.5">{errorMessage}</p>
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-start gap-3 shadow-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-rose-950">Unable to save provider</p>
+            <p className="text-xs text-rose-700 leading-relaxed">
+              {errorMessage === "FORBIDDEN"
+                ? "Your session does not have administrative privileges. Please ensure your email is configured as ADMIN_EMAIL in Vercel settings and sign in again."
+                : errorMessage}
+            </p>
           </div>
         </div>
       )}

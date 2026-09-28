@@ -78,7 +78,14 @@ export async function requireAdmin(useRedirect = false) {
     throw new AuthError("UNAUTHORIZED");
   }
 
-  if (!session.user.isAdmin) {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const isEnvAdmin = Boolean(
+    session.user.email &&
+    adminEmail &&
+    session.user.email.toLowerCase() === adminEmail
+  );
+
+  if (!session.user.isAdmin && !isEnvAdmin) {
     if (useRedirect) {
       redirect("/");
     }

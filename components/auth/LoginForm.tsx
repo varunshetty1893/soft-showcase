@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,14 +18,14 @@ function GoogleIcon() {
   );
 }
 
-// Shared input classes — clean white background, neutral border, dark teal focus ring
+// Shared input classes
 function inputCls(error?: boolean) {
   return [
-    "w-full bg-white text-[#102124] text-sm pl-10 pr-3.5 py-2.5 rounded-lg",
+    "w-full bg-white text-[#102124] text-sm pl-10 pr-3.5 py-2.5 rounded-xl",
     "shadow-xs placeholder:text-[#526267]/60",
     "focus:outline-none focus:bg-white transition-all",
     error
-      ? "border border-[#ba1a1a] focus:ring-1 focus:ring-[#ba1a1a]"
+      ? "border border-rose-400 focus:ring-1 focus:ring-rose-500"
       : "border border-[#D9E2E4] focus:border-[#155761] focus:ring-1 focus:ring-[#155761]",
   ].join(" ");
 }
@@ -43,22 +43,57 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    urlError === "OAuthAccountNotLinked"
-      ? "This email is linked with another login method."
-      : urlError
-      ? "Sign in failed. Please check your credentials."
-      : null
-  );
-  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+
+  // Single active banner: either 'verified' or an error string
+  const [activeBanner, setActiveBanner] = useState<{
+    type: "verified" | "error";
+    title?: string;
+    message: string;
+    unverifiedEmail?: string | null;
+  } | null>(() => {
+    if (verifiedNotice) {
+      return {
+        type: "verified",
+        title: "Email verified successfully!",
+        message: "You can now enter your password to sign in.",
+      };
+    }
+    if (urlError === "OAuthAccountNotLinked") {
+      return {
+        type: "error",
+        title: "Account exists",
+        message: "This email is registered with another login method.",
+      };
+    }
+    if (urlError) {
+      return {
+        type: "error",
+        title: "Authentication failed",
+        message: "Sign in failed. Please check your credentials.",
+      };
+    }
+    return null;
+  });
+
+  // Auto-dismiss verified notice after 8 seconds
+  useEffect(() => {
+    if (activeBanner?.type === "verified") {
+      const timer = setTimeout(() => {
+        setActiveBanner(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeBanner?.type]);
 
   async function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMessage(null);
-    setUnverifiedEmail(null);
 
     if (!email.trim() || !password) {
-      setErrorMessage("Please enter both your email and password.");
+      setActiveBanner({
+        type: "error",
+        title: "Missing fields",
+        message: "Please enter both your email and password.",
+      });
       return;
     }
 
@@ -73,78 +108,105 @@ export function LoginForm() {
 
       if (result?.error) {
         if (result.error.includes("EMAIL_NOT_VERIFIED")) {
-          setUnverifiedEmail(email.trim().toLowerCase());
-          setErrorMessage("Please verify your email address before signing in.");
+          setActiveBanner({
+            type: "error",
+            title: "Email unverified",
+            message: "Please complete email verification before signing in.",
+            unverifiedEmail: email.trim().toLowerCase(),
+          });
         } else {
-          setErrorMessage("Invalid email or password. Please try again.");
+          setActiveBanner({
+            type: "error",
+            title: "Invalid credentials",
+            message: "The email or password you entered is incorrect. If you forgot your password, click 'Forgot password?' below.",
+          });
         }
         setLoading(false);
         return;
       }
 
+      // Successful sign in
+      setActiveBanner(null);
       router.push(callbackUrl);
       router.refresh();
     } catch {
-      setErrorMessage("An unexpected error occurred. Please try again.");
+      setActiveBanner({
+        type: "error",
+        title: "Sign in error",
+        message: "An unexpected error occurred. Please try again.",
+      });
       setLoading(false);
     }
   }
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
-    setErrorMessage(null);
+    setActiveBanner(null);
     try {
       const res = await signIn("google", { callbackUrl, redirect: true }) as any;
       if (res?.error) {
-        setErrorMessage("Google Sign-In is currently unavailable. Please sign in with email and password.");
+        setActiveBanner({
+          type: "error",
+          title: "Google Sign-In unavailable",
+          message: "Please sign in using your email and password.",
+        });
         setGoogleLoading(false);
       }
     } catch (err: unknown) {
       console.warn("Google sign in notice:", err);
-      setErrorMessage(
-        "Google Sign-In is not configured in your local environment. Please sign in using email & password or add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET to .env."
-      );
+      setActiveBanner({
+        type: "error",
+        title: "Google Sign-In",
+        message: "Please sign in with email and password or check Google OAuth credentials.",
+      });
       setGoogleLoading(false);
     }
   }
 
   return (
     <div>
-      {/* Email verified notice */}
-      {verifiedNotice && (
-        <div className="mb-5 p-3 rounded-lg bg-[#DDF4EC] border border-[#2F7D78]/25 flex items-start gap-2.5">
-          <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-[#155761]">Email verified!</p>
-            <p className="text-xs text-[#526267] mt-0.5">You can now sign in with your email and password.</p>
-          </div>
-        </div>
-      )}
+      {/* Mutually Exclusive Alert Banner (Auto-dismissable or manually dismissable) */}
+      {activeBanner && (
+        <div
+          className={`mb-5 p-3.5 rounded-xl border flex items-start gap-3 transition-all duration-200 ${
+            activeBanner.type === "verified"
+              ? "bg-[#DDF4EC] border-[#2F7D78]/25 text-[#155761]"
+              : "bg-rose-50 border-rose-200 text-rose-900"
+          }`}
+        >
+          {activeBanner.type === "verified" ? (
+            <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          )}
 
+          <div className="flex-1 min-w-0">
+            {activeBanner.title && (
+              <p className="text-xs font-bold leading-tight">
+                {activeBanner.title}
+              </p>
+            )}
+            <p className="text-xs mt-0.5 opacity-90 leading-relaxed">
+              {activeBanner.message}
+            </p>
 
-      {/* Error banner */}
-      {errorMessage && (
-        <div className="mb-5 p-3 rounded-lg bg-[#ffdad6] border border-[#ba1a1a]/20 flex items-start gap-2.5">
-          <AlertCircle className="w-5 h-5 text-[#ba1a1a] shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-[12px] font-semibold text-[#93000a]">Authentication failed</p>
-            <p className="text-[12px] text-[#93000a]/90 mt-0.5">{errorMessage}</p>
-            {unverifiedEmail && (
+            {activeBanner.unverifiedEmail && (
               <Link
-                href={`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`}
-                className="inline-block mt-1 text-[12px] font-bold text-[#93000a] underline hover:opacity-80"
+                href={`/verify-email?email=${encodeURIComponent(activeBanner.unverifiedEmail)}`}
+                className="inline-block mt-2 text-xs font-bold text-rose-700 underline hover:text-rose-900"
               >
                 Enter your 6-digit verification code →
               </Link>
             )}
           </div>
+
           <button
             type="button"
-            onClick={() => setErrorMessage(null)}
-            className="text-[#93000a]/50 hover:text-[#93000a] transition-colors"
-            aria-label="Dismiss"
+            onClick={() => setActiveBanner(null)}
+            className="text-gray-400 hover:text-gray-600 p-0.5 rounded transition-colors cursor-pointer"
+            aria-label="Dismiss banner"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -156,7 +218,7 @@ export function LoginForm() {
         type="button"
         onClick={handleGoogleSignIn}
         disabled={loading || googleLoading}
-        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] rounded-lg font-semibold text-sm transition-all shadow-xs hover:shadow-sm active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+        className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] rounded-xl font-semibold text-sm transition-all shadow-xs hover:shadow-sm active:scale-[0.99] disabled:opacity-60 cursor-pointer"
       >
         {googleLoading ? (
           <Loader2 className="w-4 h-4 animate-spin text-[#526267]" />
@@ -178,11 +240,11 @@ export function LoginForm() {
       <form onSubmit={handleCredentialsSubmit} className="space-y-4" id="sign-in-form">
         {/* Email */}
         <div>
-          <label htmlFor="login-email" className="block text-[12px] font-semibold text-[#102124] mb-1.5 tracking-[0.02em]">
+          <label htmlFor="login-email" className="block text-xs font-semibold text-[#102124] mb-1.5 uppercase tracking-wider">
             Work or personal email
           </label>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-4 h-4 text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <input
@@ -191,7 +253,7 @@ export function LoginForm() {
               name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="alex@company.com"
+              placeholder="alex@example.com"
               required
               autoComplete="email"
               className={inputCls()}
@@ -202,18 +264,18 @@ export function LoginForm() {
         {/* Password */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="login-password" className="block text-[12px] font-semibold text-[#102124] tracking-[0.02em]">
+            <label htmlFor="login-password" className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
               Password
             </label>
             <Link
               href="/forgot-password"
-              className="text-[11px] font-semibold text-[#155761] hover:text-[#2F7D78] transition-colors"
+              className="text-xs font-semibold text-[#155761] hover:text-[#2F7D78] transition-colors"
             >
               Forgot password?
             </Link>
           </div>
           <div className="relative flex items-center">
-            <svg className="absolute left-3.5 w-[18px] h-[18px] text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <svg className="absolute left-3.5 w-4 h-4 text-[#526267] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <input
@@ -230,7 +292,7 @@ export function LoginForm() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 text-[#526267] hover:text-[#102124] p-1 rounded transition-colors"
+              className="absolute right-3 text-[#526267] hover:text-[#102124] p-1 rounded transition-colors cursor-pointer"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -246,7 +308,7 @@ export function LoginForm() {
             aria-checked={rememberMe}
             onClick={() => setRememberMe(!rememberMe)}
             className={[
-              "w-4 h-4 rounded flex items-center justify-center transition-colors shrink-0",
+              "w-4 h-4 rounded flex items-center justify-center transition-colors shrink-0 cursor-pointer",
               rememberMe ? "bg-[#155761]" : "bg-white border border-[#D9E2E4]",
             ].join(" ")}
           >
@@ -256,33 +318,48 @@ export function LoginForm() {
               </svg>
             )}
           </button>
-          <span className="text-[13px] text-[#526267]">Remember this device for 30 days</span>
+          <span
+            onClick={() => setRememberMe(!rememberMe)}
+            className="text-xs text-[#526267] select-none cursor-pointer"
+          >
+            Remember this device for 30 days
+          </span>
         </div>
 
         {/* Submit */}
         <div className="pt-2">
           <button
-            id="sign-in-submit"
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-[#155761] hover:bg-[#10474F] text-white rounded-xl font-semibold text-sm shadow-xs hover:shadow hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all disabled:opacity-60 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#155761] hover:bg-[#10474F] text-white rounded-xl font-bold text-sm transition-all shadow-xs hover:shadow-sm active:scale-[0.99] disabled:opacity-60 cursor-pointer"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Verifying credentials...</span>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Signing in...</span>
               </>
             ) : (
               <>
                 <span>Sign In to Showcase</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
+                <span className="text-base leading-none">→</span>
               </>
             )}
           </button>
         </div>
       </form>
+
+      {/* Footer */}
+      <div className="mt-6 pt-5 border-t border-[#D9E2E4] text-center">
+        <p className="text-xs text-[#526267]">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/register"
+            className="font-bold text-[#155761] hover:text-[#2F7D78] transition-colors"
+          >
+            Create account
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

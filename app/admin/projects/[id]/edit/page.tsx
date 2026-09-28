@@ -75,8 +75,10 @@ export default async function EditProjectPage({ params }: Props) {
     <div className="max-w-4xl space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Edit Project</h1>
-        <p className="text-sm text-gray-400 mt-1 font-mono">{project.slug}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-[#102124]">
+          Edit Project: {project.title}
+        </h1>
+        <p className="text-xs text-[#526267] mt-1 font-mono">/projects/{project.slug}</p>
       </div>
 
       {/* Form */}
