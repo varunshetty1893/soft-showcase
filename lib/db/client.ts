@@ -63,6 +63,21 @@ const initialProviders = [
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
   },
+  {
+    id: "prov-varun",
+    displayName: "Varun Shetty",
+    email: "shettybvarun@gmail.com",
+    whatsappNumber: "918123665363",
+    bio: "Full-Stack & Python / ML Developer. Creator of Global Farmer direct agricultural commerce and Smart Fitness & Diet Planner.",
+    avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
+    isActive: true,
+    showEmail: true,
+    showWhatsapp: true,
+    providerConsentConfirmed: true,
+    providerConsentConfirmedAt: new Date("2025-01-01"),
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+  },
 ];
 
 // Seeded Projects
@@ -142,6 +157,58 @@ const initialProjects = [
     createdAt: new Date("2025-01-20"),
     updatedAt: new Date("2025-01-20"),
   },
+  {
+    id: "proj-global-farmer",
+    title: "Global Farmer — Direct Agri-Produce E-Commerce Platform",
+    slug: "global-farmer",
+    shortDescription:
+      "PHP & MySQL direct farm-to-consumer e-commerce marketplace cutting out middlemen with cart, checkout, and full admin operations.",
+    fullDescription:
+      "Global Farmer is an open-source, full-stack agricultural e-commerce web platform engineered with PHP and MySQLi. It directly connects independent farmers with local households and commercial buyers. Features an automated customer storefront with live product galleries, responsive shopping carts, address books, order tracking, and a session-protected admin control panel with inventory reports, order processing, and user management.",
+    status: "PUBLISHED",
+    featured: true,
+    priceMode: "FIXED",
+    price: 14999,
+    demoUrl: "https://github.com/varunshetty1893/global-farmer",
+    projectType: "Full-Stack E-Commerce System",
+    whatsIncluded: [
+      "Complete PHP 7.4+ & MySQLi Source Code",
+      "Full globalfarmer_db.sql database schema with sample data",
+      "Customer storefront with Cart, Checkout & Order History",
+      "Session-protected /gf-manage admin panel with analytics",
+      "Setup documentation for XAMPP, WAMP, and LAMP servers",
+    ],
+    categoryId: "cat-3", // E-Commerce
+    providerId: "prov-varun",
+    createdAt: new Date("2025-02-01"),
+    updatedAt: new Date("2025-02-01"),
+  },
+  {
+    id: "proj-smart-fitness",
+    title: "Smart Fitness & Diet Planner",
+    slug: "smart-fitness-diet-planner",
+    shortDescription:
+      "Intelligent Python Flask & SQLite health recommendation engine providing customized diet plans and workout routines.",
+    fullDescription:
+      "A smart, rule-based Python web application built with Flask and SQLite that delivers personalized diet and exercise recommendations. By analyzing user health parameters—including age, weight, height, activity level, and hydration status—the engine computes real-time BMI metrics, caloric intake requirements, and lifestyle plans, accompanied by an administrative analytics dashboard.",
+    status: "PUBLISHED",
+    featured: true,
+    priceMode: "FIXED",
+    price: 19999,
+    demoUrl: "https://github.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project",
+    projectType: "AI / Rule-Based Web App",
+    whatsIncluded: [
+      "Full Python 3.8+ & Flask application source code",
+      "Pre-configured SQLite diet.db database and models",
+      "Rule-based recommendation engine for nutrition and workouts",
+      "Responsive Jinja2 HTML5 & CSS3 frontend templates",
+      "Admin dashboard with user management and credential controls",
+    ],
+    categoryId: "cat-7", // AI / ML
+    providerId: "prov-varun",
+    createdAt: new Date("2025-02-05"),
+    updatedAt: new Date("2025-02-05"),
+  },
 ];
 
 const initialProjectImages = [
@@ -175,6 +242,46 @@ const initialProjectImages = [
     sortOrder: 1,
     createdAt: new Date("2025-01-20"),
   },
+  {
+    id: "img-gf-1",
+    projectId: "proj-global-farmer",
+    url: "https://raw.githubusercontent.com/varunshetty1893/global-farmer/main/assets/img/header-bg.jpg",
+    storageKey: "gf-1",
+    altText: "Global Farmer Marketplace Header & Fresh Produce Catalog",
+    isPrimary: true,
+    sortOrder: 1,
+    createdAt: new Date("2025-02-01"),
+  },
+  {
+    id: "img-gf-2",
+    projectId: "proj-global-farmer",
+    url: "https://raw.githubusercontent.com/varunshetty1893/global-farmer/main/logo/logo.png",
+    storageKey: "gf-2",
+    altText: "Global Farmer Brand Logo & Identity",
+    isPrimary: false,
+    sortOrder: 2,
+    createdAt: new Date("2025-02-01"),
+  },
+  {
+    id: "img-fit-1",
+    projectId: "proj-smart-fitness",
+    url: "https://raw.githubusercontent.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project/main/static/images/hero-bg.png",
+    storageKey: "fit-1",
+    altText: "Smart Fitness & Diet Planner Recommendation Dashboard",
+    isPrimary: true,
+    sortOrder: 1,
+    createdAt: new Date("2025-02-05"),
+  },
+  {
+    id: "img-fit-2",
+    projectId: "proj-smart-fitness",
+    url: "https://raw.githubusercontent.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project/main/static/images/1.png",
+    storageKey: "fit-2",
+    altText: "Fitness & Diet Planner Analytics & Health Metrics",
+    isPrimary: false,
+    sortOrder: 2,
+    createdAt: new Date("2025-02-05"),
+  },
 ];
 
 const initialProjectFeatures = [
@@ -185,6 +292,16 @@ const initialProjectFeatures = [
   { id: "feat-5", projectId: "proj-2", feature: "Stripe Connect automated payouts", sortOrder: 2 },
   { id: "feat-6", projectId: "proj-3", feature: "Interactive chart widgets", sortOrder: 1 },
   { id: "feat-7", projectId: "proj-3", feature: "Audit trail and event logging", sortOrder: 2 },
+  // Global Farmer Features
+  { id: "feat-gf-1", projectId: "proj-global-farmer", feature: "Direct farm-to-consumer store with category filtering", sortOrder: 1 },
+  { id: "feat-gf-2", projectId: "proj-global-farmer", feature: "Full shopping cart, dynamic order calculation & checkout", sortOrder: 2 },
+  { id: "feat-gf-3", projectId: "proj-global-farmer", feature: "Session-protected admin management (/gf-manage) dashboard", sortOrder: 3 },
+  { id: "feat-gf-4", projectId: "proj-global-farmer", feature: "Customer address book, account profile and order tracking", sortOrder: 4 },
+  // Smart Fitness Planner Features
+  { id: "feat-fit-1", projectId: "proj-smart-fitness", feature: "Automatic Body Mass Index (BMI) calculator and health tier analysis", sortOrder: 1 },
+  { id: "feat-fit-2", projectId: "proj-smart-fitness", feature: "Rule-based recommendation engine for personalized meal plans", sortOrder: 2 },
+  { id: "feat-fit-3", projectId: "proj-smart-fitness", feature: "Targeted exercise suggestions tailored to fitness and activity level", sortOrder: 3 },
+  { id: "feat-fit-4", projectId: "proj-smart-fitness", feature: "Hydration tracking and admin user control dashboard", sortOrder: 4 },
 ];
 
 const initialProjectSpecs = [
@@ -194,11 +311,25 @@ const initialProjectSpecs = [
   { id: "spec-4", projectId: "proj-2", key: "Frontend", value: "React 19, Tailwind CSS", sortOrder: 1 },
   { id: "spec-5", projectId: "proj-2", key: "Database", value: "PostgreSQL with Prisma ORM", sortOrder: 2 },
   { id: "spec-6", projectId: "proj-3", key: "Tech Stack", value: "Next.js, Recharts, Tailwind CSS", sortOrder: 1 },
+  // Global Farmer Specs
+  { id: "spec-gf-1", projectId: "proj-global-farmer", key: "Backend", value: "PHP 7.4+ with MySQLi", sortOrder: 1 },
+  { id: "spec-gf-2", projectId: "proj-global-farmer", key: "Database", value: "MySQL 5.7+ / MariaDB (globalfarmer_db.sql)", sortOrder: 2 },
+  { id: "spec-gf-3", projectId: "proj-global-farmer", key: "Frontend", value: "HTML5, CSS3, JavaScript, FontAwesome", sortOrder: 3 },
+  { id: "spec-gf-4", projectId: "proj-global-farmer", key: "Compatibility", value: "XAMPP / WAMP / LAMP Environments", sortOrder: 4 },
+  // Smart Fitness Planner Specs
+  { id: "spec-fit-1", projectId: "proj-smart-fitness", key: "Backend Framework", value: "Python 3.8+ & Flask Web Framework", sortOrder: 1 },
+  { id: "spec-fit-2", projectId: "proj-smart-fitness", key: "Database", value: "SQLite (diet.db)", sortOrder: 2 },
+  { id: "spec-fit-3", projectId: "proj-smart-fitness", key: "Engine", value: "Rule-Based Health & Calorie Logic Engine", sortOrder: 3 },
+  { id: "spec-fit-4", projectId: "proj-smart-fitness", key: "Frontend", value: "Jinja2 Templates, HTML5 & CSS3", sortOrder: 4 },
 ];
 
 const initialProjectFaqs = [
   { id: "faq-1", projectId: "proj-1", question: "Can this project be customized?", answer: "Yes, full source code is provided with documentation.", sortOrder: 1 },
   { id: "faq-2", projectId: "proj-2", question: "Does it support custom payment gateways?", answer: "Yes, alternative payment handlers can be easily integrated.", sortOrder: 1 },
+  // Global Farmer FAQ
+  { id: "faq-gf-1", projectId: "proj-global-farmer", question: "How do I install Global Farmer locally?", answer: "Place the project in your XAMPP htdocs folder, import globalfarmer_db.sql into phpMyAdmin, and configure dbconnection.php.", sortOrder: 1 },
+  // Smart Fitness FAQ
+  { id: "faq-fit-1", projectId: "proj-smart-fitness", question: "Can the rule-based logic be expanded?", answer: "Yes, the decision engine in app.py is modular and easily extensible to include new dietary preferences or medical conditions.", sortOrder: 1 },
 ];
 
 const initialProjectTechnologies = [
@@ -208,6 +339,12 @@ const initialProjectTechnologies = [
   { projectId: "proj-2", technologyId: "tech-1" }, // React
   { projectId: "proj-2", technologyId: "tech-17" }, // PostgreSQL
   { projectId: "proj-3", technologyId: "tech-2" }, // Next.js
+  // Global Farmer Techs
+  { projectId: "proj-global-farmer", technologyId: "tech-19" }, // MySQL
+  { projectId: "proj-global-farmer", technologyId: "tech-7" },  // JavaScript
+  // Smart Fitness Techs
+  { projectId: "proj-smart-fitness", technologyId: "tech-21" }, // SQLite
+  { projectId: "proj-smart-fitness", technologyId: "tech-7" },  // JavaScript
 ];
 
 // In-Memory Data Store
