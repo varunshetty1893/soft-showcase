@@ -4,7 +4,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit2, UserX, AlertTriangle, ShieldCheck, ShieldAlert, MessageCircle, Mail } from "lucide-react";
+import {
+  Edit2,
+  UserX,
+  AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  MessageCircle,
+  Mail,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,6 +30,8 @@ export interface ProviderTableRow {
   providerConsentConfirmed: boolean;
   showEmail: boolean;
   showWhatsapp: boolean;
+  applicationStatus?: string | null;
+  verificationStatus?: string | null;
   _count?: {
     projects: number;
   };
@@ -29,7 +43,10 @@ interface ProviderTableProps {
 
 export function ProviderTable({ providers }: ProviderTableProps) {
   const router = useRouter();
+  const [filter, setFilter] = React.useState<"all" | "pending" | "approved" | "rejected">("all");
   const [deactivatingProvider, setDeactivatingProvider] = React.useState<ProviderTableRow | null>(null);
+  const [rejectingProvider, setRejectingProvider] = React.useState<ProviderTableRow | null>(null);
+  const [rejectionReason, setRejectionReason] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -51,15 +68,78 @@ export function ProviderTable({ providers }: ProviderTableProps) {
       setDeactivatingProvider(null);
       router.refresh();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred");
-      }
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleApprovePartner = async (providerId: string) => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/admin/providers/${providerId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationStatus: "approved",
+          verificationStatus: "verified",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to approve partner");
+      }
+
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to approve partner");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRejectPartner = async () => {
+    if (!rejectingProvider) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/admin/providers/${rejectingProvider.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationStatus: "rejected",
+          rejectionReason: rejectionReason.trim() || "Application did not meet marketplace requirements at this time.",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to reject partner");
+      }
+
+      setRejectingProvider(null);
+      setRejectionReason("");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to reject partner");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filteredProviders = providers.filter((p) => {
+    if (filter === "all") return true;
+    if (filter === "pending") return p.applicationStatus === "pending";
+    if (filter === "approved") return p.applicationStatus === "approved";
+    if (filter === "rejected") return p.applicationStatus === "rejected";
+    return true;
+  });
+
+  const pendingCount = providers.filter((p) => p.applicationStatus === "pending").length;
 
   if (providers.length === 0) {
     return (
@@ -79,21 +159,77 @@ export function ProviderTable({ providers }: ProviderTableProps) {
 
   return (
     <>
+      {/* ── Status filter tabs ────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 pb-2">
+        <button
+          type="button"
+          onClick={() => setFilter("all")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+            filter === "all"
+              ? "bg-gray-900 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          All Providers ({providers.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilter("pending")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            filter === "pending"
+              ? "bg-amber-600 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          <span>Pending Applications</span>
+          {pendingCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilter("approved")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+            filter === "approved"
+              ? "bg-emerald-600 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Approved Partners
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilter("rejected")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+            filter === "rejected"
+              ? "bg-rose-600 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Rejected
+        </button>
+      </div>
+
       <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50/75 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
               <tr>
-                <th className="py-3.5 px-6">Provider</th>
+                <th className="py-3.5 px-6">Provider / Partner</th>
                 <th className="py-3.5 px-6">Contact Info</th>
+                <th className="py-3.5 px-6">Partner Status</th>
                 <th className="py-3.5 px-6">Consent</th>
-                <th className="py-3.5 px-6">Status</th>
-                <th className="py-3.5 px-6">Projects</th>
+                <th className="py-3.5 px-6">Solutions</th>
                 <th className="py-3.5 px-6 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-gray-700">
-              {providers.map((provider) => (
+            <tbody className="divide-y divide-gray-100 text-gray-700 text-xs">
+              {filteredProviders.map((provider) => (
                 <tr key={provider.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
@@ -109,8 +245,13 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                         </div>
                       )}
                       <div>
-                        <div className="font-semibold text-gray-900">{provider.displayName}</div>
-                        <div className="text-xs text-gray-400 font-mono truncate max-w-[140px]">
+                        <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                          <span>{provider.displayName}</span>
+                          {provider.verificationStatus === "verified" && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-400 font-mono truncate max-w-[140px]">
                           {provider.id}
                         </div>
                       </div>
@@ -133,24 +274,32 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   </td>
 
                   <td className="py-4 px-6">
-                    {provider.providerConsentConfirmed ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Confirmed
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        Missing
-                      </span>
-                    )}
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        provider.applicationStatus === "approved"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : provider.applicationStatus === "pending"
+                          ? "bg-amber-50 text-amber-800 border border-amber-200"
+                          : provider.applicationStatus === "rejected"
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {provider.applicationStatus || "Active"}
+                    </span>
                   </td>
 
                   <td className="py-4 px-6">
-                    {provider.isActive ? (
-                      <Badge variant="success">Active</Badge>
+                    {provider.providerConsentConfirmed ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <ShieldCheck className="w-3 h-3" />
+                        Confirmed
+                      </span>
                     ) : (
-                      <Badge variant="secondary">Inactive</Badge>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                        <ShieldAlert className="w-3 h-3" />
+                        Missing
+                      </span>
                     )}
                   </td>
 
@@ -160,6 +309,29 @@ export function ProviderTable({ providers }: ProviderTableProps) {
 
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {provider.applicationStatus === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprovePartner(provider.id)}
+                            isLoading={isSubmitting}
+                            className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRejectingProvider(provider)}
+                            className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-rose-200 gap-1"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+
                       <Link href={`/admin/providers/${provider.id}/edit`}>
                         <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1">
                           <Edit2 className="w-3 h-3" />
@@ -172,11 +344,10 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeactivatingProvider(provider)}
-                          className="h-8 px-2.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
+                          className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
                           title="Deactivate provider"
                         >
                           <UserX className="w-3 h-3" />
-                          Deactivate
                         </Button>
                       )}
                     </div>
@@ -187,6 +358,52 @@ export function ProviderTable({ providers }: ProviderTableProps) {
           </table>
         </div>
       </div>
+
+      {/* ── Reject Modal ───────────────────────────────────────────────── */}
+      {rejectingProvider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+              <XCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-lg font-bold text-gray-900">
+              Reject Application: {rejectingProvider.displayName}?
+            </h3>
+
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Please specify the reason for rejection. This feedback will be displayed to the applicant on their status page.
+            </p>
+
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="e.g. Incomplete portfolio links or software does not meet current catalog requirements..."
+              rows={3}
+              className="w-full p-3 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRejectingProvider(null)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleRejectPartner}
+                isLoading={isSubmitting}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Deactivation Confirmation Modal ─────────────────────────────── */}
       {deactivatingProvider && (

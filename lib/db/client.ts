@@ -35,6 +35,7 @@ const initialTechnologies = DEFAULT_TECHNOLOGIES.map((tech, idx) => ({
 const initialProviders = [
   {
     id: "prov-1",
+    userId: null,
     displayName: "Elena Vance",
     email: "elena@vancestudios.dev",
     whatsappNumber: "14155552671",
@@ -43,6 +44,11 @@ const initialProviders = [
     isActive: true,
     showEmail: true,
     showWhatsapp: true,
+    applicationStatus: "approved",
+    verificationStatus: "verified",
+    skills: ["AI Integration", "Next.js Architecture", "Full-Stack Development"],
+    technologies: ["Next.js", "TypeScript", "Python", "Tailwind CSS"],
+    experience: "7+ years building enterprise SaaS and AI applications",
     providerConsentConfirmed: true,
     providerConsentConfirmedAt: new Date("2025-01-01"),
     createdAt: new Date("2025-01-01"),
@@ -50,6 +56,7 @@ const initialProviders = [
   },
   {
     id: "prov-2",
+    userId: null,
     displayName: "Marcus Chen",
     email: "marcus@chencraft.io",
     whatsappNumber: "14155559812",
@@ -58,6 +65,11 @@ const initialProviders = [
     isActive: true,
     showEmail: true,
     showWhatsapp: true,
+    applicationStatus: "approved",
+    verificationStatus: "verified",
+    skills: ["E-Commerce", "Multi-Tenant Architecture", "Stripe Connect"],
+    technologies: ["React", "PostgreSQL", "Node.js", "Docker"],
+    experience: "8+ years developing scalable distributed systems",
     providerConsentConfirmed: true,
     providerConsentConfirmedAt: new Date("2025-01-01"),
     createdAt: new Date("2025-01-01"),
@@ -65,6 +77,7 @@ const initialProviders = [
   },
   {
     id: "prov-varun",
+    userId: null,
     displayName: "Varun Shetty",
     email: "shettybvarun@gmail.com",
     whatsappNumber: "918123665363",
@@ -73,6 +86,11 @@ const initialProviders = [
     isActive: true,
     showEmail: true,
     showWhatsapp: true,
+    applicationStatus: "approved",
+    verificationStatus: "verified",
+    skills: ["E-Commerce Development", "Python Machine Learning", "Full-Stack Web"],
+    technologies: ["PHP", "MySQL", "Python", "Flask", "JavaScript"],
+    experience: "5+ years in agricultural technology and data-driven web applications",
     providerConsentConfirmed: true,
     providerConsentConfirmedAt: new Date("2025-01-01"),
     createdAt: new Date("2025-01-01"),
@@ -360,6 +378,9 @@ class InMemoryStore {
   projectTechnologies = [...initialProjectTechnologies];
   inquiries: any[] = [];
   customRequests: any[] = [];
+  transactions: any[] = [];
+  supportTickets: any[] = [];
+  supportMessages: any[] = [];
   users: any[] = [
     {
       id: "user-admin",
@@ -368,6 +389,7 @@ class InMemoryStore {
       emailVerified: new Date(),
       image: null,
       isAdmin: true,
+      role: "admin",
       createdAt: new Date("2025-01-01"),
       updatedAt: new Date("2025-01-01"),
     },
@@ -377,6 +399,32 @@ class InMemoryStore {
   verificationTokens: any[] = [];
   auditLogs: any[] = [];
   siteSettings: any[] = [];
+
+  resolveTransaction(t: any) {
+    if (!t) return null;
+    const partner = this.providers.find((p) => p.id === t.partnerId) || null;
+    const solution = this.projects.find((p) => p.id === t.solutionId) || null;
+    const customer = this.users.find((u) => u.id === t.customerId) || null;
+    const enquiry = this.inquiries.find((i) => i.id === t.enquiryId) || null;
+    return {
+      ...t,
+      partner,
+      solution,
+      customer,
+      enquiry,
+    };
+  }
+
+  resolveTicket(t: any) {
+    if (!t) return null;
+    const messages = this.supportMessages.filter((m) => m.ticketId === t.id);
+    const requester = this.users.find((u) => u.id === t.requesterId) || null;
+    return {
+      ...t,
+      messages,
+      requester,
+    };
+  }
 
   resolveProject(p: any) {
     if (!p) return null;
@@ -483,6 +531,44 @@ function createModelDelegate(modelName: string) {
         return items;
       }
 
+      if (modelName === "transaction") {
+        let items = memoryStore.transactions.map((t) => memoryStore.resolveTransaction(t));
+        if (args?.where?.partnerId) {
+          items = items.filter((t: any) => t.partnerId === args.where.partnerId);
+        }
+        if (args?.where?.customerId) {
+          items = items.filter((t: any) => t.customerId === args.where.customerId);
+        }
+        if (args?.where?.paymentStatus) {
+          items = items.filter((t: any) => t.paymentStatus === args.where.paymentStatus);
+        }
+        if (args?.take) items = items.slice(0, args.take);
+        return items;
+      }
+
+      if (modelName === "supportTicket") {
+        let items = memoryStore.supportTickets.map((t) => memoryStore.resolveTicket(t));
+        if (args?.where?.requesterId) {
+          items = items.filter((t: any) => t.requesterId === args.where.requesterId);
+        }
+        if (args?.where?.requesterRole) {
+          items = items.filter((t: any) => t.requesterRole === args.where.requesterRole);
+        }
+        if (args?.where?.status) {
+          items = items.filter((t: any) => t.status === args.where.status);
+        }
+        if (args?.take) items = items.slice(0, args.take);
+        return items;
+      }
+
+      if (modelName === "supportMessage") {
+        let items = [...memoryStore.supportMessages];
+        if (args?.where?.ticketId) {
+          items = items.filter((m) => m.ticketId === args.where.ticketId);
+        }
+        return items;
+      }
+
       if (modelName === "user") {
         return [...memoryStore.users];
       }
@@ -503,7 +589,34 @@ function createModelDelegate(modelName: string) {
         if (args?.where?.id) {
           return memoryStore.providers.find((p) => p.id === args.where.id) || null;
         }
+        if (args?.where?.userId) {
+          return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
+        }
+        if (args?.where?.email) {
+          return memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+        }
+        if (args?.where?.OR) {
+          const match = memoryStore.providers.find((p) =>
+            args.where.OR.some((condition: any) =>
+              (condition.userId && p.userId === condition.userId) ||
+              (condition.email && p.email?.toLowerCase() === condition.email?.toLowerCase())
+            )
+          );
+          return match || null;
+        }
         return memoryStore.providers[0] || null;
+      }
+      if (modelName === "transaction") {
+        const items = memoryStore.transactions.map((t) => memoryStore.resolveTransaction(t));
+        if (args?.where?.id) return items.find((t: any) => t.id === args.where.id) || null;
+        if (args?.where?.transactionNumber) return items.find((t: any) => t.transactionNumber === args.where.transactionNumber) || null;
+        return items[0] || null;
+      }
+      if (modelName === "supportTicket") {
+        const items = memoryStore.supportTickets.map((t) => memoryStore.resolveTicket(t));
+        if (args?.where?.id) return items.find((t: any) => t.id === args.where.id) || null;
+        if (args?.where?.ticketNumber) return items.find((t: any) => t.ticketNumber === args.where.ticketNumber) || null;
+        return items[0] || null;
       }
       if (modelName === "category") {
         if (args?.where?.slug) {
@@ -536,8 +649,21 @@ function createModelDelegate(modelName: string) {
           return memoryStore.providers.find((p) => p.id === args.where.id) || null;
         }
         if (args?.where?.email) {
-          return memoryStore.providers.find((p) => p.email === args.where.email) || null;
+          return memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
         }
+        if (args?.where?.userId) {
+          return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
+        }
+      }
+      if (modelName === "transaction") {
+        const items = memoryStore.transactions.map((t) => memoryStore.resolveTransaction(t));
+        if (args?.where?.id) return items.find((t: any) => t.id === args.where.id) || null;
+        if (args?.where?.transactionNumber) return items.find((t: any) => t.transactionNumber === args.where.transactionNumber) || null;
+      }
+      if (modelName === "supportTicket") {
+        const items = memoryStore.supportTickets.map((t) => memoryStore.resolveTicket(t));
+        if (args?.where?.id) return items.find((t: any) => t.id === args.where.id) || null;
+        if (args?.where?.ticketNumber) return items.find((t: any) => t.ticketNumber === args.where.ticketNumber) || null;
       }
       if (modelName === "category") {
         if (args?.where?.id) return memoryStore.categories.find((c) => c.id === args.where.id) || null;
@@ -565,14 +691,38 @@ function createModelDelegate(modelName: string) {
         return memoryStore.projects.length;
       }
       if (modelName === "projectProvider") {
+        if (args?.where?.applicationStatus) {
+          return memoryStore.providers.filter((p) => p.applicationStatus === args.where.applicationStatus).length;
+        }
         if (args?.where?.isActive !== undefined) {
           return memoryStore.providers.filter((p) => p.isActive === args.where.isActive).length;
         }
         return memoryStore.providers.length;
       }
+      if (modelName === "transaction") {
+        if (args?.where?.paymentStatus) {
+          return memoryStore.transactions.filter((t) => t.paymentStatus === args.where.paymentStatus).length;
+        }
+        if (args?.where?.partnerId) {
+          return memoryStore.transactions.filter((t) => t.partnerId === args.where.partnerId).length;
+        }
+        return memoryStore.transactions.length;
+      }
+      if (modelName === "supportTicket") {
+        if (args?.where?.status) {
+          return memoryStore.supportTickets.filter((t) => t.status === args.where.status).length;
+        }
+        if (args?.where?.requesterRole) {
+          return memoryStore.supportTickets.filter((t) => t.requesterRole === args.where.requesterRole).length;
+        }
+        return memoryStore.supportTickets.length;
+      }
       if (modelName === "inquiry") {
         if (args?.where?.status) {
           return memoryStore.inquiries.filter((i) => i.status === args.where.status).length;
+        }
+        if (args?.where?.providerId) {
+          return memoryStore.inquiries.filter((i) => i.providerId === args.where.providerId).length;
         }
         return memoryStore.inquiries.length;
       }
@@ -602,13 +752,37 @@ function createModelDelegate(modelName: string) {
       else if (modelName === "projectProvider") memoryStore.providers.unshift(data);
       else if (modelName === "auditLog") memoryStore.auditLogs.unshift(data);
       else if (modelName === "user") memoryStore.users.push(data);
+      else if (modelName === "transaction") memoryStore.transactions.unshift(data);
+      else if (modelName === "supportTicket") memoryStore.supportTickets.unshift(data);
+      else if (modelName === "supportMessage") memoryStore.supportMessages.push(data);
 
       return data;
     },
 
     async update(args?: any) {
+      const targetId = args?.where?.id;
+      let targetCollection: any[] | null = null;
+      if (modelName === "projectProvider") targetCollection = memoryStore.providers;
+      else if (modelName === "project") targetCollection = memoryStore.projects;
+      else if (modelName === "inquiry") targetCollection = memoryStore.inquiries;
+      else if (modelName === "transaction") targetCollection = memoryStore.transactions;
+      else if (modelName === "supportTicket") targetCollection = memoryStore.supportTickets;
+      else if (modelName === "user") targetCollection = memoryStore.users;
+
+      if (targetCollection && targetId) {
+        const idx = targetCollection.findIndex((item) => item.id === targetId);
+        if (idx !== -1) {
+          targetCollection[idx] = {
+            ...targetCollection[idx],
+            ...(args?.data || {}),
+            updatedAt: new Date(),
+          };
+          return targetCollection[idx];
+        }
+      }
+
       return {
-        id: args?.where?.id || `mock-${Date.now()}`,
+        id: targetId || `mock-${Date.now()}`,
         updatedAt: new Date(),
         ...(args?.data || {}),
       };
@@ -697,6 +871,8 @@ async function ensureDatabaseSeeded(p: PrismaClient) {
           avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
           showEmail: true,
           showWhatsapp: true,
+          applicationStatus: "approved",
+          verificationStatus: "verified",
           providerConsentConfirmed: true,
           providerConsentConfirmedAt: new Date(),
         },
@@ -708,6 +884,8 @@ async function ensureDatabaseSeeded(p: PrismaClient) {
           avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
           showEmail: true,
           showWhatsapp: true,
+          applicationStatus: "approved",
+          verificationStatus: "verified",
           providerConsentConfirmed: true,
           providerConsentConfirmedAt: new Date(),
         },

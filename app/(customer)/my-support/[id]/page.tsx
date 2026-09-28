@@ -1,0 +1,94 @@
+// app/(customer)/my-support/[id]/page.tsx
+// Customer view of support ticket thread and messages.
+
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth/auth";
+import { db } from "@/lib/db/client";
+import { ArrowLeft, Headphones } from "lucide-react";
+import { SupportThreadViewer } from "@/components/partner/SupportThreadViewer";
+import { CustomerHeader } from "@/components/customer/CustomerHeader";
+import { formatDate } from "@/lib/utils/format";
+import { APP_NAME } from "@/config/constants";
+
+export const metadata: Metadata = {
+  title: `Support Ticket Details — ${APP_NAME}`,
+  robots: { index: false },
+};
+
+export default async function CustomerTicketDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const { id } = await params;
+
+  const ticket = await db.supportTicket.findUnique({
+    where: { id },
+    include: {
+      requester: true,
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (!ticket) {
+    notFound();
+  }
+
+  if (ticket.requesterId !== session.user.id && !session.user.isAdmin) {
+    notFound();
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFA] py-8 sm:py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <CustomerHeader user={session.user} />
+
+        <div className="flex items-center justify-between pb-4 border-b border-[#D9E2E4]">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/my-support"
+              className="p-2 rounded-xl bg-white border border-[#D9E2E4] hover:bg-[#F3F7F7] text-[#526267] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-[#155761]">
+                  {ticket.ticketNumber}
+                </span>
+                <h2 className="text-xl font-bold text-[#102124]">{ticket.subject}</h2>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    ticket.status === "RESOLVED" || ticket.status === "CLOSED"
+                      ? "bg-[#DDF4EC] text-[#2F7D78]"
+                      : "bg-amber-100 text-amber-900"
+                  }`}
+                >
+                  {ticket.status}
+                </span>
+              </div>
+              <p className="text-xs text-[#526267] mt-0.5">
+                Category: <strong>{ticket.category}</strong> • Last updated: {formatDate(ticket.updatedAt)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <SupportThreadViewer
+          ticketId={ticket.id}
+          initialMessages={ticket.messages}
+          currentUserId={session.user.id}
+          ticketStatus={ticket.status}
+          isAdminView={false}
+        />
+      </div>
+    </div>
+  );
+}

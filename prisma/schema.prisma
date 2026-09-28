@@ -24,10 +24,14 @@ model User {
   image         String?
   passwordHash  String?
   isAdmin       Boolean   @default(false)
+  role          String    @default("customer") // "customer" | "solution_partner" | "admin"
 
-  accounts  Account[]
-  sessions  Session[]
-  inquiries Inquiry[]
+  accounts       Account[]
+  sessions       Session[]
+  inquiries      Inquiry[]
+  partnerProfile ProjectProvider?
+  supportTickets SupportTicket[]
+  transactions   Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -79,6 +83,8 @@ model VerificationToken {
 
 model ProjectProvider {
   id             String   @id @default(cuid())
+  userId         String?  @unique
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   displayName    String
   email          String   @unique
   whatsappNumber String?
@@ -88,13 +94,36 @@ model ProjectProvider {
   showEmail      Boolean  @default(false)
   showWhatsapp   Boolean  @default(true)
 
-  // Provider consent: admin must confirm that permission was obtained
-  // from the provider before publishing their projects on Soft Showcase.
+  // Solution Partner Application & Status fields
+  applicationStatus          String    @default("approved") // "pending" | "approved" | "rejected" | "suspended" | "deactivated"
+  skills                     String[]  @default([])
+  technologies               String[]  @default([])
+  experience                 String?
+  portfolioUrl               String?
+  githubUrl                  String?
+  linkedinUrl                String?
+  solutionsOffered           String?
+  expertiseAreas             String?
+  location                   String?
+  rejectionReason            String?
+  approvedAt                 DateTime?
+  approvedBy                 String?
+  adminNotes                 String?   @db.Text
+
+  // Identity Verification (optional, admin-controlled)
+  verificationStatus         String    @default("not_required") // "not_required" | "pending" | "submitted" | "verified" | "rejected"
+  verifiedAt                 DateTime?
+  verifiedBy                 String?
+  verificationNotes          String?   @db.Text
+  verificationDocumentUrl    String?
+
+  // Provider consent
   providerConsentConfirmed   Boolean   @default(false)
   providerConsentConfirmedAt DateTime?
 
-  projects  Project[]
-  inquiries Inquiry[]
+  projects     Project[]
+  inquiries    Inquiry[]
+  transactions Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +210,7 @@ model Project {
   faqs           ProjectFaq[]
   technologies   ProjectTechnology[]
   inquiries      Inquiry[]
+  transactions   Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -299,6 +329,7 @@ model Inquiry {
   project  Project         @relation(fields: [projectId], references: [id])
   provider ProjectProvider @relation(fields: [providerId], references: [id])
   customer User?           @relation(fields: [customerId], references: [id])
+  transactions Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,3 +416,140 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+// =============================================================================
+// TRANSACTIONS & PAYMENT EVIDENCE
+// =============================================================================
+
+enum TransactionPaymentStatus {
+  PENDING
+  EVIDENCE_SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  REFUNDED
+  DISPUTED
+  COMPLETED
+}
+
+enum TransactionProjectType {
+  EXISTING_SOLUTION
+  CUSTOMIZED_EXISTING_SOLUTION
+  NEW_SOLUTION_FOR_CUSTOMER
+}
+
+enum TransactionDeliveryStatus {
+  PENDING
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+}
+
+model Transaction {
+  id                    String                    @id @default(cuid())
+  transactionNumber     String                    @unique
+  enquiryId             String?
+  enquiry               Inquiry?                  @relation(fields: [enquiryId], references: [id], onDelete: SetNull)
+  customerId            String?
+  customer              User?                     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName          String
+  customerEmail         String
+  customerWhatsapp      String?
+  partnerId             String
+  partner               ProjectProvider           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  solutionId            String?
+  solution              Project?                  @relation(fields: [solutionId], references: [id], onDelete: SetNull)
+  amount                Decimal                   @db.Decimal(10, 2)
+  currency              String                    @default("INR")
+  transactionDate       DateTime                  @default(now())
+  paymentMethod         String                    @default("UPI")
+  utrNumber             String?
+  paymentStatus         TransactionPaymentStatus  @default(PENDING)
+  paymentEvidenceUrl    String?
+  paymentEvidenceNotes  String?                   @db.Text
+  projectType           TransactionProjectType    @default(EXISTING_SOLUTION)
+  description           String?                   @db.Text
+  deliveryStatus        TransactionDeliveryStatus @default(PENDING)
+  verifiedAt            DateTime?
+  verifiedBy            String?
+  adminNotes            String?                   @db.Text
+
+  // Future payment gateway support
+  verificationSource    String                    @default("manual_provider_submission") // manual_provider_submission, gateway_verified_payment
+  gateway               String?
+  gatewayOrderId        String?
+  gatewayPaymentId      String?
+  gatewaySignature      String?
+  gatewayVerifiedAt     DateTime?
+
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([partnerId])
+  @@index([customerId])
+  @@index([paymentStatus])
+  @@map("transactions")
+}
+
+// =============================================================================
+// HELP & SUPPORT TICKETS
+// =============================================================================
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  WAITING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model SupportTicket {
+  id              String         @id @default(cuid())
+  ticketNumber    String         @unique
+  requesterId     String
+  requester       User           @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterRole   String         // "customer" | "solution_partner"
+  subject         String
+  category        String
+  description     String         @db.Text
+  status          TicketStatus   @default(OPEN)
+  priority        TicketPriority @default(MEDIUM)
+  assignedAdminId String?
+  adminNotes      String?        @db.Text
+  resolvedAt      DateTime?
+
+  messages        SupportMessage[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([requesterId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id             String        @id @default(cuid())
+  ticketId       String
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId       String
+  senderName     String
+  senderRole     String        // "customer" | "solution_partner" | "admin"
+  message        String        @db.Text
+  attachmentUrl  String?
+  attachmentName String?
+
+  createdAt      DateTime      @default(now())
+
+  @@index([ticketId])
+  @@map("support_messages")
+}
+

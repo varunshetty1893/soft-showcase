@@ -556,7 +556,31 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* ── 5. High-Craft Call-to-Action (CTA) Section ─────────────────── */}
+        {/* ── 5. Solution Partner Teaser ──────────────────────────────────── */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 w-full">
+          <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
+            <div className="space-y-1.5 text-center md:text-left">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2F7D78]">
+                For Developers, Agencies &amp; Creators
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold text-[#102124]">
+                Are you building production-grade software?
+              </h3>
+              <p className="text-xs sm:text-sm text-[#526267] max-w-xl leading-relaxed">
+                Showcase your applications, receive direct customer enquiries, record transactions, and build a verified client base on Soft Showcase.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Link href="/become-a-partner">
+                <button className="px-5 py-2.5 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer">
+                  Become a Solution Partner
+                </button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 6. High-Craft Call-to-Action (CTA) Section ─────────────────── */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 w-full">
           <ScrollFade direction="up" duration={0.7}>
             <div className="relative rounded-3xl bg-[#155761] text-white overflow-hidden p-8 sm:p-12 md:p-16 shadow-xl">

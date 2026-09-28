@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Lock } from "lucide-react";
+import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Lock, Receipt, Headphones } from "lucide-react";
 import { useCart } from "@/lib/cart/cart-context";
 
 interface CustomerHeaderProps {
@@ -43,6 +43,16 @@ export function CustomerHeader({
       href: "/my-requests",
       icon: FileText,
       badge: typeof requestCount === "number" ? requestCount : undefined,
+    },
+    {
+      label: "Orders & Transactions",
+      href: "/my-transactions",
+      icon: Receipt,
+    },
+    {
+      label: "Help & Support",
+      href: "/my-support",
+      icon: Headphones,
     },
     {
       label: "Saved Projects & Cart",

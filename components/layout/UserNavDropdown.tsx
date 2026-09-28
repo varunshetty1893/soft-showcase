@@ -13,6 +13,11 @@ import {
   KeyRound,
   LogOut,
   ShoppingCart,
+  Receipt,
+  Headphones,
+  Sparkles,
+  Layers,
+  Clock,
 } from "lucide-react";
 
 interface UserNavDropdownProps {
@@ -22,6 +27,9 @@ interface UserNavDropdownProps {
     email?: string | null;
     image?: string | null;
     isAdmin?: boolean;
+    role?: "customer" | "solution_partner" | "admin";
+    partnerStatus?: "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null;
+    partnerId?: string | null;
   };
   onSignOut: () => void;
 }
@@ -39,6 +47,9 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const isPartner = user.role === "solution_partner" || user.partnerStatus === "approved" || Boolean(user.partnerId && user.partnerStatus === "approved");
+  const isPendingPartner = user.partnerStatus === "pending";
 
   return (
     <div className="relative" ref={ref}>
@@ -66,7 +77,11 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
             {user.isAdmin && <ShieldCheck className="w-3 h-3 text-[#2F7D78]" />}
           </div>
           <div className="text-[10px] text-[#526267] truncate max-w-[110px]">
-            {user.isAdmin ? "Administrator" : "User"}
+            {user.isAdmin
+              ? "Administrator"
+              : isPartner
+              ? "Solution Partner"
+              : "Customer"}
           </div>
         </div>
 
@@ -85,11 +100,15 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
               <span className="text-xs font-bold text-[#102124] truncate">
                 {user.name || "My Account"}
               </span>
-              {user.isAdmin && (
+              {user.isAdmin ? (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#DDF4EC] text-[#155761]">
                   Admin
                 </span>
-              )}
+              ) : isPartner ? (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#DDF4EC] text-[#2F7D78]">
+                  Partner
+                </span>
+              ) : null}
             </div>
             <div className="text-xs text-[#526267] truncate mt-0.5 font-mono">
               {user.email}
@@ -97,6 +116,7 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
           </div>
 
           <div className="py-1.5">
+            {/* Admin Dashboard */}
             {user.isAdmin && (
               <Link
                 href="/admin"
@@ -108,6 +128,43 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
               </Link>
             )}
 
+            {/* Solution Partner Portal */}
+            {(isPartner || user.isAdmin) && (
+              <Link
+                href="/partner"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#2F7D78] hover:bg-[#DDF4EC]/40 transition-colors"
+              >
+                <Layers className="w-4 h-4 text-[#2F7D78]" />
+                <span>Partner Portal</span>
+              </Link>
+            )}
+
+            {/* Partner Application Status if pending */}
+            {isPendingPartner && !user.isAdmin && (
+              <Link
+                href="/partner/status"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+              >
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span>Partner Status (Review)</span>
+              </Link>
+            )}
+
+            {/* If neither partner nor admin, show Become a Partner */}
+            {!isPartner && !isPendingPartner && !user.isAdmin && (
+              <Link
+                href="/become-a-partner"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#155761] hover:bg-[#F3F7F7] transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-[#2F7D78]" />
+                <span>Become a Partner</span>
+              </Link>
+            )}
+
+            {/* Profile Settings */}
             {user.isAdmin ? (
               <Link
                 href="/admin/profile"
@@ -116,6 +173,15 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
               >
                 <User className="w-4 h-4 text-[#526267]" />
                 <span>Admin Profile</span>
+              </Link>
+            ) : isPartner ? (
+              <Link
+                href="/partner/profile"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#102124] hover:bg-[#F3F7F7] transition-colors"
+              >
+                <User className="w-4 h-4 text-[#526267]" />
+                <span>Studio Settings</span>
               </Link>
             ) : (
               <Link
@@ -153,6 +219,24 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
             >
               <FileCode2 className="w-4 h-4 text-[#526267]" />
               <span>Custom Requests</span>
+            </Link>
+
+            <Link
+              href="/my-transactions"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#102124] hover:bg-[#F3F7F7] transition-colors"
+            >
+              <Receipt className="w-4 h-4 text-[#526267]" />
+              <span>My Orders &amp; Receipts</span>
+            </Link>
+
+            <Link
+              href="/my-support"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#102124] hover:bg-[#F3F7F7] transition-colors"
+            >
+              <Headphones className="w-4 h-4 text-[#526267]" />
+              <span>Help &amp; Support Tickets</span>
             </Link>
 
             {user.isAdmin ? (

@@ -9,9 +9,9 @@ export function Footer() {
   return (
     <footer className="border-t border-[#D9E2E4] bg-white text-[#526267] shadow-[0_-1px_6px_rgba(16,33,36,0.02)]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Info */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="space-y-4">
             <Link
               href="/"
               className="inline-flex items-center group mb-1"
@@ -24,7 +24,7 @@ export function Footer() {
                 className="h-8 w-auto object-contain"
               />
             </Link>
-            <p className="text-sm text-[#526267] max-w-sm leading-relaxed">
+            <p className="text-sm text-[#526267] max-w-xs leading-relaxed">
               Curated software discovery and direct developer routing. Connect
               with verified creators, explore production-ready repositories, or request custom architecture.
             </p>
@@ -37,7 +37,7 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Navigation */}
+          {/* Navigation: Explore */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#102124] mb-4">
               Explore
@@ -46,14 +46,6 @@ export function Footer() {
               <li>
                 <Link href="/projects" className="hover:text-[#155761] transition-colors">
                   All Projects
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/custom-project"
-                  className="hover:text-[#155761] transition-colors"
-                >
-                  Request Custom Software
                 </Link>
               </li>
               <li>
@@ -80,15 +72,69 @@ export function Footer() {
                   AI & Machine Learning
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/custom-project"
+                  className="hover:text-[#155761] transition-colors"
+                >
+                  Request Custom Build
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Account & Support */}
+          {/* For Partners */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#102124] mb-4">
-              Account & Access
+              For Partners
             </h4>
             <ul className="space-y-2.5 text-sm text-[#526267]">
+              <li>
+                <Link
+                  href="/become-a-partner"
+                  className="hover:text-[#155761] transition-colors font-medium text-[#102124]"
+                >
+                  Become a Solution Partner
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/login?callbackUrl=/partner/dashboard"
+                  className="hover:text-[#155761] transition-colors"
+                >
+                  Partner Login
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/partner/register"
+                  className="hover:text-[#155761] transition-colors"
+                >
+                  Apply as Partner
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/partner/dashboard"
+                  className="hover:text-[#155761] transition-colors"
+                >
+                  Partner Dashboard
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Support */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#102124] mb-4">
+              Support &amp; Account
+            </h4>
+            <ul className="space-y-2.5 text-sm text-[#526267]">
+              <li>
+                <Link href="/support" className="hover:text-[#155761] transition-colors">
+                  Help Center &amp; Support
+                </Link>
+              </li>
               <li>
                 <Link href="/login" className="hover:text-[#155761] transition-colors">
                   Sign In
@@ -96,7 +142,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/register" className="hover:text-[#155761] transition-colors">
-                  Create Account
+                  Create Customer Account
                 </Link>
               </li>
               <li>
@@ -104,7 +150,7 @@ export function Footer() {
                   href="/my-inquiries"
                   className="hover:text-[#155761] transition-colors"
                 >
-                  My Inquiries
+                  My Enquiries
                 </Link>
               </li>
               <li>

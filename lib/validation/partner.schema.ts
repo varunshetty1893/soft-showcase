@@ -1,0 +1,83 @@
+// lib/validation/partner.schema.ts
+// Zod schemas for Solution Partner registration, status updates, and verification.
+
+import { z } from "zod";
+
+export const PartnerRegisterSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Full name must be at least 2 characters")
+      .max(60, "Full name cannot exceed 60 characters"),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Please provide a valid email address"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .max(100, "Password is too long")
+      .regex(/[A-Za-z]/, "Password must contain at least one letter")
+      .regex(/[0-9]/, "Password must contain at least one number"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+    whatsappNumber: z
+      .string()
+      .trim()
+      .max(20, "Mobile / WhatsApp number is too long")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    displayName: z
+      .string()
+      .trim()
+      .min(2, "Partner / Studio display name must be at least 2 characters")
+      .max(80, "Display name cannot exceed 80 characters"),
+    bio: z
+      .string()
+      .trim()
+      .min(10, "Please provide a short professional description (at least 10 characters)")
+      .max(1000, "Bio cannot exceed 1000 characters"),
+    skills: z.union([
+      z.array(z.string()),
+      z.string().transform((str) =>
+        str
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    ]),
+    technologies: z.union([
+      z.array(z.string()),
+      z.string().transform((str) =>
+        str
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    ]),
+    experience: z.string().trim().max(500).optional().nullable().or(z.literal("")),
+    portfolioUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
+    githubUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
+    linkedinUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
+    solutionsOffered: z.string().trim().max(500).optional().nullable().or(z.literal("")),
+    expertiseAreas: z.string().trim().max(500).optional().nullable().or(z.literal("")),
+    location: z.string().trim().max(100).optional().nullable().or(z.literal("")),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type PartnerRegisterInput = z.infer<typeof PartnerRegisterSchema>;
+
+export const PartnerStatusUpdateSchema = z.object({
+  applicationStatus: z.enum(["pending", "approved", "rejected", "suspended", "deactivated"]),
+  rejectionReason: z.string().trim().max(500).optional().nullable(),
+  adminNotes: z.string().trim().max(2000).optional().nullable(),
+  verificationStatus: z.enum(["not_required", "pending", "submitted", "verified", "rejected"]).optional(),
+  verificationNotes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export type PartnerStatusUpdateInput = z.infer<typeof PartnerStatusUpdateSchema>;

@@ -349,7 +349,7 @@ export function LoginForm() {
       </form>
 
       {/* Footer */}
-      <div className="mt-6 pt-5 border-t border-[#D9E2E4] text-center">
+      <div className="mt-6 pt-5 border-t border-[#D9E2E4] text-center space-y-2">
         <p className="text-xs text-[#526267]">
           Don&apos;t have an account?{" "}
           <Link
@@ -357,6 +357,15 @@ export function LoginForm() {
             className="font-bold text-[#155761] hover:text-[#2F7D78] transition-colors"
           >
             Create account
+          </Link>
+        </p>
+        <p className="text-xs text-[#526267]">
+          Software Creator or Agency?{" "}
+          <Link
+            href="/become-a-partner"
+            className="font-bold text-[#2F7D78] hover:text-[#155761] transition-colors"
+          >
+            Become a Solution Partner →
           </Link>
         </p>
       </div>

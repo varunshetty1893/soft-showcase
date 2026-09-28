@@ -77,6 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           image: user.image,
           isAdmin: user.isAdmin,
+          role: (user as { role?: string }).role || (user.isAdmin ? "admin" : "customer"),
         };
       },
     }),
@@ -101,31 +102,53 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+        token.role = (user as { role?: string }).role || (token.isAdmin ? "admin" : "customer");
       }
 
       // Check against ADMIN_EMAIL env var or database
       const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
       if (token.email && adminEmail && (token.email as string).toLowerCase() === adminEmail) {
         token.isAdmin = true;
+        token.role = "admin";
       }
 
-      // Keep isAdmin up-to-date directly from database
+      // Keep user info, role and partner status up-to-date directly from database
       if (token.id) {
-        const dbUser = await db.user.findUnique({
-          where: { id: token.id as string },
-          select: { isAdmin: true, email: true },
-        });
-        if (dbUser) {
-          const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
-          token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id as string },
+            select: { id: true, isAdmin: true, email: true, role: true },
+          });
 
-          // If db record wasn't updated yet, update it
-          if (isEnvAdmin && !dbUser.isAdmin) {
-            await db.user.update({
-              where: { id: token.id as string },
-              data: { isAdmin: true },
+          if (dbUser) {
+            const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
+            token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
+            token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
+
+            // Look up partner profile if exists
+            const partnerProfile = await db.projectProvider.findFirst({
+              where: {
+                OR: [
+                  { userId: dbUser.id },
+                  { email: dbUser.email },
+                ],
+              },
+              select: { id: true, applicationStatus: true },
             }).catch(() => null);
+
+            if (partnerProfile) {
+              token.partnerId = partnerProfile.id;
+              token.partnerStatus = partnerProfile.applicationStatus;
+              if (token.role !== "admin") {
+                token.role = "solution_partner";
+              }
+            } else {
+              token.partnerId = null;
+              token.partnerStatus = null;
+            }
           }
+        } catch (e) {
+          console.warn("[Auth] Failed to refresh token from db:", e);
         }
       }
 
@@ -136,6 +159,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token) {
         session.user.id = token.id as string;
         session.user.isAdmin = (token.isAdmin as boolean) ?? false;
+        session.user.role = (token.role as "customer" | "solution_partner" | "admin") || (token.isAdmin ? "admin" : "customer");
+        session.user.partnerStatus = (token.partnerStatus as "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null) ?? null;
+        session.user.partnerId = (token.partnerId as string | null) ?? null;
       }
       return session;
     },

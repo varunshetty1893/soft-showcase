@@ -15,12 +15,16 @@ import {
   History,
   ChevronRight,
   UserCheck,
+  Receipt,
+  Headphones,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Projects", href: "/admin/projects", icon: FolderGit2 },
-  { label: "Providers", href: "/admin/providers", icon: Users },
+  { label: "Partners & Providers", href: "/admin/providers", icon: Users },
+  { label: "Transactions & Evidence", href: "/admin/transactions", icon: Receipt },
+  { label: "Support Tickets", href: "/admin/support", icon: Headphones },
   { label: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
   { label: "Custom Requests", href: "/admin/custom-requests", icon: FileQuestion },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: History },
