@@ -58,6 +58,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
     if (href === "/become-a-partner") {
       return (
         pathname === "/become-a-partner" ||
+        pathname === "/partner-registration" ||
         pathname === "/partner/register" ||
         pathname === "/partner/status"
       );
@@ -66,7 +67,8 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
       return (
         pathname.startsWith("/partner") &&
         pathname !== "/partner/register" &&
-        pathname !== "/partner/status"
+        pathname !== "/partner/status" &&
+        pathname !== "/partner-registration"
       );
     }
     return pathname === href;
@@ -308,7 +310,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                 </Link>
                 <div className="pt-2 text-center border-t border-[#D9E2E4]/60">
                   <Link
-                    href="/partner/register"
+                    href="/partner-registration"
                     onClick={() => setMobileMenuOpen(false)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#155761] hover:underline py-1"
                   >

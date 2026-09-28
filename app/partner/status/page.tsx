@@ -225,7 +225,7 @@ export default async function PartnerStatusPage() {
                     </Button>
                   </Link>
                 ) : (
-                  <Link href="/partner/register" className="w-full sm:w-auto">
+                  <Link href="/partner-registration" className="w-full sm:w-auto">
                     <Button variant="primary" className="w-full">
                       Apply as Solution Partner
                     </Button>

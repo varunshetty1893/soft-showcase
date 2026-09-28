@@ -53,7 +53,7 @@ export default function BecomeAPartnerPage() {
               Connect directly with verified buyers, businesses, and founders looking for production-ready applications, turnkey web platforms, and tailored software engineering.
             </p>
             <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/partner/register">
+              <Link href="/partner-registration">
                 <button className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-bold text-sm shadow-xs transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
                   <span>Apply to Become a Solution Partner</span>
                   <ArrowRight className="w-4 h-4" />
@@ -285,7 +285,7 @@ export default function BecomeAPartnerPage() {
               Showcase your code to business buyers and engineering leaders. Get started with your application today.
             </p>
             <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/partner/register">
+              <Link href="/partner-registration">
                 <button className="px-8 py-3.5 rounded-xl bg-white text-[#155761] font-bold text-sm shadow-md hover:bg-[#F3F7F7] transition-all cursor-pointer">
                   Apply to Become a Solution Partner
                 </button>

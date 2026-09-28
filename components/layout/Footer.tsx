@@ -107,10 +107,10 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/partner/register"
+                  href="/partner-registration"
                   className="hover:text-[#155761] transition-colors"
                 >
-                  Apply as Partner
+                  Register as Partner
                 </Link>
               </li>
               <li>
