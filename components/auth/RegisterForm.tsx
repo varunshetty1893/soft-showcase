@@ -139,7 +139,7 @@ export function RegisterForm() {
     setGoogleLoading(true);
     setErrorMessage(null);
     try {
-      const res = await signIn("google", { callbackUrl, redirect: true }) as any;
+      const res = (await signIn("google", { callbackUrl, redirect: true })) as { error?: string } | undefined;
       if (res?.error) {
         setErrorMessage("Google Sign-In is currently unavailable. Please create an account using email and password.");
         setGoogleLoading(false);

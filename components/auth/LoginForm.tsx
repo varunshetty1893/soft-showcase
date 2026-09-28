@@ -143,7 +143,7 @@ export function LoginForm() {
     setGoogleLoading(true);
     setActiveBanner(null);
     try {
-      const res = await signIn("google", { callbackUrl, redirect: true }) as any;
+      const res = (await signIn("google", { callbackUrl, redirect: true })) as { error?: string } | undefined;
       if (res?.error) {
         setActiveBanner({
           type: "error",

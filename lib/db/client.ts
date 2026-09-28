@@ -646,6 +646,272 @@ if (hasValidDatabaseUrl) {
   }
 }
 
+let seedCheckTriggered = false;
+
+async function ensureDatabaseSeeded(p: PrismaClient) {
+  if (seedCheckTriggered) return;
+  seedCheckTriggered = true;
+
+  try {
+    const categoryCount = await p.category.count().catch(() => 0);
+    if (categoryCount === 0) {
+      console.log("[Soft Showcase] Auto-seeding initial categories & technologies...");
+      for (const cat of DEFAULT_CATEGORIES) {
+        await p.category.upsert({
+          where: { slug: cat.slug },
+          update: {},
+          create: cat,
+        }).catch(() => null);
+      }
+      for (const tech of DEFAULT_TECHNOLOGIES) {
+        await p.technology.upsert({
+          where: { slug: tech.slug },
+          update: {},
+          create: tech,
+        }).catch(() => null);
+      }
+    }
+
+    const adminEmail = process.env.ADMIN_EMAIL || "shettymu25@gmail.com";
+    if (adminEmail) {
+      await p.user.upsert({
+        where: { email: adminEmail },
+        update: { isAdmin: true },
+        create: {
+          email: adminEmail,
+          name: "Admin",
+          isAdmin: true,
+        },
+      }).catch(() => null);
+    }
+
+    const gfExists = await p.project.findUnique({ where: { slug: "global-farmer" } }).catch(() => null);
+    if (!gfExists) {
+      console.log("[Soft Showcase] Auto-seeding initial projects & providers...");
+      const varunProvider = await p.projectProvider.upsert({
+        where: { email: "shettybvarun@gmail.com" },
+        update: {
+          displayName: "Varun Shetty",
+          whatsappNumber: "918123665363",
+          bio: "Full-Stack & Python / ML Developer. Creator of Global Farmer direct agricultural commerce and Smart Fitness & Diet Planner.",
+          avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
+          showEmail: true,
+          showWhatsapp: true,
+          providerConsentConfirmed: true,
+          providerConsentConfirmedAt: new Date(),
+        },
+        create: {
+          displayName: "Varun Shetty",
+          email: "shettybvarun@gmail.com",
+          whatsappNumber: "918123665363",
+          bio: "Full-Stack & Python / ML Developer. Creator of Global Farmer direct agricultural commerce and Smart Fitness & Diet Planner.",
+          avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
+          showEmail: true,
+          showWhatsapp: true,
+          providerConsentConfirmed: true,
+          providerConsentConfirmedAt: new Date(),
+        },
+      }).catch(() => null);
+
+      if (varunProvider) {
+        const ecommerceCat = await p.category.findUnique({ where: { slug: "e-commerce" } }).catch(() => null);
+        const aimlCat = await p.category.findUnique({ where: { slug: "ai-ml" } }).catch(() => null);
+
+        if (ecommerceCat) {
+          await p.project.upsert({
+            where: { slug: "global-farmer" },
+            update: {},
+            create: {
+              title: "Global Farmer — Direct Agri-Produce E-Commerce Platform",
+              slug: "global-farmer",
+              shortDescription: "PHP & MySQL direct farm-to-consumer e-commerce marketplace cutting out middlemen with cart, checkout, and full admin operations.",
+              fullDescription: "Global Farmer is an open-source, full-stack agricultural e-commerce web platform engineered with PHP and MySQLi. It directly connects independent farmers with local households and commercial buyers. Features an automated customer storefront with live product galleries, responsive shopping carts, address books, order tracking, and a session-protected admin control panel with inventory reports, order processing, and user management.",
+              status: "PUBLISHED",
+              featured: true,
+              priceMode: "FIXED",
+              price: 14999,
+              demoUrl: "https://github.com/varunshetty1893/global-farmer",
+              projectType: "Full-Stack E-Commerce System",
+              whatsIncluded: [
+                "Complete PHP 7.4+ & MySQLi Source Code",
+                "Full globalfarmer_db.sql database schema with sample data",
+                "Customer storefront with Cart, Checkout & Order History",
+                "Session-protected /gf-manage admin panel with analytics",
+                "Setup documentation for XAMPP, WAMP, and LAMP servers",
+              ],
+              categoryId: ecommerceCat.id,
+              providerId: varunProvider.id,
+              images: {
+                create: [
+                  {
+                    url: "https://raw.githubusercontent.com/varunshetty1893/global-farmer/main/assets/img/header-bg.jpg",
+                    storageKey: "gf-1",
+                    altText: "Global Farmer Marketplace Header & Fresh Produce Catalog",
+                    isPrimary: true,
+                    sortOrder: 1,
+                  },
+                  {
+                    url: "https://raw.githubusercontent.com/varunshetty1893/global-farmer/main/logo/logo.png",
+                    storageKey: "gf-2",
+                    altText: "Global Farmer Brand Logo & Identity",
+                    isPrimary: false,
+                    sortOrder: 2,
+                  },
+                ],
+              },
+              features: {
+                create: [
+                  { feature: "Direct farm-to-consumer store with category filtering", sortOrder: 1 },
+                  { feature: "Full shopping cart, dynamic order calculation & checkout", sortOrder: 2 },
+                  { feature: "Session-protected admin management (/gf-manage) dashboard", sortOrder: 3 },
+                  { feature: "Customer address book, account profile and order tracking", sortOrder: 4 },
+                ],
+              },
+              specifications: {
+                create: [
+                  { key: "Backend", value: "PHP 7.4+ with MySQLi", sortOrder: 1 },
+                  { key: "Database", value: "MySQL 5.7+ / MariaDB (globalfarmer_db.sql)", sortOrder: 2 },
+                  { key: "Frontend", value: "HTML5, CSS3, JavaScript, FontAwesome", sortOrder: 3 },
+                  { key: "Compatibility", value: "XAMPP / WAMP / LAMP Environments", sortOrder: 4 },
+                ],
+              },
+              faqs: {
+                create: [
+                  { question: "How do I install Global Farmer locally?", answer: "Place the project in your XAMPP htdocs folder, import globalfarmer_db.sql into phpMyAdmin, and configure dbconnection.php.", sortOrder: 1 },
+                ],
+              },
+            },
+          }).catch(() => null);
+        }
+
+        if (aimlCat) {
+          await p.project.upsert({
+            where: { slug: "smart-fitness-diet-planner" },
+            update: {},
+            create: {
+              title: "Smart Fitness & Diet Planner",
+              slug: "smart-fitness-diet-planner",
+              shortDescription: "Intelligent Python Flask & SQLite health recommendation engine providing customized diet plans and workout routines.",
+              fullDescription: "A smart, rule-based Python web application built with Flask and SQLite that delivers personalized diet and exercise recommendations. By analyzing user health parameters—including age, weight, height, activity level, and hydration status—the engine computes real-time BMI metrics, caloric intake requirements, and lifestyle plans, accompanied by an administrative analytics dashboard.",
+              status: "PUBLISHED",
+              featured: true,
+              priceMode: "FIXED",
+              price: 19999,
+              demoUrl: "https://github.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project",
+              projectType: "AI / Rule-Based Web App",
+              whatsIncluded: [
+                "Full Python 3.8+ & Flask application source code",
+                "Pre-configured SQLite diet.db database and models",
+                "Rule-based recommendation engine for nutrition and workouts",
+                "Responsive Jinja2 HTML5 & CSS3 frontend templates",
+                "Admin dashboard with user management and credential controls",
+              ],
+              categoryId: aimlCat.id,
+              providerId: varunProvider.id,
+              images: {
+                create: [
+                  {
+                    url: "https://raw.githubusercontent.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project/main/static/images/hero-bg.png",
+                    storageKey: "fit-1",
+                    altText: "Smart Fitness & Diet Planner Recommendation Dashboard",
+                    isPrimary: true,
+                    sortOrder: 1,
+                  },
+                  {
+                    url: "https://raw.githubusercontent.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project/main/static/images/1.png",
+                    storageKey: "fit-2",
+                    altText: "Fitness & Diet Planner Analytics & Health Metrics",
+                    isPrimary: false,
+                    sortOrder: 2,
+                  },
+                ],
+              },
+              features: {
+                create: [
+                  { feature: "Automatic Body Mass Index (BMI) calculator and health tier analysis", sortOrder: 1 },
+                  { feature: "Rule-based recommendation engine for personalized meal plans", sortOrder: 2 },
+                  { feature: "Targeted exercise suggestions tailored to fitness and activity level", sortOrder: 3 },
+                  { feature: "Hydration tracking and admin user control dashboard", sortOrder: 4 },
+                ],
+              },
+              specifications: {
+                create: [
+                  { key: "Backend Framework", value: "Python 3.8+ & Flask Web Framework", sortOrder: 1 },
+                  { key: "Database", value: "SQLite (diet.db)", sortOrder: 2 },
+                  { key: "Engine", value: "Rule-Based Health & Calorie Logic Engine", sortOrder: 3 },
+                  { key: "Frontend", value: "Jinja2 Templates, HTML5 & CSS3", sortOrder: 4 },
+                ],
+              },
+              faqs: {
+                create: [
+                  { question: "Can the rule-based logic be expanded?", answer: "Yes, the decision engine in app.py is modular and easily extensible to include new dietary preferences or medical conditions.", sortOrder: 1 },
+                ],
+              },
+            },
+          }).catch(() => null);
+
+          await p.project.upsert({
+            where: { slug: "ai-resume-analyzer" },
+            update: {},
+            create: {
+              title: "AI Resume & Portfolio Analyzer",
+              slug: "ai-resume-analyzer",
+              shortDescription: "ATS score optimizer and skill gap engine powered by generative AI with candidate dashboard.",
+              fullDescription: "A complete full-stack platform for career coaches, job seekers, and recruiters. Evaluates resumes against target job descriptions, computes ATS pass scores, and generates actionable rewrite suggestions.",
+              status: "PUBLISHED",
+              featured: true,
+              priceMode: "FIXED",
+              price: 24999,
+              demoUrl: "https://example.com/demo/resume-analyzer",
+              projectType: "Full-Stack Web App",
+              whatsIncluded: [
+                "Next.js 15 + TypeScript Frontend & Backend API",
+                "PostgreSQL / Prisma schema with migrations",
+                "Pre-configured ATS parsing and LLM scoring prompts",
+                "Docker deployment configs and setup guide",
+              ],
+              categoryId: aimlCat.id,
+              providerId: varunProvider.id,
+              images: {
+                create: [
+                  {
+                    url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
+                    storageKey: "mock-1",
+                    altText: "AI Resume Analyzer Dashboard",
+                    isPrimary: true,
+                    sortOrder: 1,
+                  },
+                ],
+              },
+              features: {
+                create: [
+                  { feature: "Instant ATS score calculation", sortOrder: 1 },
+                  { feature: "Skill extraction & gap analysis", sortOrder: 2 },
+                  { feature: "Export report as PDF", sortOrder: 3 },
+                ],
+              },
+              specifications: {
+                create: [
+                  { key: "Frontend", value: "Next.js 15, Tailwind CSS, TypeScript", sortOrder: 1 },
+                  { key: "Backend", value: "Next.js Route Handlers, Prisma", sortOrder: 2 },
+                  { key: "AI Model", value: "Gemini 2.5 Flash / OpenAI API", sortOrder: 3 },
+                ],
+              },
+              faqs: {
+                create: [
+                  { question: "Can this project be customized?", answer: "Yes, full source code is provided with documentation.", sortOrder: 1 },
+                ],
+              },
+            },
+          }).catch(() => null);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Soft Showcase] Auto-seeding check skipped:", err);
+  }
+}
+
 // Proxied client that delegates to Prisma when available and falls back to memoryStore
 export const db = new Proxy(
   {},
@@ -695,6 +961,9 @@ export const db = new Proxy(
           }
 
           return async (...args: any[]) => {
+            if (realPrisma) {
+              ensureDatabaseSeeded(realPrisma).catch(() => null);
+            }
             try {
               return await origMethod.apply(target, args);
             } catch (err: any) {

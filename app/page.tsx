@@ -33,6 +33,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ScrollFade } from "@/components/ui/ScrollFade";
 import { DEFAULT_CATEGORIES } from "@/config/categories";
+import { getPublishedProjects } from "@/lib/db/queries/projects";
+import { ProjectCard, type ProjectCardData } from "@/components/projects/ProjectCard";
 import type { Metadata } from "next";
 import { APP_NAME, APP_URL } from "@/config/constants";
 
@@ -90,8 +92,20 @@ const categoryTagsMap: Record<string, string[]> = {
   other: ["Developer Tools", "Utilities", "Libraries"],
 };
 
-export default function HomePage() {
+export default async function HomePage() {
   const baseUrl = APP_URL.replace(/\/$/, "");
+
+  let featuredProjects: ProjectCardData[] = [];
+  try {
+    const res = await getPublishedProjects({ featured: true, pageSize: 6 });
+    featuredProjects = res.projects;
+    if (featuredProjects.length === 0) {
+      const allRes = await getPublishedProjects({ pageSize: 6 });
+      featuredProjects = allRes.projects;
+    }
+  } catch (err) {
+    console.warn("Could not load featured projects for homepage:", err);
+  }
 
   const websiteSchema = {
     "@context": "https://schema.org",
@@ -221,7 +235,54 @@ export default function HomePage() {
           </section>
         </div>
 
-        {/* ── 2. Curated Categories Section ──────────────────────────────── */}
+        {/* ── 2. Featured Projects Showcase ─────────────────────────────── */}
+        <section id="featured-projects" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
+          <ScrollFade direction="up">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#D9E2E4] text-[#155761] text-xs font-semibold mb-3 shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-[#2F7D78]" />
+                  <span>Curated &amp; Production Ready</span>
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#102124]">
+                  Featured Software Solutions
+                </h2>
+                <p className="text-sm sm:text-base text-[#526267] mt-2 max-w-xl leading-relaxed">
+                  Hand-selected full-stack architectures, mobile apps, and machine learning models ready for immediate deployment or custom scoping.
+                </p>
+              </div>
+
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#155761] hover:text-[#2F7D78] transition-colors self-start md:self-auto group"
+              >
+                <span>Browse All Projects</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </ScrollFade>
+
+          {featuredProjects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredProjects.map((p, idx) => (
+                <ScrollFade key={p.id} direction="up" delay={idx * 0.08} duration={0.4}>
+                  <ProjectCard project={p} />
+                </ScrollFade>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-2xl border border-[#D9E2E4]">
+              <p className="text-sm text-[#526267]">Browse our complete software catalog to discover ready-to-deploy projects.</p>
+              <Link href="/projects" className="mt-4 inline-block">
+                <button className="px-5 py-2.5 rounded-xl bg-[#155761] text-white text-xs font-semibold shadow-xs hover:bg-[#10474F] transition-colors cursor-pointer">
+                  Explore Projects Catalog
+                </button>
+              </Link>
+            </div>
+          )}
+        </section>
+
+        {/* ── 3. Curated Categories Section ──────────────────────────────── */}
         <section id="categories" className="w-full bg-[#F8FAFA] py-20 px-4 sm:px-6 lg:px-8 border-y border-[#D9E2E4] scroll-mt-20">
           <div className="max-w-7xl mx-auto">
             {/* Section Header */}

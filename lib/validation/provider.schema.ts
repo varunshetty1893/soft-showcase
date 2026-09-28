@@ -22,18 +22,22 @@ export const ProviderSchema = z.object({
     .max(20, "WhatsApp number is too long")
     .trim()
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal("")),
 
   bio: z
     .string()
     .max(500, "Bio must be under 500 characters")
     .trim()
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal("")),
 
   avatarUrl: z
-    .string()
-    .url("Please enter a valid URL")
+    .union([
+      z.string().url("Please enter a valid URL"),
+      z.literal(""),
+    ])
     .optional()
     .nullable(),
 

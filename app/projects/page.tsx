@@ -3,8 +3,6 @@
 // Source of truth: docs/08-page-specifications.md & docs/36-development-roadmap.md
 
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ProjectGrid } from "@/components/projects/ProjectGrid";
@@ -60,19 +58,7 @@ interface ProjectsPageProps {
 }
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
-  const session = await auth();
   const params = await searchParams;
-
-  if (!session?.user) {
-    const qs = new URLSearchParams();
-    if (params.category) qs.set("category", params.category);
-    if (params.tech) qs.set("tech", params.tech);
-    if (params.q) qs.set("q", params.q);
-    if (params.page) qs.set("page", params.page);
-    const queryString = qs.toString();
-    const callback = `/projects${queryString ? `?${queryString}` : ""}`;
-    redirect(`/login?callbackUrl=${encodeURIComponent(callback)}`);
-  }
 
   const currentPage = parseInt(params.page || "1", 10) || 1;
   const categorySlug = params.category;

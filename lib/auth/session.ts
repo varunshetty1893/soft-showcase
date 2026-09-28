@@ -32,8 +32,12 @@ export async function getSession() {
  * Returns null if not authenticated.
  */
 export async function getCurrentUser() {
-  const session = await auth();
-  return session?.user ?? null;
+  try {
+    const session = await auth();
+    return session?.user ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

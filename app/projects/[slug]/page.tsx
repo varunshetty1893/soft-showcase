@@ -4,8 +4,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
+import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { PriceBadge } from "@/components/projects/PriceBadge";
@@ -84,12 +83,6 @@ export async function generateMetadata({
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { slug } = await params;
-
-  // Enforce authentication: No user can access any project without logging in
-  const session = await auth();
-  if (!session?.user) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/projects/${slug}`)}`);
-  }
 
   let project = null;
   try {
