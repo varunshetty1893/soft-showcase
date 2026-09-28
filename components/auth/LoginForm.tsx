@@ -94,7 +94,7 @@ export function LoginForm() {
     setGoogleLoading(true);
     setErrorMessage(null);
     try {
-      const res = await signIn("google", { callbackUrl, redirect: true });
+      const res = await signIn("google", { callbackUrl, redirect: true }) as any;
       if (res?.error) {
         setErrorMessage("Google Sign-In is currently unavailable. Please sign in with email and password.");
         setGoogleLoading(false);
