@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { formatCurrency } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -31,26 +32,9 @@ export const metadata: Metadata = {
 };
 
 export default async function PartnerDashboardPage() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  let partner = null;
-  try {
-    partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
-    });
-  } catch (err) {
-    console.warn("Failed to retrieve partner profile:", err);
-  }
-
-  // Fallback partner ID for admin testing if needed
-  const partnerId = partner?.id || "prov-varun";
-  const stats = await getPartnerDashboardStats(partnerId, session.user.id);
+  const { user, partner } = await getEffectivePartnerContext();
+  const partnerId = partner.id;
+  const stats = await getPartnerDashboardStats(partnerId, user.id);
 
   return (
     <div className="space-y-8">
@@ -62,7 +46,7 @@ export default async function PartnerDashboardPage() {
             <span>Active Partner Account</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102124] tracking-tight">
-            Welcome back, {partner?.displayName || session.user.name}!
+            Welcome back, {partner?.displayName || user.name || "Partner Studio"}!
           </h1>
           <p className="text-xs sm:text-sm text-[#526267] max-w-xl">
             Here is your live software solutions overview, inbound customer enquiries, and verified transaction records.

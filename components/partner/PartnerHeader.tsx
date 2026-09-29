@@ -39,9 +39,10 @@ interface PartnerHeaderProps {
     applicationStatus?: string | null;
     avatarUrl?: string | null;
   } | null;
+  isDemoGuest?: boolean;
 }
 
-export function PartnerHeader({ user, partner }: PartnerHeaderProps) {
+export function PartnerHeader({ user, partner, isDemoGuest }: PartnerHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const isVerified = partner?.verificationStatus === "verified";
@@ -66,6 +67,11 @@ export function PartnerHeader({ user, partner }: PartnerHeaderProps) {
             <Sparkles className="w-3 h-3" />
             <span>Partner Workspace</span>
           </div>
+          {isDemoGuest && (
+            <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              Interactive Preview
+            </span>
+          )}
         </div>
 
         {/* Center / Right Quick Actions */}
@@ -118,21 +124,30 @@ export function PartnerHeader({ user, partner }: PartnerHeaderProps) {
             </div>
           </div>
 
-          {/* Sign Out Button */}
-          <button
-            type="button"
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="p-2 text-[#526267] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          {/* Sign In / Sign Out Button */}
+          {isDemoGuest ? (
+            <Link
+              href="/login?callbackUrl=/partner"
+              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#155761] text-white hover:bg-[#10474F] transition-colors shadow-xs"
+            >
+              Sign In
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="p-2 text-[#526267] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Mobile menu toggle */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-[#526267] hover:text-[#102124] md:hidden focus:outline-none"
+            className="p-2 text-[#526267] hover:text-[#102124] md:hidden focus:outline-none cursor-pointer"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
