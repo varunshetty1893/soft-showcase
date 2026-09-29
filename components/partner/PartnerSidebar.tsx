@@ -44,14 +44,14 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
   };
 
   return (
-    <aside className="w-64 border-r border-[#D9E2E4] bg-white h-[calc(100vh-4rem)] sticky top-16 flex flex-col justify-between py-4 shrink-0 hidden md:flex overflow-hidden">
-      <div className="space-y-3.5 px-3">
+    <aside className="w-72 border-r border-[#D9E2E4] bg-white h-[calc(100vh-4rem)] sticky top-16 flex flex-col justify-between py-5 shrink-0 hidden md:flex overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="space-y-5 px-4">
         {/* Workspace Brand / Partner Title */}
-        <div className="px-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#526267]">
+        <div className="px-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#526267]">
             Solution Partner Portal
           </span>
-          <div className="text-xs font-semibold text-[#102124] truncate mt-0.5">
+          <div className="text-sm font-bold text-[#102124] truncate mt-1">
             {partner?.displayName || "My Studio"}
           </div>
         </div>
@@ -59,15 +59,15 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
         {/* Quick Action Button */}
         <div className="px-1">
           <Link href="/partner/solutions/new">
-            <button className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer">
-              <PlusCircle className="w-3.5 h-3.5" />
+            <button className="w-full inline-flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer">
+              <PlusCircle className="w-4 h-4" />
               <span>Add New Solution</span>
             </button>
           </Link>
         </div>
 
-        {/* Main Navigation */}
-        <nav className="space-y-0.5">
+        {/* Main Navigation with comfortable spacing and clear typography */}
+        <nav className="space-y-1.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -76,21 +76,21 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   active
-                    ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]"
+                    ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4] shadow-2xs"
                     : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <Icon
-                    className={`w-4 h-4 ${
+                    className={`w-4.5 h-4.5 shrink-0 ${
                       active ? "text-[#155761]" : "text-[#526267]"
                     }`}
                   />
                   <span>{item.label}</span>
                 </div>
-                {active && <ChevronRight className="w-3.5 h-3.5 text-[#155761]" />}
+                {active && <ChevronRight className="w-4 h-4 text-[#155761]" />}
               </Link>
             );
           })}
@@ -98,14 +98,14 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
       </div>
 
       {/* Trust & Policy Footnote */}
-      <div className="px-3 pt-3 border-t border-[#F3F7F7]">
-        <div className="bg-[#F8FAFA] rounded-xl p-2.5 border border-[#D9E2E4] text-[11px] text-[#526267] space-y-0.5">
-          <div className="flex items-center gap-1.5 font-semibold text-[#102124]">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#2F7D78]" />
+      <div className="px-4 pt-4 border-t border-[#F3F7F7]">
+        <div className="bg-[#F8FAFA] rounded-2xl p-3.5 border border-[#D9E2E4] text-xs text-[#526267] space-y-1">
+          <div className="flex items-center gap-2 font-semibold text-[#102124]">
+            <ShieldCheck className="w-4 h-4 text-[#2F7D78]" />
             <span>Isolated Workspace</span>
           </div>
-          <p className="text-[10px] leading-snug">
-            Your client data and transactions are strictly confidential.
+          <p className="text-[11px] leading-relaxed text-[#526267]">
+            Your client data and transactions are strictly confidential and isolated.
           </p>
         </div>
       </div>
