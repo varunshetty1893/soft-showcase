@@ -264,9 +264,9 @@ export default async function HomePage() {
           </ScrollFade>
 
           {featuredProjects.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
               {featuredProjects.map((p, idx) => (
-                <ScrollFade key={p.id} direction="up" delay={idx * 0.08} duration={0.4}>
+                <ScrollFade key={p.id} direction="up" delay={idx * 0.08} duration={0.4} className="h-full">
                   <ProjectCard project={p} />
                 </ScrollFade>
               ))}

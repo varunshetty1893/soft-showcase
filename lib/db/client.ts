@@ -408,6 +408,8 @@ class InMemoryStore {
     this.loadFromDisk();
   }
 
+  lastLoadedMtime = 0;
+
   saveToDisk() {
     try {
       const dataToSave = {
@@ -422,14 +424,23 @@ class InMemoryStore {
         auditLogs: this.auditLogs,
       };
       fs.writeFileSync(PERSIST_FILE, JSON.stringify(dataToSave), "utf-8");
+      try {
+        const stat = fs.statSync(PERSIST_FILE);
+        this.lastLoadedMtime = stat.mtimeMs;
+      } catch {}
     } catch {
       // Ignore write errors in restricted environments
     }
   }
 
-  loadFromDisk() {
+  loadFromDisk(force = false) {
     try {
       if (fs.existsSync(PERSIST_FILE)) {
+        const stat = fs.statSync(PERSIST_FILE);
+        if (!force && stat.mtimeMs <= this.lastLoadedMtime) {
+          return;
+        }
+        this.lastLoadedMtime = stat.mtimeMs;
         const raw = fs.readFileSync(PERSIST_FILE, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed.providers)) {
@@ -608,6 +619,7 @@ function sortProjectItems(items: any[], orderBy?: any): any[] {
 function createModelDelegate(modelName: string) {
   return {
     async findMany(args?: any) {
+      memoryStore.loadFromDisk();
       if (modelName === "category") {
         let items = [...memoryStore.categories];
         if (args?.where?.isActive !== undefined) {
@@ -715,6 +727,7 @@ function createModelDelegate(modelName: string) {
     },
 
     async findFirst(args?: any) {
+      memoryStore.loadFromDisk();
       if (modelName === "project") {
         const items = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
         const filtered = items.filter((p) => filterProjectItem(p, args?.where));
@@ -780,6 +793,7 @@ function createModelDelegate(modelName: string) {
     },
 
     async findUnique(args?: any) {
+      memoryStore.loadFromDisk();
       if (modelName === "project") {
         if (args?.where?.id) {
           const p = memoryStore.projects.find((item) => item.id === args.where.id);

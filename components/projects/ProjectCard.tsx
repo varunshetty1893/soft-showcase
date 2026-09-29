@@ -48,9 +48,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const primaryImage = project.images?.[0];
 
   return (
-    <article className="group relative flex flex-col bg-white rounded-xl border border-[#D9E2E4] overflow-hidden shadow-xs hover:shadow-md hover:border-[#155761]/40 transition-all duration-200">
+    <article className="group relative flex flex-col h-full bg-white rounded-xl border border-[#D9E2E4] overflow-hidden shadow-xs hover:shadow-md hover:border-[#155761]/40 transition-all duration-200">
       {/* ── Image Thumbnail ─────────────────────────────────────────────── */}
-      <div className="relative aspect-video w-full bg-[#F3F7F7] overflow-hidden border-b border-[#D9E2E4]">
+      <div className="relative aspect-video w-full bg-[#F3F7F7] overflow-hidden border-b border-[#D9E2E4] shrink-0">
         {primaryImage?.url ? (
           <img
             src={primaryImage.url}
@@ -102,7 +102,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
       {/* ── Card Content ────────────────────────────────────────────────── */}
       <div className="flex-1 p-5 flex flex-col justify-between">
-        <div>
+        <div className="flex-1 flex flex-col">
           <h3 className="text-base font-bold text-[#102124] group-hover:text-[#155761] transition-colors line-clamp-1">
             <Link href={`/projects/${project.slug}`}>
               <span className="absolute inset-0 z-10" />
@@ -110,27 +110,29 @@ export function ProjectCard({ project }: ProjectCardProps) {
             </Link>
           </h3>
 
-          <p className="mt-2 text-xs text-[#526267] line-clamp-2 leading-relaxed">
+          <p className="mt-2 text-xs text-[#526267] line-clamp-2 leading-relaxed min-h-[2.5rem]">
             {project.shortDescription}
           </p>
 
           {/* Technology Tags */}
-          {project.technologies && project.technologies.length > 0 && (
-            <div className="mt-3.5 flex flex-wrap gap-1.5">
-              {project.technologies.slice(0, 3).map((item) => (
+          <div className="mt-3.5 flex flex-wrap items-center gap-1.5 min-h-[1.75rem]">
+            {project.technologies && project.technologies.length > 0 ? (
+              project.technologies.slice(0, 3).map((item) => (
                 <TechBadge key={item.technology.id} name={item.technology.name} />
-              ))}
-            </div>
-          )}
+              ))
+            ) : (
+              <span className="text-[11px] text-[#526267]/50 italic">Full-stack software</span>
+            )}
+          </div>
         </div>
 
         {/* ── Footer / Meta ───────────────────────────────────────────────── */}
-        <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex flex-col sm:flex-row sm:items-end justify-between gap-2.5">
+        <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex items-center justify-between gap-2.5">
           <PriceBadge priceMode={project.priceMode} price={project.price} variant="card" />
 
           {/* Provider Snippet */}
           {project.provider && (
-            <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium self-end sm:self-auto shrink-0">
+            <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium shrink-0">
               {project.provider.avatarUrl ? (
                 <img
                   src={project.provider.avatarUrl}
@@ -140,7 +142,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
               ) : (
                 <UserIcon className="w-3.5 h-3.5 text-[#526267]" />
               )}
-              <span className="truncate max-w-[110px]">{project.provider.displayName}</span>
+              <span className="truncate max-w-[120px]">{project.provider.displayName}</span>
             </div>
           )}
         </div>

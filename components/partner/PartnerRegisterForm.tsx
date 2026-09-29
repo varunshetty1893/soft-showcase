@@ -113,6 +113,29 @@ export function PartnerRegisterForm() {
     }
   };
 
+  const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    if (val.startsWith("+")) {
+      val = "+" + val.slice(1).replace(/\D/g, "");
+    } else {
+      val = val.replace(/\D/g, "");
+      if (val.length > 0) {
+        val = "+" + val;
+      }
+    }
+    if (val.length > 13) {
+      val = val.slice(0, 13);
+    }
+    setFormData((prev) => ({ ...prev, whatsappNumber: val }));
+    if (fieldErrors.whatsappNumber) {
+      setFieldErrors((prev) => {
+        const copy = { ...prev };
+        delete copy.whatsappNumber;
+        return copy;
+      });
+    }
+  };
+
   // Helper to normalize and check WhatsApp number (must be total 13 chars with country code)
   const formatAndValidateWhatsApp = (phone: string): { clean: string; isValid: boolean } => {
     let clean = phone.trim().replace(/[\s\-()]/g, "");
@@ -710,24 +733,25 @@ export function PartnerRegisterForm() {
                 )}
               </div>
 
-              {/* Mobile / WhatsApp Number (Required, with country code, total 13 chars) */}
+              {/* WhatsApp Number */}
               <div className="sm:col-span-2 pt-1">
                 <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
-                  WhatsApp / Mobile Number (Customer Inquiries) <span className="text-rose-500">*</span>
+                  WhatsApp Number <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <Input
                     name="whatsappNumber"
                     value={formData.whatsappNumber}
-                    onChange={handleChange}
-                    placeholder="e.g. +919876543210 (country code + 10 digits, 13 chars total)"
+                    onChange={handleWhatsAppChange}
+                    placeholder="+919876543210"
+                    maxLength={13}
                     className={`pl-9 ${fieldErrors.whatsappNumber ? "border-rose-400 focus:border-rose-500" : ""}`}
                     required
                   />
                 </div>
                 <p className="text-[11px] text-[#526267] mt-1.5 leading-relaxed">
-                  Enter your international phone number with country code (e.g. +919876543210, exactly 13 characters total).
+                  Must be exactly 13 characters including country code (e.g. +919876543210).
                 </p>
                 {fieldErrors.whatsappNumber && (
                   <p className="text-rose-600 text-xs mt-1.5 flex items-center gap-1">
@@ -921,7 +945,7 @@ export function PartnerRegisterForm() {
                 <span>Verification &amp; Creator Links</span>
               </h3>
               <p className="text-xs text-[#526267] mt-0.5">
-                Technical review links. Except portfolio website, all creator credentials are required for verification.
+                Technical review links and creator credentials for verification.
               </p>
             </div>
 
@@ -950,7 +974,7 @@ export function PartnerRegisterForm() {
                   )}
                 </div>
 
-                {/* 2. GitHub Profile (Required) */}
+                {/* 2. GitHub Profile */}
                 <div>
                   <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
                     GitHub Profile <span className="text-rose-500">*</span>
@@ -974,7 +998,7 @@ export function PartnerRegisterForm() {
                   )}
                 </div>
 
-                {/* 3. LinkedIn Profile (Required) */}
+                {/* 3. LinkedIn Profile */}
                 <div>
                   <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
                     LinkedIn Profile <span className="text-rose-500">*</span>
@@ -1000,7 +1024,7 @@ export function PartnerRegisterForm() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-1">
-                {/* 4. Solutions Offered (Required) */}
+                {/* 4. Solutions Offered */}
                 <div>
                   <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
                     Types of Solutions You Offer <span className="text-rose-500">*</span>
@@ -1021,7 +1045,7 @@ export function PartnerRegisterForm() {
                   )}
                 </div>
 
-                {/* 5. Location / Region (Required) */}
+                {/* 5. Location / Region */}
                 <div>
                   <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-1.5">
                     Location / Region <span className="text-rose-500">*</span>

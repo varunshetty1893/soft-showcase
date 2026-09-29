@@ -11,6 +11,7 @@ export function PasswordChangeForm() {
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showCurrent, setShowCurrent] = React.useState(false);
   const [showNew, setShowNew] = React.useState(false);
+  const [showConfirm, setShowConfirm] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -146,15 +147,24 @@ export function PasswordChangeForm() {
           <label className="block text-xs font-semibold text-[#102124] uppercase tracking-wider mb-2">
             Confirm New Password
           </label>
-          <Input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Re-type new password"
-            className="text-sm"
-            required
-            minLength={8}
-          />
+          <div className="relative">
+            <Input
+              type={showConfirm ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-type new password"
+              className="pr-10 text-sm"
+              required
+              minLength={8}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#526267] hover:text-[#102124] cursor-pointer"
+            >
+              {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
 
         <div className="pt-2">
