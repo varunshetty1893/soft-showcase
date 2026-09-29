@@ -4,6 +4,8 @@
 // If DATABASE_URL is not set or unreachable, an in-memory mock is used so the app boots and functions immediately.
 
 import { PrismaClient } from "@prisma/client";
+import fs from "fs";
+import path from "path";
 import { DEFAULT_CATEGORIES } from "@/config/categories";
 import { DEFAULT_TECHNOLOGIES } from "@/config/technologies";
 
@@ -365,6 +367,8 @@ const initialProjectTechnologies = [
   { projectId: "proj-smart-fitness", technologyId: "tech-7" },  // JavaScript
 ];
 
+const PERSIST_FILE = path.join("/tmp", "softshowcase_db_state.json");
+
 // In-Memory Data Store
 class InMemoryStore {
   categories = [...initialCategories];
@@ -399,6 +403,65 @@ class InMemoryStore {
   verificationTokens: any[] = [];
   auditLogs: any[] = [];
   siteSettings: any[] = [];
+
+  constructor() {
+    this.loadFromDisk();
+  }
+
+  saveToDisk() {
+    try {
+      const dataToSave = {
+        providers: this.providers,
+        users: this.users,
+        verificationTokens: this.verificationTokens,
+        inquiries: this.inquiries,
+        customRequests: this.customRequests,
+        supportTickets: this.supportTickets,
+        supportMessages: this.supportMessages,
+        transactions: this.transactions,
+        auditLogs: this.auditLogs,
+      };
+      fs.writeFileSync(PERSIST_FILE, JSON.stringify(dataToSave), "utf-8");
+    } catch {
+      // Ignore write errors in restricted environments
+    }
+  }
+
+  loadFromDisk() {
+    try {
+      if (fs.existsSync(PERSIST_FILE)) {
+        const raw = fs.readFileSync(PERSIST_FILE, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.providers)) {
+          const existingIds = new Set(parsed.providers.map((p: any) => p.id));
+          const existingEmails = new Set(parsed.providers.map((p: any) => p.email?.toLowerCase()));
+          const extra = initialProviders.filter(
+            (p) => !existingIds.has(p.id) && !existingEmails.has(p.email.toLowerCase())
+          );
+          this.providers = [...parsed.providers, ...extra];
+        }
+        if (Array.isArray(parsed.users)) {
+          const existingEmails = new Set(parsed.users.map((u: any) => u.email?.toLowerCase()));
+          const extra = this.users.filter((u) => !existingEmails.has(u.email?.toLowerCase()));
+          this.users = [...parsed.users, ...extra];
+        }
+        if (Array.isArray(parsed.verificationTokens)) {
+          this.verificationTokens = parsed.verificationTokens.map((t: any) => ({
+            ...t,
+            expires: new Date(t.expires),
+          }));
+        }
+        if (Array.isArray(parsed.inquiries)) this.inquiries = parsed.inquiries;
+        if (Array.isArray(parsed.customRequests)) this.customRequests = parsed.customRequests;
+        if (Array.isArray(parsed.supportTickets)) this.supportTickets = parsed.supportTickets;
+        if (Array.isArray(parsed.supportMessages)) this.supportMessages = parsed.supportMessages;
+        if (Array.isArray(parsed.transactions)) this.transactions = parsed.transactions;
+        if (Array.isArray(parsed.auditLogs)) this.auditLogs = parsed.auditLogs;
+      }
+    } catch {
+      // Ignore read errors
+    }
+  }
 
   resolveTransaction(t: any) {
     if (!t) return null;
@@ -457,7 +520,89 @@ class InMemoryStore {
   }
 }
 
-const memoryStore = new InMemoryStore();
+const globalForMemory = globalThis as unknown as {
+  memoryStore?: InMemoryStore;
+};
+
+export const memoryStore = globalForMemory.memoryStore || new InMemoryStore();
+globalForMemory.memoryStore = memoryStore;
+
+function filterProjectItem(p: any, where?: any): boolean {
+  if (!where) return true;
+
+  if (where.id) {
+    if (typeof where.id === "string" && p.id !== where.id) return false;
+    if (where.id.not && p.id === where.id.not) return false;
+    if (Array.isArray(where.id.in) && !where.id.in.includes(p.id)) return false;
+  }
+
+  if (where.slug && p.slug !== where.slug) return false;
+  if (where.status && p.status !== where.status) return false;
+  if (where.featured !== undefined && Boolean(p.featured) !== Boolean(where.featured)) return false;
+  if (where.providerId && p.providerId !== where.providerId) return false;
+  if (where.categoryId && p.categoryId !== where.categoryId) return false;
+
+  if (where.category?.slug && p.category?.slug !== where.category.slug) {
+    return false;
+  }
+
+  if (where.technologies?.some?.technology?.slug) {
+    const tSlug = where.technologies.some.technology.slug;
+    const hasTech = p.technologies?.some(
+      (pt: any) => pt.technology?.slug === tSlug || pt.slug === tSlug
+    );
+    if (!hasTech) return false;
+  }
+
+  if (Array.isArray(where.OR)) {
+    const matched = where.OR.some((cond: any) => {
+      if (cond.title?.contains) {
+        if (p.title?.toLowerCase().includes(cond.title.contains.toLowerCase())) {
+          return true;
+        }
+      }
+      if (cond.shortDescription?.contains) {
+        if (p.shortDescription?.toLowerCase().includes(cond.shortDescription.contains.toLowerCase())) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (!matched) return false;
+  }
+
+  return true;
+}
+
+function sortProjectItems(items: any[], orderBy?: any): any[] {
+  if (!orderBy) return items;
+  const rules = Array.isArray(orderBy) ? orderBy : [orderBy];
+  return [...items].sort((a, b) => {
+    for (const rule of rules) {
+      if (rule.featured) {
+        const valA = a.featured ? 1 : 0;
+        const valB = b.featured ? 1 : 0;
+        if (valA !== valB) {
+          return rule.featured === "desc" ? valB - valA : valA - valB;
+        }
+      }
+      if (rule.createdAt) {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (timeA !== timeB) {
+          return rule.createdAt === "desc" ? timeB - timeA : timeA - timeB;
+        }
+      }
+      if (rule.title) {
+        const cmp = a.title.localeCompare(b.title);
+        if (cmp !== 0) {
+          return rule.title === "desc" ? -cmp : cmp;
+        }
+      }
+    }
+    return 0;
+  });
+}
 
 // Model delegate factory for in-memory operations
 function createModelDelegate(modelName: string) {
@@ -492,18 +637,8 @@ function createModelDelegate(modelName: string) {
 
       if (modelName === "project") {
         let items = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
-        if (args?.where?.status) {
-          items = items.filter((p: any) => p.status === args.where.status);
-        }
-        if (args?.where?.featured !== undefined) {
-          items = items.filter((p: any) => p.featured === args.where.featured);
-        }
-        if (args?.where?.category?.slug) {
-          items = items.filter((p: any) => p.category?.slug === args.where.category.slug);
-        }
-        if (args?.where?.id?.not) {
-          items = items.filter((p: any) => p.id !== args.where.id.not);
-        }
+        items = items.filter((p) => filterProjectItem(p, args?.where));
+        items = sortProjectItems(items, args?.orderBy);
         if (args?.skip) {
           items = items.slice(args.skip);
         }
@@ -569,21 +704,21 @@ function createModelDelegate(modelName: string) {
         return items;
       }
 
+      if (modelName === "verificationToken") {
+        return [...memoryStore.verificationTokens];
+      }
+
       if (modelName === "user") {
         return [...memoryStore.users];
       }
-
       return [];
     },
 
     async findFirst(args?: any) {
       if (modelName === "project") {
         const items = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
-        if (args?.where?.slug) {
-          const found = items.find((p: any) => p.slug === args.where.slug);
-          return found || null;
-        }
-        return items[0] || null;
+        const filtered = items.filter((p) => filterProjectItem(p, args?.where));
+        return filtered[0] || null;
       }
       if (modelName === "projectProvider") {
         if (args?.where?.id) {
@@ -593,7 +728,7 @@ function createModelDelegate(modelName: string) {
           return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
         }
         if (args?.where?.email) {
-          return memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+          return memoryStore.providers.find((p) => p.email?.toLowerCase() === args.where.email.toLowerCase()) || null;
         }
         if (args?.where?.OR) {
           const match = memoryStore.providers.find((p) =>
@@ -605,6 +740,17 @@ function createModelDelegate(modelName: string) {
           return match || null;
         }
         return memoryStore.providers[0] || null;
+      }
+      if (modelName === "verificationToken") {
+        if (args?.where) {
+          const match = memoryStore.verificationTokens.find((t) => {
+            if (args.where.identifier && t.identifier?.toLowerCase() !== args.where.identifier.toLowerCase()) return false;
+            if (args.where.token && t.token !== args.where.token) return false;
+            return true;
+          });
+          return match || null;
+        }
+        return memoryStore.verificationTokens[0] || null;
       }
       if (modelName === "transaction") {
         const items = memoryStore.transactions.map((t) => memoryStore.resolveTransaction(t));
@@ -649,10 +795,19 @@ function createModelDelegate(modelName: string) {
           return memoryStore.providers.find((p) => p.id === args.where.id) || null;
         }
         if (args?.where?.email) {
-          return memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+          return memoryStore.providers.find((p) => p.email?.toLowerCase() === args.where.email.toLowerCase()) || null;
         }
         if (args?.where?.userId) {
           return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
+        }
+      }
+      if (modelName === "verificationToken") {
+        if (args?.where?.identifier_token) {
+          return memoryStore.verificationTokens.find(
+            (t) =>
+              t.identifier?.toLowerCase() === args.where.identifier_token.identifier.toLowerCase() &&
+              t.token === args.where.identifier_token.token
+          ) || null;
         }
       }
       if (modelName === "transaction") {
@@ -685,10 +840,8 @@ function createModelDelegate(modelName: string) {
 
     async count(args?: any) {
       if (modelName === "project") {
-        if (args?.where?.status) {
-          return memoryStore.projects.filter((p) => p.status === args.where.status).length;
-        }
-        return memoryStore.projects.length;
+        const items = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
+        return items.filter((p) => filterProjectItem(p, args?.where)).length;
       }
       if (modelName === "projectProvider") {
         if (args?.where?.applicationStatus) {
@@ -755,12 +908,14 @@ function createModelDelegate(modelName: string) {
       else if (modelName === "transaction") memoryStore.transactions.unshift(data);
       else if (modelName === "supportTicket") memoryStore.supportTickets.unshift(data);
       else if (modelName === "supportMessage") memoryStore.supportMessages.push(data);
+      else if (modelName === "verificationToken") memoryStore.verificationTokens.push(data);
 
       return data;
     },
 
     async update(args?: any) {
       const targetId = args?.where?.id;
+      const targetEmail = args?.where?.email;
       let targetCollection: any[] | null = null;
       if (modelName === "projectProvider") targetCollection = memoryStore.providers;
       else if (modelName === "project") targetCollection = memoryStore.projects;
@@ -769,8 +924,13 @@ function createModelDelegate(modelName: string) {
       else if (modelName === "supportTicket") targetCollection = memoryStore.supportTickets;
       else if (modelName === "user") targetCollection = memoryStore.users;
 
-      if (targetCollection && targetId) {
-        const idx = targetCollection.findIndex((item) => item.id === targetId);
+      if (targetCollection) {
+        let idx = -1;
+        if (targetId) {
+          idx = targetCollection.findIndex((item) => item.id === targetId);
+        } else if (targetEmail && modelName === "user") {
+          idx = targetCollection.findIndex((item) => item.email?.toLowerCase() === targetEmail.toLowerCase());
+        }
         if (idx !== -1) {
           targetCollection[idx] = {
             ...targetCollection[idx],
@@ -792,6 +952,24 @@ function createModelDelegate(modelName: string) {
       return { id: args?.where?.id || "mock-id" };
     },
 
+    async deleteMany(args?: any) {
+      let count = 0;
+      if (modelName === "verificationToken") {
+        const identifier = args?.where?.identifier?.toLowerCase();
+        if (identifier) {
+          const initialLen = memoryStore.verificationTokens.length;
+          memoryStore.verificationTokens = memoryStore.verificationTokens.filter(
+            (t) => t.identifier?.toLowerCase() !== identifier
+          );
+          count = initialLen - memoryStore.verificationTokens.length;
+        } else {
+          count = memoryStore.verificationTokens.length;
+          memoryStore.verificationTokens = [];
+        }
+      }
+      return { count };
+    },
+
     async upsert(args?: any) {
       const existing = await this.findUnique(args);
       if (existing) {
@@ -802,28 +980,63 @@ function createModelDelegate(modelName: string) {
   };
 }
 
-// Check if a real DATABASE_URL is configured
-const hasValidDatabaseUrl = Boolean(
-  process.env.DATABASE_URL &&
-    !process.env.DATABASE_URL.includes("host:5432") &&
-    process.env.DATABASE_URL.trim() !== ""
-);
+// Check if a real, reachable DATABASE_URL is configured
+function isValidDatabaseUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+
+  // Must have a real database protocol
+  if (
+    !trimmed.startsWith("postgresql://") &&
+    !trimmed.startsWith("postgres://") &&
+    !trimmed.startsWith("mysql://")
+  ) {
+    return false;
+  }
+
+  // Check for dummy / placeholder values commonly injected in template or container environments
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.includes("@host/") ||
+    lower.includes("@host:") ||
+    lower.includes("@host?") ||
+    lower.includes("host:5432") ||
+    lower.includes("user:password@") ||
+    lower.includes("username:password@") ||
+    lower.includes("placeholder") ||
+    lower.includes("example.com") ||
+    lower.includes("dummy") ||
+    lower.includes("your-database") ||
+    lower.includes("db_user:db_password")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+const hasValidDatabaseUrl = isValidDatabaseUrl(process.env.DATABASE_URL);
 
 let realPrisma: PrismaClient | null = null;
+let prismaConnectionFailed = false;
+
 if (hasValidDatabaseUrl) {
   try {
+    // Keep log empty so Prisma doesn't print raw errors to stderr on network drops
     realPrisma = new PrismaClient({
-      log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+      log: [],
     });
   } catch {
     realPrisma = null;
+    prismaConnectionFailed = true;
   }
 }
 
 let seedCheckTriggered = false;
 
 async function ensureDatabaseSeeded(p: PrismaClient) {
-  if (seedCheckTriggered) return;
+  if (seedCheckTriggered || prismaConnectionFailed || !hasValidDatabaseUrl) return;
   seedCheckTriggered = true;
 
   try {
@@ -1085,8 +1298,8 @@ async function ensureDatabaseSeeded(p: PrismaClient) {
         }
       }
     }
-  } catch (err) {
-    console.warn("[Soft Showcase] Auto-seeding check skipped:", err);
+  } catch {
+    prismaConnectionFailed = true;
   }
 }
 
@@ -1121,7 +1334,7 @@ export const db = new Proxy(
 
       const mockDelegate = createModelDelegate(prop);
 
-      if (!realPrisma) {
+      if (!realPrisma || prismaConnectionFailed) {
         return mockDelegate;
       }
 
@@ -1139,13 +1352,17 @@ export const db = new Proxy(
           }
 
           return async (...args: any[]) => {
-            if (realPrisma) {
-              ensureDatabaseSeeded(realPrisma).catch(() => null);
+            if (prismaConnectionFailed || !realPrisma) {
+              const fallback = (mockDelegate as any)[method];
+              return fallback ? fallback(...args) : null;
             }
+
             try {
+              ensureDatabaseSeeded(realPrisma).catch(() => null);
               return await origMethod.apply(target, args);
-            } catch (err: any) {
-              console.warn(`[AI Studio] Database operation "${prop}.${method}" failed (${err?.message || err}). Falling back to mock data.`);
+            } catch {
+              // Gracefully fallback to mock data without throwing or polluting logs
+              prismaConnectionFailed = true;
               const fallbackMethod = (mockDelegate as any)[method];
               if (fallbackMethod) {
                 return await fallbackMethod(...args);

@@ -24,11 +24,25 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default async function PartnerStatusPage() {
+interface PartnerStatusPageProps {
+  searchParams?: Promise<{ email?: string; submitted?: string }>;
+}
+
+export default async function PartnerStatusPage({ searchParams }: PartnerStatusPageProps) {
   const session = await auth();
+  const params = await searchParams;
+  const lookupEmail = params?.email?.trim().toLowerCase();
 
   let partner = null;
-  if (session?.user) {
+  if (lookupEmail) {
+    partner = await db.projectProvider.findFirst({
+      where: {
+        email: lookupEmail,
+      },
+    });
+  }
+
+  if (!partner && session?.user) {
     partner = await db.projectProvider.findFirst({
       where: {
         OR: [
@@ -39,7 +53,9 @@ export default async function PartnerStatusPage() {
     });
   }
 
-  const status = partner?.applicationStatus || (session?.user ? "not_applied" : "unauthenticated");
+  const status =
+    partner?.applicationStatus ||
+    (session?.user || lookupEmail ? "not_applied" : "unauthenticated");
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">

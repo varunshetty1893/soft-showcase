@@ -19,6 +19,8 @@ import {
   ArrowLeft,
   Check,
   ShieldCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +56,8 @@ export function PartnerRegisterForm() {
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -106,11 +110,13 @@ export function PartnerRegisterForm() {
       if (formData.password !== formData.confirmPassword) {
         errors.confirmPassword = "Passwords do not match";
       }
-      // Mobile / WhatsApp number is explicitly required
-      if (!formData.whatsappNumber.trim()) {
-        errors.whatsappNumber = "Mobile / WhatsApp number is required for direct buyer routing";
-      } else if (formData.whatsappNumber.trim().replace(/\D/g, "").length < 7) {
-        errors.whatsappNumber = "Please enter a valid mobile number with at least 7 digits";
+      // WhatsApp number: exactly 13 characters with country code (e.g. +919876543210)
+      const cleanPhone = formData.whatsappNumber.trim().replace(/[\s-]/g, "");
+      if (!cleanPhone) {
+        errors.whatsappNumber = "WhatsApp number is required";
+      } else if (!/^\+\d{12}$/.test(cleanPhone)) {
+        errors.whatsappNumber =
+          "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)";
       }
     } else if (step === 2) {
       if (!formData.displayName.trim() || formData.displayName.trim().length < 2) {
@@ -189,11 +195,16 @@ export function PartnerRegisterForm() {
 
     setLoading(true);
 
+    const payload = {
+      ...formData,
+      whatsappNumber: formData.whatsappNumber.trim().replace(/[\s-]/g, ""),
+    };
+
     try {
       const res = await fetch("/api/partner/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -256,7 +267,10 @@ export function PartnerRegisterForm() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <Link href="/partner/status" className="w-full sm:w-auto">
+          <Link
+            href={`/partner/status?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`}
+            className="w-full sm:w-auto"
+          >
             <Button variant="primary" className="w-full">
               View Application Status
             </Button>

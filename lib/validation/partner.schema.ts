@@ -25,8 +25,10 @@ export const PartnerRegisterSchema = z
     whatsappNumber: z
       .string()
       .trim()
-      .min(7, "Mobile / WhatsApp number is required (at least 7 digits)")
-      .max(25, "Mobile / WhatsApp number is too long"),
+      .regex(
+        /^\+\d{12}$/,
+        "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)"
+      ),
     displayName: z
       .string()
       .trim()
