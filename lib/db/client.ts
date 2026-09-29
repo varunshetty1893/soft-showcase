@@ -893,9 +893,25 @@ function createModelDelegate(modelName: string) {
       else if (modelName === "supportTicket") memoryStore.supportTickets.unshift(data);
       else if (modelName === "supportMessage") memoryStore.supportMessages.push(data);
       else if (modelName === "verificationToken") memoryStore.verificationTokens.push(data);
+      else if (modelName === "technology") memoryStore.technologies.push(data);
+      else if (modelName === "projectImage") memoryStore.projectImages.push(data);
+      else if (modelName === "projectFeature") memoryStore.projectFeatures.push(data);
+      else if (modelName === "projectSpecification") memoryStore.projectSpecs.push(data);
+      else if (modelName === "projectFaq") memoryStore.projectFaqs.push(data);
+      else if (modelName === "projectTechnology") memoryStore.projectTechnologies.push(data);
 
       memoryStore.saveToDisk();
       return data;
+    },
+
+    async createMany(args?: any) {
+      const records = Array.isArray(args?.data) ? args.data : [];
+      let count = 0;
+      for (const item of records) {
+        await this.create({ data: item });
+        count++;
+      }
+      return { count };
     },
 
     async update(args?: any) {
@@ -954,12 +970,44 @@ function createModelDelegate(modelName: string) {
         count = initialLen - memoryStore.projects.length;
         memoryStore.saveToDisk();
       }
-      if (modelName === "projectProvider") {
-        const initialLen = memoryStore.providers.length;
-        if (args?.where?.id) {
-          memoryStore.providers = memoryStore.providers.filter((p) => p.id !== args.where.id);
+      if (modelName === "projectImage") {
+        const initialLen = memoryStore.projectImages.length;
+        if (args?.where?.projectId) {
+          memoryStore.projectImages = memoryStore.projectImages.filter((img) => img.projectId !== args.where.projectId);
         }
-        count = initialLen - memoryStore.providers.length;
+        count = initialLen - memoryStore.projectImages.length;
+        memoryStore.saveToDisk();
+      }
+      if (modelName === "projectFeature") {
+        const initialLen = memoryStore.projectFeatures.length;
+        if (args?.where?.projectId) {
+          memoryStore.projectFeatures = memoryStore.projectFeatures.filter((f) => f.projectId !== args.where.projectId);
+        }
+        count = initialLen - memoryStore.projectFeatures.length;
+        memoryStore.saveToDisk();
+      }
+      if (modelName === "projectSpecification") {
+        const initialLen = memoryStore.projectSpecs.length;
+        if (args?.where?.projectId) {
+          memoryStore.projectSpecs = memoryStore.projectSpecs.filter((s) => s.projectId !== args.where.projectId);
+        }
+        count = initialLen - memoryStore.projectSpecs.length;
+        memoryStore.saveToDisk();
+      }
+      if (modelName === "projectFaq") {
+        const initialLen = memoryStore.projectFaqs.length;
+        if (args?.where?.projectId) {
+          memoryStore.projectFaqs = memoryStore.projectFaqs.filter((faq) => faq.projectId !== args.where.projectId);
+        }
+        count = initialLen - memoryStore.projectFaqs.length;
+        memoryStore.saveToDisk();
+      }
+      if (modelName === "projectTechnology") {
+        const initialLen = memoryStore.projectTechnologies.length;
+        if (args?.where?.projectId) {
+          memoryStore.projectTechnologies = memoryStore.projectTechnologies.filter((pt) => pt.projectId !== args.where.projectId);
+        }
+        count = initialLen - memoryStore.projectTechnologies.length;
         memoryStore.saveToDisk();
       }
       if (modelName === "verificationToken") {

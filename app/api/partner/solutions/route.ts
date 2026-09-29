@@ -146,14 +146,67 @@ export async function POST(req: NextRequest) {
     )
       ? body.faqs
       : [];
-    const technologyIds: string[] = Array.isArray(body.technologyIds)
+    const rawTechList: string[] = Array.isArray(body.technologyIds)
       ? body.technologyIds
+      : Array.isArray(body.technologies)
+      ? body.technologies
       : [];
-    const images: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
+
+    const resolvedTechIds: string[] = [];
+    for (const item of rawTechList) {
+      if (!item || typeof item !== "string") continue;
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+
+      const existingById = await db.technology.findUnique({ where: { id: trimmed } }).catch(() => null);
+      if (existingById) {
+        resolvedTechIds.push(existingById.id);
+        continue;
+      }
+
+      const slug = trimmed
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const existingByName = await db.technology.findFirst({
+        where: {
+          OR: [
+            { name: { equals: trimmed, mode: "insensitive" } },
+            { slug: slug },
+          ],
+        },
+      }).catch(() => null);
+
+      if (existingByName) {
+        resolvedTechIds.push(existingByName.id);
+      } else {
+        const newTech = await db.technology.create({
+          data: {
+            name: trimmed,
+            slug: slug || `tech-${Date.now()}`,
+            isActive: true,
+            sortOrder: 99,
+          },
+        }).catch(() => null);
+
+        if (newTech) {
+          resolvedTechIds.push(newTech.id);
+        }
+      }
+    }
+
+    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
       body.images
     )
       ? body.images
       : [];
+
+    const sanitizedImages = rawImages.filter((img) => img && typeof img.url === "string" && img.url.trim().length > 0);
+    const hasPrimary = sanitizedImages.some((img) => img.isPrimary);
+    if (!hasPrimary && sanitizedImages.length > 0) {
+      sanitizedImages[0].isPrimary = true;
+    }
 
     const newProject = await db.project.create({
       data: {
@@ -191,13 +244,13 @@ export async function POST(req: NextRequest) {
           })),
         },
         technologies: {
-          create: technologyIds.map((techId) => ({
+          create: resolvedTechIds.map((techId) => ({
             technologyId: techId,
           })),
         },
         images: {
-          create: images.map((img, i) => ({
-            url: img.url,
+          create: sanitizedImages.map((img, i) => ({
+            url: img.url.trim(),
             storageKey: img.storageKey || `img-${Date.now()}-${i}`,
             altText: img.altText || data.title,
             isPrimary: img.isPrimary ?? (i === 0),

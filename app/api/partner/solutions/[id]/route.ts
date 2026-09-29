@@ -135,6 +135,82 @@ export async function PUT(
       );
     }
 
+    const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
+      ? body.features
+      : [];
+    const specifications: { key: string; value: string; sortOrder?: number }[] = Array.isArray(
+      body.specifications
+    )
+      ? body.specifications
+      : [];
+    const faqs: { question: string; answer: string; sortOrder?: number }[] = Array.isArray(
+      body.faqs
+    )
+      ? body.faqs
+      : [];
+
+    const rawTechList: string[] = Array.isArray(body.technologyIds)
+      ? body.technologyIds
+      : Array.isArray(body.technologies)
+      ? body.technologies
+      : [];
+
+    const resolvedTechIds: string[] = [];
+    for (const item of rawTechList) {
+      if (!item || typeof item !== "string") continue;
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+
+      const existingById = await db.technology.findUnique({ where: { id: trimmed } }).catch(() => null);
+      if (existingById) {
+        resolvedTechIds.push(existingById.id);
+        continue;
+      }
+
+      const slug = trimmed
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const existingByName = await db.technology.findFirst({
+        where: {
+          OR: [
+            { name: { equals: trimmed, mode: "insensitive" } },
+            { slug: slug },
+          ],
+        },
+      }).catch(() => null);
+
+      if (existingByName) {
+        resolvedTechIds.push(existingByName.id);
+      } else {
+        const newTech = await db.technology.create({
+          data: {
+            name: trimmed,
+            slug: slug || `tech-${Date.now()}`,
+            isActive: true,
+            sortOrder: 99,
+          },
+        }).catch(() => null);
+
+        if (newTech) {
+          resolvedTechIds.push(newTech.id);
+        }
+      }
+    }
+
+    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
+      body.images
+    )
+      ? body.images
+      : [];
+
+    const sanitizedImages = rawImages.filter((img) => img && typeof img.url === "string" && img.url.trim().length > 0);
+    const hasPrimary = sanitizedImages.some((img) => img.isPrimary);
+    if (!hasPrimary && sanitizedImages.length > 0) {
+      sanitizedImages[0].isPrimary = true;
+    }
+
     const updated = await db.project.update({
       where: { id },
       data: {
@@ -150,6 +226,77 @@ export async function PUT(
         categoryId: data.categoryId,
       },
     });
+
+    // Update relational collections if provided
+    if (Array.isArray(body.features)) {
+      await db.projectFeature.deleteMany({ where: { projectId: id } }).catch(() => null);
+      for (let i = 0; i < features.length; i++) {
+        await db.projectFeature.create({
+          data: {
+            projectId: id,
+            feature: features[i].feature,
+            sortOrder: features[i].sortOrder ?? i + 1,
+          },
+        }).catch(() => null);
+      }
+    }
+
+    if (Array.isArray(body.specifications)) {
+      await db.projectSpecification.deleteMany({ where: { projectId: id } }).catch(() => null);
+      for (let i = 0; i < specifications.length; i++) {
+        await db.projectSpecification.create({
+          data: {
+            projectId: id,
+            key: specifications[i].key,
+            value: specifications[i].value,
+            sortOrder: specifications[i].sortOrder ?? i + 1,
+          },
+        }).catch(() => null);
+      }
+    }
+
+    if (Array.isArray(body.faqs)) {
+      await db.projectFaq.deleteMany({ where: { projectId: id } }).catch(() => null);
+      for (let i = 0; i < faqs.length; i++) {
+        await db.projectFaq.create({
+          data: {
+            projectId: id,
+            question: faqs[i].question,
+            answer: faqs[i].answer,
+            sortOrder: faqs[i].sortOrder ?? i + 1,
+          },
+        }).catch(() => null);
+      }
+    }
+
+    if (rawTechList.length > 0) {
+      await db.projectTechnology.deleteMany({ where: { projectId: id } }).catch(() => null);
+      for (const techId of resolvedTechIds) {
+        await db.projectTechnology.create({
+          data: {
+            projectId: id,
+            technologyId: techId,
+          },
+        }).catch(() => null);
+      }
+    }
+
+    if (sanitizedImages.length > 0) {
+      await db.projectImage.deleteMany({ where: { projectId: id } }).catch(() => null);
+      for (let i = 0; i < sanitizedImages.length; i++) {
+        const img = sanitizedImages[i];
+        await db.projectImage.create({
+          data: {
+            projectId: id,
+            url: img.url.trim(),
+            storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+            altText: img.altText || data.title,
+            isPrimary: img.isPrimary ?? (i === 0),
+            sortOrder: img.sortOrder ?? i + 1,
+          },
+        }).catch(() => null);
+      }
+    }
 
     return NextResponse.json({ project: updated });
   } catch (err) {

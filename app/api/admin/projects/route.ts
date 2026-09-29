@@ -99,6 +99,32 @@ export async function POST(req: NextRequest) {
       ? body.technologyIds
       : [];
 
+    const resolvedTechIds: string[] = [];
+    for (const item of technologyIds) {
+      if (!item || typeof item !== "string") continue;
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+      const existingById = await db.technology.findUnique({ where: { id: trimmed } }).catch(() => null);
+      if (existingById) {
+        resolvedTechIds.push(existingById.id);
+        continue;
+      }
+      const techSlug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const existingByName = await db.technology.findFirst({
+        where: {
+          OR: [{ name: { equals: trimmed, mode: "insensitive" } }, { slug: techSlug }],
+        },
+      }).catch(() => null);
+      if (existingByName) {
+        resolvedTechIds.push(existingByName.id);
+      } else {
+        const newTech = await db.technology.create({
+          data: { name: trimmed, slug: techSlug || `tech-${Date.now()}`, isActive: true, sortOrder: 99 },
+        }).catch(() => null);
+        if (newTech) resolvedTechIds.push(newTech.id);
+      }
+    }
+
     // Slug uniqueness check
     const existing = await db.project.findUnique({ where: { slug } });
     if (existing) {
@@ -144,7 +170,7 @@ export async function POST(req: NextRequest) {
           })),
         },
         technologies: {
-          create: technologyIds.map((technologyId) => ({ technologyId })),
+          create: resolvedTechIds.map((technologyId) => ({ technologyId })),
         },
       },
     });
