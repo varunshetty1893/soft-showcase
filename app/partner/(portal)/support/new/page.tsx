@@ -1,4 +1,4 @@
-// app/partner/support/new/page.tsx
+// app/partner/(portal)/support/new/page.tsx
 // Open a new support ticket.
 
 import type { Metadata } from "next";

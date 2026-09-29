@@ -1,11 +1,11 @@
-// app/partner/support/[id]/page.tsx
+// app/partner/(portal)/support/[id]/page.tsx
 // View partner ticket details and message thread.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { ArrowLeft, Headphones, Shield, User, Clock } from "lucide-react";
 import { SupportThreadViewer } from "@/components/partner/SupportThreadViewer";
 import { formatDate } from "@/lib/utils/format";
@@ -21,8 +21,7 @@ export default async function PartnerTicketDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) return null;
+  const { user } = await getEffectivePartnerContext();
 
   const { id } = await params;
 
@@ -39,7 +38,7 @@ export default async function PartnerTicketDetailPage({
   }
 
   // Ensure security: either requester or admin can view
-  if (ticket.requesterId !== session.user.id && !session.user.isAdmin) {
+  if (ticket.requesterId !== user.id && !user.isAdmin) {
     notFound();
   }
 
@@ -79,7 +78,7 @@ export default async function PartnerTicketDetailPage({
       <SupportThreadViewer
         ticketId={ticket.id}
         initialMessages={ticket.messages}
-        currentUserId={session.user.id}
+        currentUserId={user.id}
         ticketStatus={ticket.status}
         isAdminView={false}
       />

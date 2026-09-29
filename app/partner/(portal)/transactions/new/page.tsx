@@ -1,10 +1,10 @@
-// app/partner/transactions/new/page.tsx
+// app/partner/(portal)/transactions/new/page.tsx
 // Record new transaction and submit payment evidence.
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { ArrowLeft, Receipt } from "lucide-react";
 import { TransactionForm } from "@/components/partner/TransactionForm";
 import { APP_NAME } from "@/config/constants";
@@ -15,23 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function NewPartnerTransactionPage() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  let partner = null;
-  try {
-    partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
-    });
-  } catch (err) {
-    console.warn("Could not find partner:", err);
-  }
-
+  const { partner } = await getEffectivePartnerContext();
   const partnerId = partner?.id || "prov-varun";
 
   const solutions = await db.project.findMany({

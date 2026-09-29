@@ -523,21 +523,8 @@ export function PartnerRegisterForm() {
     <div className="space-y-8 max-w-3xl mx-auto">
       {/* ── STEPPER PROGRESS BAR ────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 sm:p-5 shadow-xs">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-[#E7EFF0] z-0" />
-          <div
-            className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-[#155761] transition-all duration-300 z-0"
-            style={{
-              width:
-                currentStep === 1
-                  ? "0%"
-                  : currentStep === 2
-                  ? "50%"
-                  : "calc(100% - 48px)",
-            }}
-          />
-
-          {STEPS.map((step) => {
+        <div className="flex items-start w-full relative">
+          {STEPS.map((step, idx) => {
             const isCompleted = currentStep > step.id;
             const isCurrent = currentStep === step.id;
 
@@ -552,12 +539,31 @@ export function PartnerRegisterForm() {
                   }
                 }}
                 disabled={step.id > currentStep}
-                className={`relative z-10 flex flex-col items-center group ${
+                className={`relative flex-1 flex flex-col items-center group ${
                   step.id <= currentStep ? "cursor-pointer" : "cursor-default"
                 }`}
               >
+                {/* Horizontal connector line segment to next step (behind circles, dead-center vertically) */}
+                {idx < STEPS.length - 1 && (
+                  <div
+                    className="absolute left-1/2 w-full top-5 -translate-y-1/2 h-1 z-0 pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    {/* Inactive track */}
+                    <div className="w-full h-full bg-[#E7EFF0]" />
+                    {/* Active progress track */}
+                    <div
+                      className="absolute left-0 top-0 h-full bg-[#155761] transition-all duration-300"
+                      style={{
+                        width: currentStep > step.id ? "100%" : "0%",
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Step Circle (on top of connector line with opaque background) */}
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border-2 ${
+                  className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border-2 ${
                     isCompleted
                       ? "bg-[#2F7D78] text-white border-[#2F7D78] shadow-xs"
                       : isCurrent
@@ -571,7 +577,9 @@ export function PartnerRegisterForm() {
                     <span>{step.id}</span>
                   )}
                 </div>
-                <div className="mt-2 text-center">
+
+                {/* Step Labels */}
+                <div className="mt-2 text-center relative z-10">
                   <div
                     className={`text-xs font-bold transition-colors whitespace-nowrap ${
                       isCurrent

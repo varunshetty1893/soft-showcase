@@ -141,6 +141,7 @@ export async function getEffectivePartnerContext(): Promise<EffectivePartnerCont
       }
     : {
         id: "prov-varun",
+        userId: "user-guest-partner",
         displayName: "Soft Showcase Studio",
         email: "softshowcase1@gmail.com",
         bio: "Creator of production web applications, developer tooling, and modern full-stack systems.",
@@ -155,7 +156,7 @@ export async function getEffectivePartnerContext(): Promise<EffectivePartnerCont
 
   return {
     user: {
-      id: fallbackPartner.userId || "user-guest-partner",
+      id: (fallbackPartner as any).userId || "user-guest-partner",
       name: fallbackPartner.displayName,
       email: fallbackPartner.email,
       role: "solution_partner",

@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Edit2,
   ExternalLink,
-  Github,
   Globe,
   CheckCircle2,
   Clock,
@@ -58,7 +57,7 @@ export default async function PartnerSolutionDetailPage({
     notFound();
   }
 
-  const primaryImage = project.images[0]?.imageUrl || "https://picsum.photos/seed/solution/1200/800";
+  const primaryImage = project.images[0]?.url || "https://picsum.photos/seed/solution/1200/800";
   const isPublished = project.status === "PUBLISHED";
 
   return (
@@ -115,9 +114,9 @@ export default async function PartnerSolutionDetailPage({
           <span className="text-[11px] font-bold text-[#526267] uppercase tracking-wider block">Pricing Model</span>
           <p className="text-base font-extrabold text-[#102124] mt-1">
             {project.priceMode === "FIXED" && project.price
-              ? formatCurrency(project.price)
-              : project.priceMode === "STARTING_AT" && project.price
-              ? `From ${formatCurrency(project.price)}`
+              ? formatCurrency(Number(project.price))
+              : project.priceMode === "STARTING_FROM" && project.price
+              ? `From ${formatCurrency(Number(project.price))}`
               : "Contact for Quote"}
           </p>
         </div>
@@ -183,8 +182,7 @@ export default async function PartnerSolutionDetailPage({
                   <div key={i} className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
                     <CheckCircle2 className="w-4 h-4 text-[#2F7D78] shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-xs font-bold text-[#102124]">{f.title}</h4>
-                      {f.description && <p className="text-[11px] text-[#526267] mt-0.5">{f.description}</p>}
+                      <h4 className="text-xs font-bold text-[#102124]">{f.feature}</h4>
                     </div>
                   </div>
                 ))}

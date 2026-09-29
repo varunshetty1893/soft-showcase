@@ -1,12 +1,12 @@
-// app/partner/solutions/[id]/edit/page.tsx
+// app/partner/(portal)/solutions/[id]/edit/page.tsx
 // Edit software solution.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
-import { ArrowLeft, Layers } from "lucide-react";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
+import { ArrowLeft } from "lucide-react";
 import { PartnerSolutionForm } from "@/components/partner/PartnerSolutionForm";
 import { APP_NAME } from "@/config/constants";
 
@@ -20,8 +20,7 @@ export default async function EditPartnerSolutionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) return null;
+  await getEffectivePartnerContext();
 
   const { id } = await params;
 
@@ -64,7 +63,25 @@ export default async function EditPartnerSolutionPage({
       </div>
 
       <PartnerSolutionForm
-        initialData={project}
+        initialData={{
+          id: project.id,
+          title: project.title,
+          slug: project.slug,
+          shortDescription: project.shortDescription,
+          fullDescription: project.fullDescription || "",
+          categoryId: project.categoryId,
+          status: project.status,
+          priceMode: project.priceMode,
+          price: project.price ? String(project.price) : "",
+          projectType: project.projectType || "",
+          demoUrl: project.demoUrl || "",
+          whatsIncluded: project.whatsIncluded || [],
+          technologies: project.technologies?.map((t: any) => t.technologyId || t.id) || [],
+          features: project.features?.map((f: any) => f.feature || f.title) || [],
+          specifications: project.specifications || [],
+          faqs: project.faqs || [],
+          images: project.images || [],
+        }}
         categories={categories}
         technologies={technologies}
         isEditing={true}

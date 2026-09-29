@@ -41,7 +41,7 @@ export default async function PartnerInquiryDetailPage({
     where: { id },
     include: {
       project: true,
-      user: true,
+      customer: true,
     },
   });
 
@@ -69,7 +69,7 @@ export default async function PartnerInquiryDetailPage({
               </span>
               <span className="text-[#D9E2E4]">•</span>
               <Badge
-                variant={inquiry.status === "RESOLVED" ? "success" : "secondary"}
+                variant={inquiry.status === "CLOSED" || inquiry.status === "CONTACTED" ? "success" : "secondary"}
                 className="text-[10px]"
               >
                 {inquiry.status}
@@ -173,7 +173,7 @@ export default async function PartnerInquiryDetailPage({
               </div>
               <div>
                 <span className="text-[#526267] block">Status</span>
-                <Badge variant={inquiry.status === "RESOLVED" ? "success" : "secondary"}>
+                <Badge variant={inquiry.status === "CLOSED" || inquiry.status === "CONTACTED" ? "success" : "secondary"}>
                   {inquiry.status}
                 </Badge>
               </div>

@@ -1,11 +1,11 @@
-// app/partner/solutions/new/page.tsx
+// app/partner/(portal)/solutions/new/page.tsx
 // Add new software solution.
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
-import { ArrowLeft, Layers } from "lucide-react";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
+import { ArrowLeft } from "lucide-react";
 import { PartnerSolutionForm } from "@/components/partner/PartnerSolutionForm";
 import { APP_NAME } from "@/config/constants";
 
@@ -15,8 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function NewPartnerSolutionPage() {
-  const session = await auth();
-  if (!session?.user) return null;
+  await getEffectivePartnerContext();
 
   const [categories, technologies] = await Promise.all([
     db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),

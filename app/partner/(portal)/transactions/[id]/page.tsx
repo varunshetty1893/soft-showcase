@@ -1,11 +1,11 @@
-// app/partner/transactions/[id]/page.tsx
+// app/partner/(portal)/transactions/[id]/page.tsx
 // Partner transaction detail and verification review.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import {
   ArrowLeft,
   Receipt,
@@ -31,8 +31,7 @@ export default async function PartnerTransactionDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) return null;
+  await getEffectivePartnerContext();
 
   const { id } = await params;
 

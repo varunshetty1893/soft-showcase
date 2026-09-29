@@ -1,10 +1,9 @@
-// app/partner/profile/page.tsx
+// app/partner/(portal)/profile/page.tsx
 // Solution Partner studio settings and profile editor.
 
 import type { Metadata } from "next";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
-import { Settings, ShieldCheck, User } from "lucide-react";
+import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
+import { Settings } from "lucide-react";
 import { PartnerProfileForm } from "@/components/partner/PartnerProfileForm";
 import { APP_NAME } from "@/config/constants";
 
@@ -14,22 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PartnerProfilePage() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  let partner = null;
-  try {
-    partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
-    });
-  } catch (err) {
-    console.warn("Could not find partner:", err);
-  }
+  const { partner } = await getEffectivePartnerContext();
 
   return (
     <div className="space-y-6">
