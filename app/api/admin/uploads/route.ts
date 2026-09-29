@@ -8,6 +8,31 @@ import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { validateImageFile, uploadImage } from "@/lib/storage/storage-service";
 import { MAX_IMAGES_PER_PROJECT } from "@/config/constants";
 
+// Mutex lock map to serialize concurrent uploads per project (Issue 28: Image Upload Race Condition)
+const projectUploadLocks = new Map<string, Promise<unknown>>();
+
+async function withProjectLock<T>(projectId: string, fn: () => Promise<T>): Promise<T> {
+  const currentLock = projectUploadLocks.get(projectId) || Promise.resolve();
+  let release: () => void;
+  const nextLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  projectUploadLocks.set(
+    projectId,
+    currentLock.then(() => nextLock)
+  );
+
+  await currentLock;
+  try {
+    return await fn();
+  } finally {
+    release!();
+    if (projectUploadLocks.get(projectId) === nextLock) {
+      projectUploadLocks.delete(projectId);
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     await requireAdmin();
@@ -37,19 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // 2. Validate image count
-    const imageCount = await db.projectImage.count({
-      where: { projectId },
-    });
-
-    if (imageCount >= MAX_IMAGES_PER_PROJECT) {
-      return NextResponse.json(
-        { error: `Maximum of ${MAX_IMAGES_PER_PROJECT} images allowed per project.` },
-        { status: 400 }
-      );
-    }
-
-    // 3. Validate image type and size
+    // 2. Validate image type and size
     try {
       validateImageFile(file);
     } catch (valErr) {
@@ -59,42 +72,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Upload to storage provider (Cloudinary)
-    const result = await uploadImage(file, `soft-showcase/projects/${projectId}`);
-
-    // If first image or marked primary, adjust primary flags
-    if (imageCount === 0) {
-      isPrimary = true;
-    }
-
-    if (isPrimary) {
-      await db.projectImage.updateMany({
+    // Execute upload and database registration inside per-project lock to eliminate race conditions
+    return await withProjectLock(projectId, async () => {
+      // 3. Atomically validate image count inside lock
+      const imageCount = await db.projectImage.count({
         where: { projectId },
-        data: { isPrimary: false },
       });
-    }
 
-    // Determine sort order
-    const highestSort = await db.projectImage.findFirst({
-      where: { projectId },
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
+      if (imageCount >= MAX_IMAGES_PER_PROJECT) {
+        return NextResponse.json(
+          { error: `Maximum of ${MAX_IMAGES_PER_PROJECT} images allowed per project.` },
+          { status: 400 }
+        );
+      }
+
+      // 4. Upload to storage provider (Cloudinary)
+      const result = await uploadImage(file, `soft-showcase/projects/${projectId}`);
+
+      // Double-check count after upload
+      const freshCount = await db.projectImage.count({
+        where: { projectId },
+      });
+
+      if (freshCount >= MAX_IMAGES_PER_PROJECT) {
+        return NextResponse.json(
+          { error: `Maximum of ${MAX_IMAGES_PER_PROJECT} images reached.` },
+          { status: 400 }
+        );
+      }
+
+      // If first image, enforce primary
+      if (freshCount === 0) {
+        isPrimary = true;
+      }
+
+      if (isPrimary) {
+        await db.projectImage.updateMany({
+          where: { projectId },
+          data: { isPrimary: false },
+        });
+      }
+
+      // Determine sort order
+      const highestSort = await db.projectImage.findFirst({
+        where: { projectId },
+        orderBy: { sortOrder: "desc" },
+        select: { sortOrder: true },
+      });
+      const sortOrder = (highestSort?.sortOrder ?? -1) + 1;
+
+      // 5. Store image metadata in database
+      const image = await db.projectImage.create({
+        data: {
+          projectId,
+          url: result.url,
+          storageKey: result.storageKey,
+          altText,
+          isPrimary,
+          sortOrder,
+        },
+      });
+
+      return NextResponse.json({ success: true, data: image }, { status: 201 });
     });
-    const sortOrder = (highestSort?.sortOrder ?? -1) + 1;
-
-    // 5. Store image metadata in database
-    const image = await db.projectImage.create({
-      data: {
-        projectId,
-        url: result.url,
-        storageKey: result.storageKey,
-        altText,
-        isPrimary,
-        sortOrder,
-      },
-    });
-
-    return NextResponse.json({ success: true, data: image }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) return authErrorResponse(error);
     console.error("POST /api/admin/uploads error:", error);

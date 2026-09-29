@@ -219,6 +219,9 @@ model Project {
   @@index([featured])
   @@index([categoryId])
   @@index([providerId])
+  @@index([title])
+  @@index([status, featured, createdAt])
+  @@index([status, categoryId])
   @@map("projects")
 }
 

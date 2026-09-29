@@ -1,13 +1,16 @@
 // app/api/auth/resend-otp/route.ts
-// Resend a fresh 6-digit OTP code to a user's email.
+// Resend a fresh 6-digit OTP code to a user's email with anti-enumeration and rate limiting.
 
 import { db } from "@/lib/db/client";
 import { ResendOtpSchema } from "@/lib/validation/auth.schema";
 import { sendVerificationEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
+import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
+import { otpResendLimiter, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
     const body = await req.json();
     const result = ResendOtpSchema.safeParse(body);
 
@@ -21,26 +24,31 @@ export async function POST(req: Request) {
     const { email } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
+    // Check rate limit on resend requests (Issue 22)
+    const rateCheck = otpResendLimiter.check(`resend:${normalizedEmail}`);
+    const ipCheck = otpResendLimiter.check(`ip:${ip}`);
+    if (!rateCheck.success || !ipCheck.success) {
+      return Response.json(
+        { error: "Too many resend requests. Please wait a few minutes before trying again." },
+        { status: 429 }
+      );
+    }
+
     const user = await db.user.findUnique({
       where: { email: normalizedEmail },
     });
 
-    if (!user) {
-      return Response.json(
-        { error: "No account found with this email." },
-        { status: 404 }
-      );
+    // Issue 18: Prevent account enumeration by returning an identical success response
+    // regardless of whether the account exists or is already verified.
+    if (!user || user.emailVerified) {
+      return Response.json({
+        success: true,
+        message: "If an unverified account exists with this email address, a new verification code has been sent.",
+      });
     }
 
-    if (user.emailVerified) {
-      return Response.json(
-        { error: "This email is already verified. Please sign in." },
-        { status: 400 }
-      );
-    }
-
-    // Generate fresh OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate fresh cryptographically secure OTP (Issue 16)
+    const otp = generateSecureOtp();
     const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     // Delete existing tokens
@@ -48,11 +56,11 @@ export async function POST(req: Request) {
       where: { identifier: normalizedEmail },
     });
 
-    // Save new token
+    // Save hashed token to protect secret authentication credentials (Issue 19)
     await db.verificationToken.create({
       data: {
         identifier: normalizedEmail,
-        token: otp,
+        token: hashSecretToken(otp),
         expires,
       },
     });
@@ -61,17 +69,19 @@ export async function POST(req: Request) {
       normalizedEmail
     )}&token=${otp}`;
 
-    // Send email
-    await sendVerificationEmail(normalizedEmail, {
+    // Send email asynchronously without blocking the response (Issue 24)
+    sendVerificationEmail(normalizedEmail, {
       userName: user.name || "there",
       otp,
       verifyUrl,
       expiresInMinutes: 15,
+    }).catch((err) => {
+      console.error("[Resend OTP] Background email error:", err);
     });
 
     return Response.json({
       success: true,
-      message: "A new verification code has been sent to your email.",
+      message: "If an unverified account exists with this email address, a new verification code has been sent.",
     });
   } catch (error) {
     console.error("[Resend OTP] Error resending code:", error);

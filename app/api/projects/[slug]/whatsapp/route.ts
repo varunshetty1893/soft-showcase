@@ -13,15 +13,6 @@ type Params = { params: Promise<{ slug: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    // 0. Verify customer authentication
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Please sign in to contact the Solution Partner on WhatsApp." },
-        { status: 401 }
-      );
-    }
-
     // 1. Rate limiting by client IP
     const ip = getClientIp(request);
     const rateLimitResult = whatsappLimiter.check(ip);
@@ -78,16 +69,10 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // 4. Verify publication status (allow admin or project owner to test)
-    const isAdmin = Boolean(session.user?.isAdmin);
-    const isOwner = Boolean(
-      project.provider?.userId && project.provider.userId === session.user?.id
-    );
-
-    if (project.status !== "PUBLISHED" && !isAdmin && !isOwner) {
+    if (project.status !== "PUBLISHED") {
       return NextResponse.json(
-        { error: "This solution is currently in draft and not yet available for public inquiries." },
-        { status: 403 }
+        { error: "Project not found or is no longer available" },
+        { status: 404 }
       );
     }
 
@@ -106,9 +91,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    if (!project.provider.showWhatsapp && !isAdmin && !isOwner) {
+    if (!project.provider.showWhatsapp) {
       return NextResponse.json(
-        { error: "WhatsApp contact is currently disabled for this Solution Partner." },
+        { error: "WhatsApp contact is not enabled for this project." },
         { status: 403 }
       );
     }

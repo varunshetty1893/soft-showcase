@@ -87,15 +87,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Require customer authentication to communicate with partners
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: "You must be signed in to send an inquiry to the Solution Partner." },
-        { status: 401 }
-      );
+    // 5. Optional customer session association (docs/25-inquiry-system.md)
+    let customerId: string | null = null;
+    try {
+      const user = await getCurrentUser();
+      customerId = user?.id || null;
+    } catch {
+      customerId = null;
     }
-    const customerId = user.id;
 
     // 6. Create inquiry record in DB (capture providerId at submission time)
     const inquiry = await db.inquiry.create({
@@ -113,65 +112,70 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 7. Attempt to send provider notification email
-    try {
-      const emailResult = await sendProviderInquiryEmail({
-        inquiry: {
-          name,
-          email,
-          whatsapp,
-          message,
-        },
-        project: {
-          id: project.id,
-          title: project.title,
-          slug: project.slug,
-        },
-        provider: {
-          displayName: provider.displayName,
-          email: provider.email,
-        },
+    // 7. Send provider notification & customer confirmation emails asynchronously (Issue 24)
+    sendProviderInquiryEmail({
+      inquiry: {
+        name,
+        email,
+        whatsapp,
+        message,
+      },
+      project: {
+        id: project.id,
+        title: project.title,
+        slug: project.slug,
+      },
+      provider: {
+        displayName: provider.displayName,
+        email: provider.email,
+      },
+    })
+      .then(async (emailResult) => {
+        try {
+          if (db.inquiry?.update) {
+            await db.inquiry.update({
+              where: { id: inquiry.id },
+              data: { notificationStatus: emailResult.success ? "SENT" : "FAILED" },
+            });
+          }
+        } catch {
+          // ignore background update error
+        }
+      })
+      .catch(async (emailErr) => {
+        console.error("[Email] Provider inquiry delivery exception:", emailErr);
+        try {
+          if (db.inquiry?.update) {
+            await db.inquiry.update({
+              where: { id: inquiry.id },
+              data: { notificationStatus: "FAILED" },
+            });
+          }
+        } catch {
+          // ignore background update error
+        }
       });
 
-      if (emailResult.success) {
-        await db.inquiry.update({
-          where: { id: inquiry.id },
-          data: { notificationStatus: "SENT" },
-        });
-      } else {
-        await db.inquiry.update({
-          where: { id: inquiry.id },
-          data: { notificationStatus: "FAILED" },
-        });
-      }
-
-      // Send confirmation to customer asynchronously
-      sendCustomerConfirmationEmail({
-        inquiry: {
-          name,
-          email,
-          whatsapp,
-          message,
-        },
-        project: {
-          id: project.id,
-          title: project.title,
-          slug: project.slug,
-        },
-        provider: {
-          displayName: provider.displayName,
-          email: provider.email,
-        },
-      }).catch((err) => {
-        console.error("[Email] Customer confirmation failed:", err);
-      });
-    } catch (emailErr) {
-      console.error("[Email] Provider inquiry delivery exception:", emailErr);
-      await db.inquiry.update({
-        where: { id: inquiry.id },
-        data: { notificationStatus: "FAILED" },
-      });
-    }
+    // Send confirmation to customer asynchronously
+    sendCustomerConfirmationEmail({
+      inquiry: {
+        name,
+        email,
+        whatsapp,
+        message,
+      },
+      project: {
+        id: project.id,
+        title: project.title,
+        slug: project.slug,
+      },
+      provider: {
+        displayName: provider.displayName,
+        email: provider.email,
+      },
+    }).catch((err) => {
+      console.error("[Email] Customer confirmation failed:", err);
+    });
 
     return NextResponse.json(
       {

@@ -9,9 +9,19 @@ import { PartnerRegisterSchema } from "@/lib/validation/partner.schema";
 import { recordAuditLog } from "@/lib/db/audit";
 import { sendVerificationEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
+import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
+import { partnerRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = partnerRegisterLimiter.check(ip);
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: "Too many registration attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
     const body = await req.json();
     const parsed = PartnerRegisterSchema.safeParse(body);
 
@@ -137,8 +147,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate 6-digit numeric OTP for verification
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit numeric OTP for verification (Issue 16)
+    const otp = generateSecureOtp();
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     // Delete previous verification tokens for this email
@@ -146,11 +156,11 @@ export async function POST(req: NextRequest) {
       where: { identifier: normalizedEmail },
     });
 
-    // Create new verification token
+    // Create new verification token with SHA-256 hash (Issue 19)
     await db.verificationToken.create({
       data: {
         identifier: normalizedEmail,
-        token: otp,
+        token: hashSecretToken(otp),
         expires,
       },
     });
@@ -160,14 +170,14 @@ export async function POST(req: NextRequest) {
       normalizedEmail
     )}&token=${otp}&role=partner`;
 
-    // Send verification email with OTP and 1-click link
-    await sendVerificationEmail(normalizedEmail, {
+    // Send verification email asynchronously without blocking (Issue 24)
+    sendVerificationEmail(normalizedEmail, {
       userName: name,
       otp,
       verifyUrl,
       expiresInMinutes: 15,
     }).catch((err) => {
-      console.error("[PartnerRegister] Failed to send verification email:", err);
+      console.error("[PartnerRegister] Background email delivery error:", err);
     });
 
     // Persist memory store to disk

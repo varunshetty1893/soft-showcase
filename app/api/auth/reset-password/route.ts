@@ -1,5 +1,5 @@
 // app/api/auth/reset-password/route.ts
-// Request or fulfill a password reset with 6-digit verification code.
+// Request or fulfill a password reset with 6-digit verification code, rate limiting, and hashed secrets.
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -7,6 +7,12 @@ import { db } from "@/lib/db/client";
 import { sendEmail } from "@/lib/email/email-service";
 import { APP_NAME } from "@/config/constants";
 import { z } from "zod";
+import { generateSecureOtp, hashSecretToken, verifySecretToken } from "@/lib/utils/crypto";
+import {
+  passwordResetRequestLimiter,
+  passwordResetVerifyLimiter,
+  getClientIp,
+} from "@/lib/utils/rate-limit";
 
 const RequestResetSchema = z.object({
   action: z.literal("request"),
@@ -27,6 +33,7 @@ const VerifyAndResetSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
     const body = await req.json();
 
     if (body.action === "request") {
@@ -36,6 +43,17 @@ export async function POST(req: NextRequest) {
       }
 
       const { email } = parsed.data;
+
+      // Rate limit password reset requests (Issue 20 & 22)
+      const ipCheck = passwordResetRequestLimiter.check(`ip:${ip}`);
+      const emailCheck = passwordResetRequestLimiter.check(`email:${email}`);
+      if (!ipCheck.success || !emailCheck.success) {
+        return NextResponse.json(
+          { error: "Too many password reset requests. Please wait 15 minutes before trying again." },
+          { status: 429 }
+        );
+      }
+
       const user = await db.user.findUnique({
         where: { email },
       });
@@ -48,7 +66,8 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      // Generate cryptographically secure reset code (Issue 16)
+      const resetCode = generateSecureOtp();
       const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
       // Clean existing reset tokens for this email
@@ -56,15 +75,16 @@ export async function POST(req: NextRequest) {
         where: { identifier: `reset:${email}` },
       });
 
+      // Store hashed reset token (Issue 19)
       await db.verificationToken.create({
         data: {
           identifier: `reset:${email}`,
-          token: resetCode,
+          token: hashSecretToken(resetCode),
           expires,
         },
       });
 
-      // Send email
+      // Build email
       const appBaseUrl = (
         process.env.NEXT_PUBLIC_APP_URL ||
         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
@@ -72,7 +92,8 @@ export async function POST(req: NextRequest) {
       ).replace(/\/$/, "");
       const logoUrl = `${appBaseUrl}/logo.png`;
 
-      await sendEmail({
+      // Send email asynchronously without blocking the response (Issue 24)
+      sendEmail({
         to: email,
         subject: `Your ${APP_NAME} Password Reset Code: ${resetCode}`,
         html: `
@@ -142,6 +163,8 @@ export async function POST(req: NextRequest) {
           </html>
         `,
         text: `Your ${APP_NAME} password reset code is: ${resetCode}. Valid for 15 minutes.`,
+      }).catch((emailErr) => {
+        console.error("[Reset Password] Background email error:", emailErr);
       });
 
       return NextResponse.json({
@@ -158,21 +181,41 @@ export async function POST(req: NextRequest) {
 
       const { email, code, newPassword } = parsed.data;
 
-      const record = await db.verificationToken.findFirst({
+      // Rate limit reset verification attempts (Issue 20)
+      const verifyCheck = passwordResetVerifyLimiter.check(`verify:${email}`);
+      const ipCheck = passwordResetVerifyLimiter.check(`ip:${ip}`);
+      if (!verifyCheck.success || !ipCheck.success) {
+        // Invalidate token on too many attempts
+        await db.verificationToken.deleteMany({
+          where: { identifier: `reset:${email}` },
+        });
+        return NextResponse.json(
+          { error: "Too many failed reset attempts. Please request a new password reset code." },
+          { status: 429 }
+        );
+      }
+
+      const tokenRecords = await db.verificationToken.findMany({
         where: {
           identifier: `reset:${email}`,
-          token: code,
         },
       });
 
-      if (!record) {
+      const validRecord = tokenRecords.find((rec) =>
+        verifySecretToken(code, rec.token)
+      );
+
+      if (!validRecord) {
         return NextResponse.json(
           { error: "Invalid reset code. Please check the code and try again." },
           { status: 400 }
         );
       }
 
-      if (new Date() > record.expires) {
+      if (new Date() > validRecord.expires) {
+        await db.verificationToken.deleteMany({
+          where: { identifier: `reset:${email}` },
+        });
         return NextResponse.json(
           { error: "This reset code has expired. Please request a new one." },
           { status: 400 }
@@ -197,10 +240,11 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Clear tokens
+      // Clear tokens and reset attempts
       await db.verificationToken.deleteMany({
         where: { identifier: `reset:${email}` },
       });
+      passwordResetVerifyLimiter.reset(`verify:${email}`);
 
       return NextResponse.json({
         success: true,

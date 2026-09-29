@@ -1,15 +1,25 @@
 // app/api/auth/register/route.ts
-// Registration route with input validation, password hashing, and OTP generation.
+// Registration route with rate limiting, secure OTP generation, hashed token storage, and non-blocking email delivery.
 
-import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
+import bcrypt from "bcryptjs";
 import { RegisterSchema } from "@/lib/validation/auth.schema";
 import { sendVerificationEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
+import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
+import { authRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = authRegisterLimiter.check(ip);
+    if (!rateCheck.success) {
+      return Response.json(
+        { error: "Too many registration attempts. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const result = RegisterSchema.safeParse(body);
 
@@ -61,8 +71,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Generate secure 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit numeric OTP (Issue 16)
+    const otp = generateSecureOtp();
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     // Remove any existing verification tokens for this email
@@ -70,11 +80,11 @@ export async function POST(req: Request) {
       where: { identifier: normalizedEmail },
     });
 
-    // Save new verification token
+    // Save token as SHA-256 hash to protect sensitive secrets (Issue 19)
     await db.verificationToken.create({
       data: {
         identifier: normalizedEmail,
-        token: otp,
+        token: hashSecretToken(otp),
         expires,
       },
     });
@@ -84,17 +94,15 @@ export async function POST(req: Request) {
       normalizedEmail
     )}&token=${otp}`;
 
-    // Send verification email via Gmail SMTP
-    const emailResult = await sendVerificationEmail(normalizedEmail, {
+    // Send verification email asynchronously without blocking the response (Issue 24)
+    sendVerificationEmail(normalizedEmail, {
       userName: name,
       otp,
       verifyUrl,
       expiresInMinutes: 15,
+    }).catch((emailErr) => {
+      console.error("[Register] Background email delivery error:", emailErr);
     });
-
-    if (!emailResult.success) {
-      console.error("[Register] Failed to send verification email:", emailResult.error);
-    }
 
     return Response.json({
       success: true,

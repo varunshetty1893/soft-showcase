@@ -3,6 +3,7 @@
 // Source of truth: docs/08-page-specifications.md & docs/12-component-architecture.md
 
 import Link from "next/link";
+import Image from "next/image";
 import { Sparkles, User as UserIcon } from "lucide-react";
 import { PriceBadge } from "./PriceBadge";
 import { TechBadge } from "./TechBadge";
@@ -52,11 +53,14 @@ export function ProjectCard({ project }: ProjectCardProps) {
       {/* ── Image Thumbnail ─────────────────────────────────────────────── */}
       <div className="relative aspect-video w-full bg-[#F3F7F7] overflow-hidden border-b border-[#D9E2E4] shrink-0">
         {primaryImage?.url ? (
-          <img
+          <Image
             src={primaryImage.url}
             alt={primaryImage.altText || `${project.title} software preview thumbnail`}
-            loading="lazy"
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            unoptimized={primaryImage.url.startsWith("data:")}
+            referrerPolicy="no-referrer"
+            className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] p-6 text-center">
@@ -134,10 +138,14 @@ export function ProjectCard({ project }: ProjectCardProps) {
           {project.provider && (
             <div className="flex items-center gap-1.5 text-xs text-[#526267] font-medium shrink-0">
               {project.provider.avatarUrl ? (
-                <img
+                <Image
                   src={project.provider.avatarUrl}
                   alt={project.provider.displayName}
-                  className="w-4 h-4 rounded-full border border-[#D9E2E4]"
+                  width={16}
+                  height={16}
+                  unoptimized={project.provider.avatarUrl.startsWith("data:")}
+                  referrerPolicy="no-referrer"
+                  className="w-4 h-4 rounded-full border border-[#D9E2E4] object-cover"
                 />
               ) : (
                 <UserIcon className="w-3.5 h-3.5 text-[#526267]" />

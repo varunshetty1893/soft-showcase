@@ -47,14 +47,15 @@ export class GmailSmtpProvider implements EmailProvider {
   }
 
   async send(message: EmailMessage): Promise<EmailResult> {
-    // If SMTP credentials are not configured or are placeholder values in local dev
+    // If SMTP credentials are not configured or are placeholder values
     if (!this.user || !this.pass || this.pass === "my-google-app-password") {
+      const errorMsg = "SMTP credentials are not configured or are using placeholder values";
       console.warn(
-        `[Email:GmailSmtpProvider] SMTP credentials not fully configured. Simulated send to ${message.to}: "${message.subject}"`
+        `[Email:GmailSmtpProvider] ${errorMsg}. Cannot deliver email to ${message.to}: "${message.subject}"`
       );
       return {
-        success: true,
-        messageId: `simulated-${Date.now()}`,
+        success: false,
+        error: errorMsg,
       };
     }
 

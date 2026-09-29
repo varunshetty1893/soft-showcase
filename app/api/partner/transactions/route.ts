@@ -5,6 +5,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { CreateTransactionSchema } from "@/lib/validation/transaction.schema";
+import { generateSecureTransactionNumber } from "@/lib/utils/crypto";
+import { transactionCreateLimiter, getClientIp } from "@/lib/utils/rate-limit";
+
+function isValidEvidenceUrl(url: string | null | undefined): boolean {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:image/")) return true;
+  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("/api/partner/uploads")) return true;
+  try {
+    const parsed = new URL(trimmed);
+    const trustedHosts = [
+      "res.cloudinary.com",
+      "images.unsplash.com",
+      process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : "",
+      "localhost",
+    ].filter(Boolean);
+    return trustedHosts.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
 
 export async function GET() {
   const session = await auth();
@@ -59,6 +80,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const ip = getClientIp(req);
+  const rateCheck = transactionCreateLimiter.check(session.user.id || ip);
+  if (!rateCheck.success) {
+    return NextResponse.json(
+      { error: "Too many transaction recording requests. Please wait a few moments." },
+      { status: 429 }
+    );
+  }
+
   try {
     let partner = await db.projectProvider.findFirst({
       where: {
@@ -96,6 +126,14 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
+    // Validate payment evidence URL (Issue 27: Arbitrary External URLs)
+    if (data.paymentEvidenceUrl && !isValidEvidenceUrl(data.paymentEvidenceUrl)) {
+      return NextResponse.json(
+        { error: "Payment evidence must be uploaded through the platform storage." },
+        { status: 400 }
+      );
+    }
+
     // Verify ownership of solutionId if provided (Issue 5: Transaction Cross-Linking)
     if (data.solutionId) {
       const solution = await db.project.findUnique({
@@ -128,10 +166,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate unique transaction number: e.g. TXN-YYYYMMDD-XXXX
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    const transactionNumber = `TXN-${dateStr}-${rand}`;
+    // Generate collision-resistant unique transaction number with retry loop (Issue 25)
+    let transactionNumber = generateSecureTransactionNumber();
+    let collisionAttempts = 0;
+    while (await db.transaction.findUnique({ where: { transactionNumber } })) {
+      collisionAttempts++;
+      transactionNumber = generateSecureTransactionNumber();
+      if (collisionAttempts > 5) break;
+    }
 
     // Try linking customer account if registered
     let customerId: string | null = null;
@@ -142,6 +184,12 @@ export async function POST(req: NextRequest) {
     if (existingUser) {
       customerId = existingUser.id;
     }
+
+    // Enforce initial business state constraints (Issue 26)
+    const initialDeliveryStatus =
+      data.deliveryStatus === "COMPLETED" || data.deliveryStatus === "DELIVERED"
+        ? "IN_PROGRESS"
+        : data.deliveryStatus || "PENDING";
 
     const transaction = await db.transaction.create({
       data: {

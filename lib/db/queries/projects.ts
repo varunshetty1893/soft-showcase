@@ -40,12 +40,33 @@ export async function getPublishedProjects(options: {
     ...(technologySlug && {
       technologies: { some: { technology: { slug: technologySlug } } },
     }),
-    ...(search && {
-      OR: [
-        { title: { contains: search, mode: "insensitive" as const } },
-        { shortDescription: { contains: search, mode: "insensitive" as const } },
-      ],
-    }),
+    ...(search && (() => {
+      const cleanSearch = search.trim();
+      const slugSearch = cleanSearch.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+      return {
+        OR: [
+          // Index-friendly prefix match on slug
+          { slug: { startsWith: slugSearch } },
+          // Title prefix match (utilizes B-Tree index)
+          { title: { startsWith: cleanSearch, mode: "insensitive" as const } },
+          // Insensitive title contains
+          { title: { contains: cleanSearch, mode: "insensitive" as const } },
+          // Technology name match
+          {
+            technologies: {
+              some: {
+                technology: {
+                  name: { contains: cleanSearch, mode: "insensitive" as const },
+                },
+              },
+            },
+          },
+          // Scoped short description fallback
+          { shortDescription: { contains: cleanSearch, mode: "insensitive" as const } },
+        ],
+      };
+    })()),
   };
 
   const [projects, total] = await Promise.all([

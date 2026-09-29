@@ -24,7 +24,7 @@ describe("Gmail SMTP Provider", () => {
     expect(provider).toBeInstanceOf(GmailSmtpProvider);
   });
 
-  it("should simulate sending when SMTP credentials are not configured", async () => {
+  it("should fail when SMTP credentials are not configured", async () => {
     process.env.SMTP_USER = "";
     process.env.SMTP_PASSWORD = "";
 
@@ -35,11 +35,11 @@ describe("Gmail SMTP Provider", () => {
       html: "<p>Hello</p>",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.messageId).toContain("simulated-");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
   });
 
-  it("should simulate sending when SMTP_PASSWORD is placeholder", async () => {
+  it("should fail when SMTP_PASSWORD is placeholder", async () => {
     process.env.SMTP_USER = "test@gmail.com";
     process.env.SMTP_PASSWORD = "my-google-app-password";
 
@@ -50,7 +50,7 @@ describe("Gmail SMTP Provider", () => {
       html: "<p>Hello</p>",
     });
 
-    expect(result.success).toBe(true);
-    expect(result.messageId).toContain("simulated-");
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
   });
 });

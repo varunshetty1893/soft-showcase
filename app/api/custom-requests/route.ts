@@ -15,12 +15,13 @@ import { createAuditLog } from "@/lib/db/audit";
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "You must be signed in to submit a custom software request." },
-        { status: 401 }
-      );
+    // Custom project requests are open to any visitor (docs/26-custom-project-system.md)
+    let customerId: string | null = null;
+    try {
+      const session = await auth();
+      customerId = session?.user?.id || null;
+    } catch {
+      // outside request scope or unauthenticated
     }
 
     // 1. Rate Limiting Check (3 per IP per hour as per docs/26-custom-project-system.md)

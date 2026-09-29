@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 
 interface ProjectImage {
   id?: string;
@@ -35,13 +36,18 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
     <div className="space-y-4">
       {/* Primary Hero Image View */}
       <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#102124] shadow-xs">
-        <img
+        <Image
           src={currentImage.url}
           alt={currentImage.altText || `${projectTitle} screenshot ${selectedIdx + 1}`}
-          className="w-full h-full object-contain"
+          fill
+          priority
+          sizes="(max-width: 1024px) 100vw, 800px"
+          unoptimized={currentImage.url.startsWith("data:")}
+          referrerPolicy="no-referrer"
+          className="object-contain"
         />
         {currentImage.caption && (
-          <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-xs text-white p-3 text-xs">
+          <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-xs text-white p-3 text-xs z-10">
             {currentImage.caption}
           </div>
         )}
@@ -61,11 +67,14 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                   : "border-[#D9E2E4] opacity-70 hover:opacity-100 hover:border-[#155761]/40"
               }`}
             >
-              <img
+              <Image
                 src={img.url}
                 alt={img.altText || `${projectTitle} preview thumbnail ${idx + 1}`}
-                loading="lazy"
-                className="w-full h-full object-cover"
+                fill
+                sizes="96px"
+                unoptimized={img.url.startsWith("data:")}
+                referrerPolicy="no-referrer"
+                className="object-cover"
               />
             </button>
           ))}

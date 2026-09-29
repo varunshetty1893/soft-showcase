@@ -15,6 +15,18 @@ const nextConfig: NextConfig = {
         hostname: "res.cloudinary.com",
         pathname: "/**",
       },
+      // Unsplash images (used for project previews and mock data)
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      // Picsum Photos fallback
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
+        pathname: "/**",
+      },
       // Google profile avatars (used by NextAuth)
       {
         protocol: "https",

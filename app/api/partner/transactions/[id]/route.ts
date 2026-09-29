@@ -5,6 +5,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 
+function isValidEvidenceUrl(url: string | null | undefined): boolean {
+  if (!url) return true;
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:image/")) return true;
+  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("/api/partner/uploads")) return true;
+  try {
+    const parsed = new URL(trimmed);
+    const trustedHosts = [
+      "res.cloudinary.com",
+      "images.unsplash.com",
+      process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : "",
+      "localhost",
+    ].filter(Boolean);
+    return trustedHosts.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
+
+// Valid delivery status progression
+const VALID_DELIVERY_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ["PENDING", "IN_PROGRESS"],
+  IN_PROGRESS: ["IN_PROGRESS", "DELIVERED"],
+  DELIVERED: ["DELIVERED", "COMPLETED"],
+  COMPLETED: ["COMPLETED"],
+};
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -116,6 +143,56 @@ export async function PATCH(
 
     const body = await req.json();
     const { deliveryStatus, paymentEvidenceUrl, paymentEvidenceNotes } = body;
+
+    // Validate payment evidence URL (Issue 27)
+    if (paymentEvidenceUrl && !isValidEvidenceUrl(paymentEvidenceUrl)) {
+      return NextResponse.json(
+        { error: "Payment evidence must be uploaded through the platform storage." },
+        { status: 400 }
+      );
+    }
+
+    // Validate payment status modification constraints (Issue 26)
+    if (paymentEvidenceUrl) {
+      if (
+        existing.paymentStatus === "VERIFIED" ||
+        existing.paymentStatus === "COMPLETED" ||
+        existing.paymentStatus === "REFUNDED"
+      ) {
+        return NextResponse.json(
+          {
+            error: `Cannot submit new payment evidence because this transaction is already marked as ${existing.paymentStatus}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate delivery status transitions (Issue 26)
+    if (deliveryStatus && deliveryStatus !== existing.deliveryStatus) {
+      const allowedNextStates = VALID_DELIVERY_TRANSITIONS[existing.deliveryStatus] || [];
+      if (!allowedNextStates.includes(deliveryStatus) && !session.user.isAdmin) {
+        return NextResponse.json(
+          {
+            error: `Invalid delivery status transition from ${existing.deliveryStatus} to ${deliveryStatus}. Expected progression: PENDING -> IN_PROGRESS -> DELIVERED -> COMPLETED.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Cannot advance to DELIVERED or COMPLETED if payment was rejected or refunded
+      if (
+        (deliveryStatus === "DELIVERED" || deliveryStatus === "COMPLETED") &&
+        (existing.paymentStatus === "REJECTED" || existing.paymentStatus === "REFUNDED")
+      ) {
+        return NextResponse.json(
+          {
+            error: `Cannot mark delivery as ${deliveryStatus} while payment status is ${existing.paymentStatus}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const updated = await db.transaction.update({
       where: { id },
