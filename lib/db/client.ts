@@ -910,6 +910,7 @@ function createModelDelegate(modelName: string) {
       else if (modelName === "supportMessage") memoryStore.supportMessages.push(data);
       else if (modelName === "verificationToken") memoryStore.verificationTokens.push(data);
 
+      memoryStore.saveToDisk();
       return data;
     },
 
@@ -937,10 +938,12 @@ function createModelDelegate(modelName: string) {
             ...(args?.data || {}),
             updatedAt: new Date(),
           };
+          memoryStore.saveToDisk();
           return targetCollection[idx];
         }
       }
 
+      memoryStore.saveToDisk();
       return {
         id: targetId || `mock-${Date.now()}`,
         updatedAt: new Date(),
@@ -949,6 +952,7 @@ function createModelDelegate(modelName: string) {
     },
 
     async delete(args?: any) {
+      memoryStore.saveToDisk();
       return { id: args?.where?.id || "mock-id" };
     },
 
@@ -966,6 +970,7 @@ function createModelDelegate(modelName: string) {
           count = memoryStore.verificationTokens.length;
           memoryStore.verificationTokens = [];
         }
+        memoryStore.saveToDisk();
       }
       return { count };
     },

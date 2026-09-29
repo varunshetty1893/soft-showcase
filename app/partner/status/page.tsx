@@ -1,5 +1,5 @@
 // app/partner/status/page.tsx
-// Displays the current Solution Partner application status for the user.
+// Displays the current Solution Partner application status for the user with email lookup.
 
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -15,8 +15,11 @@ import {
   ArrowLeft,
   ShieldCheck,
   Headphones,
+  Mail,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -25,37 +28,61 @@ export const metadata: Metadata = {
 };
 
 interface PartnerStatusPageProps {
-  searchParams?: Promise<{ email?: string; submitted?: string }>;
+  searchParams?: Promise<{ email?: string; submitted?: string; verified?: string }>;
 }
 
 export default async function PartnerStatusPage({ searchParams }: PartnerStatusPageProps) {
   const session = await auth();
   const params = await searchParams;
   const lookupEmail = params?.email?.trim().toLowerCase();
+  const justVerified = params?.verified === "true";
+  const justSubmitted = params?.submitted === "true";
 
   let partner = null;
+  let user = null;
+
   if (lookupEmail) {
-    partner = await db.projectProvider.findFirst({
-      where: {
-        email: lookupEmail,
-      },
+    user = await db.user.findUnique({
+      where: { email: lookupEmail },
     });
+
+    partner = await db.projectProvider.findFirst({
+      where: { email: lookupEmail },
+    });
+
+    if (!partner && user) {
+      partner = await db.projectProvider.findFirst({
+        where: { userId: user.id },
+      });
+    }
   }
 
   if (!partner && session?.user) {
+    user = await db.user.findUnique({
+      where: { id: session.user.id },
+    });
+
     partner = await db.projectProvider.findFirst({
       where: {
         OR: [
           { userId: session.user.id },
-          { email: session.user.email || "" },
+          { email: (session.user.email || "").toLowerCase() },
         ],
       },
     });
   }
 
-  const status =
-    partner?.applicationStatus ||
-    (session?.user || lookupEmail ? "not_applied" : "unauthenticated");
+  const effectiveEmail = lookupEmail || session?.user?.email || "";
+  const isEmailVerified = Boolean(user?.emailVerified);
+
+  let status: string;
+  if (partner) {
+    status = partner.applicationStatus;
+  } else if (effectiveEmail) {
+    status = "not_applied";
+  } else {
+    status = "unauthenticated";
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
@@ -85,10 +112,50 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
       {/* Main Body */}
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-xl w-full bg-white rounded-3xl border border-[#D9E2E4] p-8 sm:p-10 shadow-sm text-center space-y-6">
+          {/* Banner for newly verified / submitted */}
+          {justVerified && (
+            <div className="p-3.5 rounded-2xl bg-[#DDF4EC] border border-[#2F7D78]/30 text-[#155761] text-xs flex items-center gap-2.5 text-left">
+              <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0" />
+              <span>
+                <strong>Email Confirmed!</strong> Your email address has been successfully verified.
+              </span>
+            </div>
+          )}
+
+          {justSubmitted && !justVerified && (
+            <div className="p-3.5 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] text-xs flex items-center gap-2.5 text-left">
+              <CheckCircle2 className="w-5 h-5 text-[#2F7D78] shrink-0" />
+              <span>
+                <strong>Application Received!</strong> Your partner registration was submitted.
+              </span>
+            </div>
+          )}
+
+          {/* Verification Warning if unverified user */}
+          {user && !isEmailVerified && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs text-left space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>Action Needed: Email Verification Pending</span>
+              </div>
+              <p>
+                We sent a 6-digit confirmation code and link to{" "}
+                <strong>{effectiveEmail}</strong>. Please verify your email to complete your partner profile activation.
+              </p>
+              <Link
+                href={`/verify-email?email=${encodeURIComponent(effectiveEmail)}&role=partner`}
+                className="inline-flex items-center gap-1.5 font-bold text-[#155761] hover:underline"
+              >
+                <span>Enter Verification Code</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
+
           {/* Status: Pending Review */}
           {status === "pending" && (
             <>
-              <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
                 <Clock className="w-8 h-8" />
               </div>
               <div className="space-y-2">
@@ -99,21 +166,50 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                   Application Under Review
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  Your Solution Partner application has been submitted and is currently under review by our platform administration team.
+                  Your Solution Partner application has been received and is currently under review by the Soft Showcase platform administration.
                 </p>
               </div>
-              <div className="bg-[#F8FAFA] rounded-2xl p-4 border border-[#D9E2E4] text-xs text-[#526267] text-left space-y-2">
-                <p className="font-semibold text-[#102124]">Review Details:</p>
-                <p>• Partner Profile: <strong>{partner?.displayName}</strong></p>
-                <p>• Contact Email: <strong>{partner?.email}</strong></p>
-                <p>• Evaluation timeframe: Typically 24–48 business hours.</p>
-                <p>• You will be granted full access to the Partner Portal immediately upon approval.</p>
+
+              <div className="bg-[#F8FAFA] rounded-2xl p-5 border border-[#D9E2E4] text-xs text-[#526267] text-left space-y-2.5">
+                <div className="flex items-center justify-between border-b border-[#D9E2E4] pb-2">
+                  <span className="font-semibold text-[#102124]">Application Overview</span>
+                  <span className="font-mono text-[11px] text-[#2F7D78] font-bold">
+                    {isEmailVerified ? "Email Verified ✓" : "Verification Pending"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[#8A9B9F] block">Studio / Partner</span>
+                    <strong className="text-[#102124]">{partner?.displayName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[#8A9B9F] block">Registered Email</span>
+                    <strong className="text-[#102124] truncate block">{partner?.email}</strong>
+                  </div>
+                  {partner?.whatsappNumber && (
+                    <div>
+                      <span className="text-[#8A9B9F] block">WhatsApp</span>
+                      <strong className="text-[#102124]">{partner?.whatsappNumber}</strong>
+                    </div>
+                  )}
+                  {partner?.location && (
+                    <div>
+                      <span className="text-[#8A9B9F] block">Location</span>
+                      <strong className="text-[#102124]">{partner?.location}</strong>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-2 border-t border-[#D9E2E4] text-[11px] text-[#526267] space-y-1">
+                  <p>• Architectural evaluation turnaround: 24–48 business hours.</p>
+                  <p>• Once approved, your Partner Portal dashboard will activate automatically.</p>
+                </div>
               </div>
+
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Link href="/support" className="w-full sm:w-auto">
+                <Link href="/my-support/new" className="w-full sm:w-auto">
                   <Button variant="outline" className="w-full gap-1.5 text-xs">
                     <Headphones className="w-3.5 h-3.5" />
-                    Contact Support
+                    <span>Contact Support</span>
                   </Button>
                 </Link>
                 <Link href="/" className="w-full sm:w-auto">
@@ -128,7 +224,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
           {/* Status: Approved */}
           {status === "approved" && (
             <>
-              <div className="w-16 h-16 rounded-full bg-[#DDF4EC] text-[#2F7D78] flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-[#DDF4EC] text-[#2F7D78] flex items-center justify-center mx-auto shadow-xs">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <div className="space-y-2">
@@ -139,7 +235,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                   Solution Partner Account Approved
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  Your Solution Partner account has been approved. You now have full access to your Partner Portal, solutions management, and transaction records.
+                  Congratulations! Your Solution Partner account has been approved. You now have full access to your Partner Portal to publish software solutions, manage client inquiries, and record transactions.
                 </p>
               </div>
               <div className="pt-2">
@@ -156,7 +252,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
           {/* Status: Rejected */}
           {status === "rejected" && (
             <>
-              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto shadow-xs">
                 <XCircle className="w-8 h-8" />
               </div>
               <div className="space-y-2">
@@ -167,16 +263,16 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                   Application Status
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  Your Solution Partner application was not approved at this time.
+                  Your Solution Partner application was evaluated and could not be approved at this time.
                 </p>
                 {partner?.rejectionReason && (
                   <p className="text-xs text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200 text-left">
-                    <strong>Note:</strong> {partner.rejectionReason}
+                    <strong>Reviewer Feedback:</strong> {partner.rejectionReason}
                   </p>
                 )}
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <Link href="/support" className="w-full sm:w-auto">
+                <Link href="/my-support/new" className="w-full sm:w-auto">
                   <Button variant="outline" className="w-full text-xs">
                     Contact Support
                   </Button>
@@ -193,7 +289,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
           {/* Status: Suspended or Deactivated */}
           {(status === "suspended" || status === "deactivated") && (
             <>
-              <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
                 <AlertTriangle className="w-8 h-8" />
               </div>
               <div className="space-y-2">
@@ -204,11 +300,11 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                   Partner Portal Access Paused
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  Your Solution Partner account is currently {status}. Please reach out to administrative support for assistance or reactivation.
+                  Your Solution Partner account is currently {status}. Please reach out to platform support for assistance or reactivation.
                 </p>
               </div>
               <div className="pt-2">
-                <Link href="/support">
+                <Link href="/my-support/new">
                   <Button variant="primary" className="w-full text-xs">
                     Contact Support
                   </Button>
@@ -217,43 +313,65 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
             </>
           )}
 
-          {/* Status: Unauthenticated or Not Applied */}
+          {/* Status: Unauthenticated or Not Applied (with Interactive Email Search) */}
           {(status === "unauthenticated" || status === "not_applied") && (
             <>
-              <div className="w-16 h-16 rounded-full bg-[#F3F7F7] text-[#155761] border border-[#D9E2E4] flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-[#F3F7F7] text-[#155761] border border-[#D9E2E4] flex items-center justify-center mx-auto shadow-xs">
                 <ShieldCheck className="w-8 h-8" />
               </div>
               <div className="space-y-2">
                 <h1 className="text-2xl font-bold text-[#102124]">
-                  Solution Partner Status
+                  Partner Application Status
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  {status === "unauthenticated"
-                    ? "Please sign in with your account credentials to view your Solution Partner application status."
-                    : "You do not have an active Solution Partner application on file."}
+                  {status === "not_applied" && effectiveEmail
+                    ? `No registered partner application was found for "${effectiveEmail}". Check another email or submit a new partner application.`
+                    : "Enter your registered email address below to look up your live Solution Partner application status."}
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                {status === "unauthenticated" ? (
-                  <Link href="/login?callbackUrl=/partner/status" className="w-full sm:w-auto">
-                    <Button variant="primary" className="w-full">
-                      Sign In to Check Status
-                    </Button>
-                  </Link>
-                ) : (
-                  <Link href="/partner-registration" className="w-full sm:w-auto">
-                    <Button variant="primary" className="w-full">
-                      Apply as Solution Partner
-                    </Button>
-                  </Link>
-                )}
-                <Link href="/" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full">
-                    Back to Showcase
+
+              {/* Interactive Email Lookup Form */}
+              <form action="/partner/status" method="GET" className="space-y-3 pt-2">
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    type="email"
+                    name="email"
+                    defaultValue={effectiveEmail}
+                    placeholder="Enter your registered application email"
+                    className="pl-9 text-sm"
+                    required
+                  />
+                </div>
+                <Button type="submit" variant="primary" className="w-full font-bold shadow-xs gap-2">
+                  <Search className="w-4 h-4" />
+                  <span>Check Application Status</span>
+                </Button>
+              </form>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 border-t border-[#D9E2E4]">
+                <Link href="/partner-registration" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full text-xs font-semibold">
+                    Apply as Solution Partner
+                  </Button>
+                </Link>
+                <Link href="/login" className="w-full sm:w-auto">
+                  <Button variant="ghost" className="w-full text-xs text-[#526267]">
+                    Sign In
                   </Button>
                 </Link>
               </div>
             </>
+          )}
+
+          {/* Quick email lookup for any status */}
+          {status !== "unauthenticated" && status !== "not_applied" && (
+            <div className="pt-4 border-t border-[#D9E2E4] text-xs text-[#526267]">
+              <span>Checking a different account? </span>
+              <Link href="/partner/status" className="font-semibold text-[#155761] hover:underline">
+                Look up by email
+              </Link>
+            </div>
           )}
         </div>
       </main>

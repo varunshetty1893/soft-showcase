@@ -57,10 +57,18 @@ export function VerifyEmailForm() {
         return;
       }
 
-      setSuccessMessage("Email verified successfully! Redirecting to sign in...");
-      setTimeout(() => {
-        router.push("/login?verified=true");
-      }, 1500);
+      const isPartnerRole = searchParams.get("role") === "partner" || Boolean(data?.isPartner);
+      if (isPartnerRole) {
+        setSuccessMessage("Email verified successfully! Redirecting to your Partner Application status...");
+        setTimeout(() => {
+          router.push(`/partner/status?email=${encodeURIComponent(emailToVerify.trim().toLowerCase())}&verified=true`);
+        }, 1500);
+      } else {
+        setSuccessMessage("Email verified successfully! Redirecting to sign in...");
+        setTimeout(() => {
+          router.push("/login?verified=true");
+        }, 1500);
+      }
     } catch {
       setErrorMessage("Network error verifying code. Please try again.");
       setLoading(false);

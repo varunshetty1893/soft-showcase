@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     // Mark user email as verified
-    await db.user.update({
+    const updatedUser = await db.user.update({
       where: { email: normalizedEmail },
       data: { emailVerified: new Date() },
     });
@@ -52,9 +52,14 @@ export async function POST(req: Request) {
       },
     });
 
+    const isPartner = updatedUser?.role === "solution_partner";
+
     return Response.json({
       success: true,
-      message: "Email verified successfully! You can now sign in.",
+      isPartner,
+      message: isPartner
+        ? "Email verified successfully! Your Partner Application is now confirmed and under review."
+        : "Email verified successfully! You can now sign in.",
     });
   } catch (error) {
     console.error("[Verify OTP] Error verifying code:", error);

@@ -25,8 +25,15 @@ export const PartnerRegisterSchema = z
     whatsappNumber: z
       .string()
       .trim()
-      .regex(
-        /^\+\d{12}$/,
+      .transform((val) => {
+        const cleaned = val.replace(/[\s\-()]/g, "");
+        if (/^\d{12}$/.test(cleaned)) {
+          return `+${cleaned}`;
+        }
+        return cleaned;
+      })
+      .refine(
+        (val) => /^\+[1-9]\d{11}$/.test(val),
         "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)"
       ),
     displayName: z
