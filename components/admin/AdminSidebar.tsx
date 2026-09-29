@@ -41,15 +41,15 @@ export function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-[#D9E2E4] bg-white min-h-[calc(100vh-4rem)] flex flex-col justify-between py-6 shrink-0 hidden md:flex">
-      <div className="space-y-6 px-4">
-        <div className="px-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#526267]">
+    <aside className="w-64 border-r border-[#D9E2E4] bg-white h-[calc(100vh-4rem)] sticky top-16 flex flex-col justify-between py-3.5 shrink-0 hidden md:flex overflow-hidden">
+      <div className="space-y-2.5 px-3">
+        <div className="px-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#526267]">
             Platform Management
           </span>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -57,21 +57,21 @@ export function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs sm:text-[13px] font-medium transition-colors ${
                   active
                     ? "bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]"
                     : "text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <Icon
-                    className={`w-4 h-4 ${
+                    className={`w-3.5 h-3.5 ${
                       active ? "text-[#155761]" : "text-[#526267]"
                     }`}
                   />
                   <span>{item.label}</span>
                 </div>
-                {active && <ChevronRight className="w-4 h-4 text-[#155761]" />}
+                {active && <ChevronRight className="w-3.5 h-3.5 text-[#155761]" />}
               </Link>
             );
           })}
@@ -79,11 +79,11 @@ export function AdminSidebar() {
       </div>
 
       {/* Public site link */}
-      <div className="px-4 pt-6 border-t border-[#F3F7F7]">
+      <div className="px-3 pt-2.5 border-t border-[#F3F7F7]">
         <Link
           href="/"
           target="_blank"
-          className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124] transition-colors"
+          className="flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124] transition-colors"
         >
           <div className="flex items-center gap-2">
             <ExternalLink className="w-3.5 h-3.5 text-[#526267]" />

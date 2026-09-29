@@ -99,14 +99,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
+    // Admin is only permitted to manage platform and visibility controls.
+    // Provider identity and studio profile details are strictly managed by the provider only.
     const updated = await db.projectProvider.update({
       where: { id },
       data: {
-        ...(data.displayName !== undefined && { displayName: data.displayName }),
-        ...(data.email !== undefined && { email: data.email }),
-        ...(data.whatsappNumber !== undefined && { whatsappNumber: data.whatsappNumber || null }),
-        ...(data.bio !== undefined && { bio: data.bio || null }),
-        ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl || null }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.showEmail !== undefined && { showEmail: data.showEmail }),
         ...(data.showWhatsapp !== undefined && { showWhatsapp: data.showWhatsapp }),

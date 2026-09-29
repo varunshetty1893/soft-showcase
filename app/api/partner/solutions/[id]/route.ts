@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
+import { slugify } from "@/lib/utils/slug";
 
 export async function GET(
   _req: NextRequest,
@@ -80,14 +81,44 @@ export async function PUT(
     }
 
     const body = await req.json();
+
+    // Preserve existing slug or compute from title
+    const slug = existing.slug || slugify(body.title || existing.title);
+
+    // Normalize price: if CONTACT or FREE, must be null
+    let price: number | null = null;
+    if (body.priceMode === "FIXED" || body.priceMode === "STARTING_FROM") {
+      const num = Number(body.price);
+      price = !isNaN(num) && num > 0 ? num : null;
+    }
+
+    // Normalize demoUrl
+    let demoUrl: string | null = null;
+    if (body.demoUrl && typeof body.demoUrl === "string" && body.demoUrl.trim()) {
+      let trimmed = body.demoUrl.trim();
+      if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+        trimmed = `https://${trimmed}`;
+      }
+      demoUrl = trimmed;
+    }
+
     const parsed = ProjectSchema.safeParse({
       ...body,
+      slug,
+      price,
+      demoUrl,
       providerId: partner.id,
     });
 
     if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorSummary =
+        Object.entries(fieldErrors)
+          .map(([k, msgs]) => `${k}: ${msgs?.join(", ")}`)
+          .join("; ") || "Validation failed";
+
       return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
+        { error: errorSummary, details: parsed.error.flatten() },
         { status: 400 }
       );
     }

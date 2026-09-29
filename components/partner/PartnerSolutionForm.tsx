@@ -180,17 +180,58 @@ export function PartnerSolutionForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Client-side pre-validations
+    if (!title.trim() || title.trim().length < 3) {
+      setError("Solution title must be at least 3 characters long.");
+      return;
+    }
+    if (!shortDescription.trim() || shortDescription.trim().length < 10) {
+      setError("Short teaser description must be at least 10 characters long.");
+      return;
+    }
+    if (!fullDescription.trim() || fullDescription.trim().length < 50) {
+      setError(
+        `Detailed architecture description must be at least 50 characters long (currently ${fullDescription.trim().length} chars).`
+      );
+      return;
+    }
+    if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice <= 0) {
+        setError("Please enter a valid positive price for Fixed or Starting From price mode.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
+      const computedPrice =
+        priceMode === "CONTACT"
+          ? null
+          : Number(price) > 0
+          ? Number(price)
+          : null;
+
+      let formattedDemoUrl: string | null = null;
+      if (demoUrl.trim()) {
+        const trimmed = demoUrl.trim();
+        formattedDemoUrl =
+          trimmed.startsWith("http://") || trimmed.startsWith("https://")
+            ? trimmed
+            : `https://${trimmed}`;
+      }
+
       const payload = {
         title: title.trim(),
+        slug: initialData?.slug || undefined,
         categoryId,
         shortDescription: shortDescription.trim(),
         fullDescription: fullDescription.trim(),
         priceMode,
-        price: priceMode === "CONTACT" ? 0 : Number(price) || 0,
-        demoUrl: demoUrl.trim() || null,
+        price: computedPrice,
+        demoUrl: formattedDemoUrl,
         projectType: projectType.trim() || "Web Application",
         status,
         whatsIncluded,
@@ -230,7 +271,16 @@ export function PartnerSolutionForm({
 
       const resData = await res.json();
       if (!res.ok) {
-        throw new Error(resData.error || "Failed to save solution");
+        let msg = resData.error || "Failed to save solution";
+        if (resData.details?.fieldErrors) {
+          const detailList = Object.entries(resData.details.fieldErrors)
+            .map(([field, errs]) => `${field}: ${(errs as string[]).join(", ")}`)
+            .join(" • ");
+          if (detailList) {
+            msg = `${msg} (${detailList})`;
+          }
+        }
+        throw new Error(msg);
       }
 
       router.push("/partner/solutions");
@@ -245,9 +295,12 @@ export function PartnerSolutionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
       {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 shadow-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold">Unable to save solution</p>
+            <p className="text-xs text-rose-700 leading-relaxed">{error}</p>
+          </div>
         </div>
       )}
 

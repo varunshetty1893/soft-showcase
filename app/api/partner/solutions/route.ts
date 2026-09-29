@@ -73,26 +73,55 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const parsed = ProjectSchema.safeParse({
-      ...body,
-      providerId: partner.id,
-    });
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const data = parsed.data;
-    const baseSlug = slugify(data.title);
+    // Compute unique slug before validation
+    const baseSlug = slugify(body.title || "solution");
     let finalSlug = baseSlug;
     let count = 1;
     while (await db.project.findUnique({ where: { slug: finalSlug } })) {
       finalSlug = `${baseSlug}-${count}`;
       count++;
     }
+
+    // Normalize price: if CONTACT or FREE, must be null
+    let price: number | null = null;
+    if (body.priceMode === "FIXED" || body.priceMode === "STARTING_FROM") {
+      const num = Number(body.price);
+      price = !isNaN(num) && num > 0 ? num : null;
+    }
+
+    // Normalize demoUrl
+    let demoUrl: string | null = null;
+    if (body.demoUrl && typeof body.demoUrl === "string" && body.demoUrl.trim()) {
+      let trimmed = body.demoUrl.trim();
+      if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+        trimmed = `https://${trimmed}`;
+      }
+      demoUrl = trimmed;
+    }
+
+    const parsed = ProjectSchema.safeParse({
+      ...body,
+      slug: finalSlug,
+      price,
+      demoUrl,
+      providerId: partner.id,
+    });
+
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const errorSummary =
+        Object.entries(fieldErrors)
+          .map(([k, msgs]) => `${k}: ${msgs?.join(", ")}`)
+          .join("; ") || "Validation failed";
+
+      return NextResponse.json(
+        { error: errorSummary, details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const data = parsed.data;
 
     const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
       ? body.features

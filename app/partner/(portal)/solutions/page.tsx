@@ -98,26 +98,26 @@ export default async function PartnerSolutionsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((proj) => {
             const primaryImg = proj.images?.[0]?.url || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop";
 
             return (
               <div
                 key={proj.id}
-                className="bg-white rounded-2xl border border-[#D9E2E4] overflow-hidden shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
+                className="bg-white rounded-2xl border border-[#D9E2E4] overflow-hidden shadow-2xs flex flex-col justify-between hover:shadow-md transition-shadow group"
               >
                 <div>
-                  {/* Thumbnail Banner */}
-                  <div className="relative aspect-video w-full bg-[#102124]/5 overflow-hidden">
+                  {/* Thumbnail Banner — compact and properly sized */}
+                  <div className="relative h-44 w-full bg-[#102124]/5 overflow-hidden">
                     <img
                       src={primaryImg}
                       alt={proj.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                     />
-                    <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
                       <span
-                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold shadow-xs ${
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs ${
                           proj.status === "PUBLISHED"
                             ? "bg-[#DDF4EC] text-[#2F7D78] border border-[#2F7D78]/30"
                             : "bg-[#F3F7F7] text-[#526267] border border-[#D9E2E4]"
@@ -126,7 +126,7 @@ export default async function PartnerSolutionsPage() {
                         {proj.status === "PUBLISHED" ? "Live Catalog" : "Draft"}
                       </span>
                       {proj.category && (
-                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-white/90 backdrop-blur-xs text-[#102124] border border-[#D9E2E4] shadow-xs">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/95 backdrop-blur-xs text-[#102124] border border-[#D9E2E4] shadow-xs">
                           {proj.category.name}
                         </span>
                       )}
@@ -134,12 +134,12 @@ export default async function PartnerSolutionsPage() {
                   </div>
 
                   {/* Body Content */}
-                  <div className="p-5 space-y-3">
+                  <div className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-bold text-base text-[#102124] line-clamp-1">
+                      <h3 className="font-bold text-sm text-[#102124] line-clamp-1" title={proj.title}>
                         {proj.title}
                       </h3>
-                      <span className="text-sm font-extrabold text-[#155761] shrink-0">
+                      <span className="text-xs font-extrabold text-[#155761] shrink-0">
                         {proj.priceMode === "CONTACT"
                           ? "Contact"
                           : formatCurrency(Number(proj.price))}
@@ -150,12 +150,12 @@ export default async function PartnerSolutionsPage() {
                       {proj.shortDescription}
                     </p>
 
-                    <div className="flex items-center gap-4 text-xs text-[#526267] pt-2 border-t border-[#F3F7F7]">
-                      <span className="flex items-center gap-1">
+                    <div className="flex items-center justify-between text-[11px] text-[#526267] pt-2 border-t border-[#F3F7F7]">
+                      <span className="flex items-center gap-1 font-medium">
                         <MessageSquare className="w-3.5 h-3.5 text-[#155761]" />
                         {proj._count?.inquiries ?? 0} Enquiries
                       </span>
-                      <span className="font-mono text-[10px]">
+                      <span className="font-mono text-[10px] text-[#8A9B9F] truncate max-w-[120px]">
                         /{proj.slug}
                       </span>
                     </div>
@@ -163,25 +163,25 @@ export default async function PartnerSolutionsPage() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="px-5 py-3.5 bg-[#F8FAFA] border-t border-[#D9E2E4] flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="px-4 py-2.5 bg-[#F8FAFA] border-t border-[#D9E2E4] flex items-center justify-between gap-2">
+                  <div>
                     {proj.status === "PUBLISHED" && (
                       <Link
                         href={`/projects/${proj.slug}`}
                         target="_blank"
                         className="text-xs font-semibold text-[#526267] hover:text-[#155761] flex items-center gap-1"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Public Page</span>
+                        <ExternalLink className="w-3 h-3" />
+                        <span>View</span>
                       </Link>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <Link href={`/partner/solutions/${proj.id}/edit`}>
-                      <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5">
+                      <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 font-semibold">
                         <Edit2 className="w-3 h-3" />
-                        <span>Edit Solution</span>
+                        <span>Edit</span>
                       </Button>
                     </Link>
                   </div>
