@@ -144,7 +144,7 @@ export function PartnerHeader({ user, partner }: PartnerHeaderProps) {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-[#D9E2E4] bg-white px-4 py-3 space-y-2">
           <Link
-            href="/partner"
+            href="/partner/dashboard"
             onClick={() => setMobileMenuOpen(false)}
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[#102124] hover:bg-[#F3F7F7]"
           >

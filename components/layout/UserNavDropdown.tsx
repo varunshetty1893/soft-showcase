@@ -131,7 +131,7 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
             {/* Solution Partner Portal */}
             {(isPartner || user.isAdmin) && (
               <Link
-                href="/partner"
+                href="/partner/dashboard"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-[#2F7D78] hover:bg-[#DDF4EC]/40 transition-colors"
               >

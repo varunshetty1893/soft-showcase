@@ -29,11 +29,13 @@ export default async function PartnerLayout({
 
   // Find partner profile associated with this user
   let partner = null;
+  const userEmail = session.user.email?.toLowerCase().trim() || "";
   try {
     partner = await db.projectProvider.findFirst({
       where: {
         OR: [
           { userId: session.user.id },
+          { email: userEmail },
           { email: session.user.email || "" },
         ],
       },
@@ -43,7 +45,11 @@ export default async function PartnerLayout({
   }
 
   // Admins are always authorized to enter Partner Portal
-  const isAdmin = session.user.isAdmin;
+  const isAdmin = Boolean(
+    session.user.isAdmin ||
+    session.user.role === "admin" ||
+    (process.env.ADMIN_EMAIL && userEmail === process.env.ADMIN_EMAIL.toLowerCase().trim())
+  );
 
   if (!partner && !isAdmin) {
     redirect("/become-a-partner");
@@ -54,17 +60,26 @@ export default async function PartnerLayout({
     redirect("/partner/status");
   }
 
+  // Provide fallback partner for admins inspecting the portal without a provider record
+  const activePartner = partner || (isAdmin ? {
+    id: "prov-varun",
+    displayName: session.user.name || "Admin Partner Studio",
+    verificationStatus: "verified",
+    applicationStatus: "approved",
+    avatarUrl: session.user.image || null,
+  } : null);
+
   return (
     <div className="min-h-screen bg-[#F8FAFA] text-[#102124] flex flex-col">
       {/* Top Bar for Partner Portal */}
       <PartnerHeader
         user={session.user}
-        partner={partner}
+        partner={activePartner}
       />
 
       <div className="flex-1 flex w-full">
         {/* Partner Navigation Sidebar */}
-        <PartnerSidebar partner={partner} />
+        <PartnerSidebar partner={activePartner} />
 
         {/* Main Partner Content Area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">

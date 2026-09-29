@@ -25,7 +25,7 @@ interface PartnerSidebarProps {
 }
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/partner", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/partner/dashboard", icon: LayoutDashboard },
   { label: "My Solutions", href: "/partner/solutions", icon: Layers },
   { label: "Customer Enquiries", href: "/partner/inquiries", icon: Users },
   { label: "Transactions & Evidence", href: "/partner/transactions", icon: Receipt },
@@ -37,7 +37,9 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === "/partner") return pathname === "/partner";
+    if (href === "/partner/dashboard" || href === "/partner") {
+      return pathname === "/partner" || pathname === "/partner/dashboard";
+    }
     return pathname.startsWith(href);
   };
 
