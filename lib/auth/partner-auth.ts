@@ -44,15 +44,23 @@ export async function getEffectivePartnerContext(): Promise<EffectivePartnerCont
     let partner = null;
 
     try {
+      // Primary: resolve by stable, unique user relationship
       partner = await db.projectProvider.findFirst({
-        where: {
-          OR: [
-            { userId: session.user.id },
-            { email: userEmail },
-            { email: session.user.email || "" },
-          ],
-        },
+        where: { userId: session.user.id },
       });
+
+      // Fallback: If unlinked legacy record exists for verified email, link it permanently
+      if (!partner && userEmail) {
+        const unlinked = await db.projectProvider.findFirst({
+          where: { email: userEmail, userId: null },
+        });
+        if (unlinked) {
+          partner = await db.projectProvider.update({
+            where: { id: unlinked.id },
+            data: { userId: session.user.id },
+          }).catch(() => unlinked);
+        }
+      }
     } catch (e) {
       console.warn("Could not query provider for session:", e);
     }

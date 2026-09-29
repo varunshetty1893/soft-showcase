@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { ShieldCheck, Mail, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { WhatsAppButton } from "@/components/inquiry/WhatsAppButton";
 import { InquiryModal } from "@/components/inquiry/InquiryModal";
 
@@ -80,10 +80,15 @@ export function ProviderCard({
               <p className="text-[11px] leading-relaxed text-[#526267]">
                 Sign in to your account to chat on WhatsApp or send an inquiry to this Solution Partner.
               </p>
-              <Link href={`/login?callbackUrl=/projects/${projectSlug}`} className="block pt-1">
-                <Button variant="primary" size="md" className="w-full text-xs font-bold gap-1.5 shadow-xs">
-                  <span>Sign In to Inquire</span>
-                </Button>
+              <Link
+                href={`/login?callbackUrl=/projects/${projectSlug}`}
+                className={buttonVariants({
+                  variant: "primary",
+                  size: "md",
+                  className: "w-full text-xs font-bold gap-1.5 shadow-xs block text-center mt-1",
+                })}
+              >
+                Sign In to Inquire
               </Link>
             </div>
           </div>

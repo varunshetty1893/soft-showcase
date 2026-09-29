@@ -4,7 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -349,11 +349,15 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
 
       {/* ── Actions ────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-4">
-        <Link href="/admin/providers">
-          <Button variant="outline" type="button" className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Cancel
-          </Button>
+        <Link
+          href="/admin/providers"
+          className={buttonVariants({
+            variant: "outline",
+            className: "gap-2",
+          })}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Cancel
         </Link>
 
         <Button type="submit" size="lg" isLoading={isLoading} className="gap-2 shadow-sm">

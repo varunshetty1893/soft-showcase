@@ -3,7 +3,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
+import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { AdminTransactionDetailManager } from "@/components/admin/AdminTransactionDetailManager";
 import { APP_NAME } from "@/config/constants";
@@ -18,8 +18,7 @@ export default async function AdminTransactionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.isAdmin) return null;
+  await requireAdmin(true);
 
   const { id } = await params;
 

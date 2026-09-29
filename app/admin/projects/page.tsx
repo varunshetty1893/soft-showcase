@@ -5,7 +5,7 @@ import Link from "next/link";
 import ProjectTable from "@/components/admin/ProjectTable";
 import type { Metadata } from "next";
 import { PlusCircle, UploadCloud } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Projects — Admin | Soft Showcase",
@@ -25,18 +25,14 @@ export default function AdminProjectsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Link href="/admin/projects/import">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs text-[#155761] border-[#D9E2E4] hover:bg-[#F3F7F7]">
+          <Link href="/admin/projects/import" className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5 text-xs text-[#155761] border-[#D9E2E4] hover:bg-[#F3F7F7]" })}>
               <UploadCloud className="w-3.5 h-3.5 text-[#155761]" />
               Import JSON
-            </Button>
-          </Link>
-          <Link href="/admin/projects/new">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs shadow-xs">
+            </Link>
+          <Link href="/admin/projects/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-1.5 text-xs shadow-xs" })}>
               <PlusCircle className="w-3.5 h-3.5" />
               New Project
-            </Button>
-          </Link>
+            </Link>
         </div>
       </div>
 

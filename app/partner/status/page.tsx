@@ -18,7 +18,7 @@ import {
   Mail,
   Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { APP_NAME } from "@/config/constants";
 
@@ -206,16 +206,24 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Link href="/my-support/new" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full gap-1.5 text-xs">
-                    <Headphones className="w-3.5 h-3.5" />
-                    <span>Contact Support</span>
-                  </Button>
+                <Link
+                  href="/my-support/new"
+                  className={buttonVariants({
+                    variant: "outline",
+                    className: "w-full sm:w-auto gap-1.5 text-xs",
+                  })}
+                >
+                  <Headphones className="w-3.5 h-3.5" />
+                  <span>Contact Support</span>
                 </Link>
-                <Link href="/" className="w-full sm:w-auto">
-                  <Button variant="primary" className="w-full text-xs">
-                    Explore Showcase
-                  </Button>
+                <Link
+                  href="/"
+                  className={buttonVariants({
+                    variant: "primary",
+                    className: "w-full sm:w-auto text-xs",
+                  })}
+                >
+                  Explore Showcase
                 </Link>
               </div>
             </>
@@ -239,11 +247,16 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                 </p>
               </div>
               <div className="pt-2">
-                <Link href="/partner/dashboard">
-                  <Button variant="primary" size="lg" className="w-full gap-2 font-bold shadow-md cursor-pointer">
-                    <span>Enter Partner Dashboard</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
+                <Link
+                  href="/partner/dashboard"
+                  className={buttonVariants({
+                    variant: "primary",
+                    size: "lg",
+                    className: "w-full gap-2 font-bold shadow-md cursor-pointer",
+                  })}
+                >
+                  <span>Enter Partner Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </>
@@ -272,15 +285,23 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                 )}
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <Link href="/my-support/new" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full text-xs">
-                    Contact Support
-                  </Button>
+                <Link
+                  href="/my-support/new"
+                  className={buttonVariants({
+                    variant: "outline",
+                    className: "w-full sm:w-auto text-xs",
+                  })}
+                >
+                  Contact Support
                 </Link>
-                <Link href="/" className="w-full sm:w-auto">
-                  <Button variant="primary" className="w-full text-xs">
-                    Return to Showcase
-                  </Button>
+                <Link
+                  href="/"
+                  className={buttonVariants({
+                    variant: "primary",
+                    className: "w-full sm:w-auto text-xs",
+                  })}
+                >
+                  Return to Showcase
                 </Link>
               </div>
             </>
@@ -304,10 +325,14 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                 </p>
               </div>
               <div className="pt-2">
-                <Link href="/my-support/new">
-                  <Button variant="primary" className="w-full text-xs">
-                    Contact Support
-                  </Button>
+                <Link
+                  href="/my-support/new"
+                  className={buttonVariants({
+                    variant: "primary",
+                    className: "w-full text-xs",
+                  })}
+                >
+                  Contact Support
                 </Link>
               </div>
             </>
@@ -350,15 +375,23 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
               </form>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 border-t border-[#D9E2E4]">
-                <Link href="/partner-registration" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full text-xs font-semibold">
-                    Apply as Solution Partner
-                  </Button>
+                <Link
+                  href="/partner-registration"
+                  className={buttonVariants({
+                    variant: "outline",
+                    className: "w-full sm:w-auto text-xs font-semibold",
+                  })}
+                >
+                  Apply as Solution Partner
                 </Link>
-                <Link href="/login" className="w-full sm:w-auto">
-                  <Button variant="ghost" className="w-full text-xs text-[#526267]">
-                    Sign In
-                  </Button>
+                <Link
+                  href="/login"
+                  className={buttonVariants({
+                    variant: "ghost",
+                    className: "w-full sm:w-auto text-xs text-[#526267]",
+                  })}
+                >
+                  Sign In
                 </Link>
               </div>
             </>

@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -50,12 +50,10 @@ export default async function PartnerSupportPage() {
           </p>
         </div>
 
-        <Link href="/partner/support/new">
-          <Button variant="primary" size="sm" className="gap-2 shadow-xs font-bold">
+        <Link href="/partner/support/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2 shadow-xs font-bold" })}>
             <Plus className="w-4 h-4" />
             Create Support Ticket
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {/* ── Tickets List ───────────────────────────────────────────────── */}
@@ -70,12 +68,10 @@ export default async function PartnerSupportPage() {
               Need assistance with your Solution Partner profile, listing review, or payment verification? Open a ticket below.
             </p>
           </div>
-          <Link href="/partner/support/new">
-            <Button variant="primary" size="sm" className="gap-2">
+          <Link href="/partner/support/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2" })}>
               <Plus className="w-4 h-4" />
               Open New Ticket
-            </Button>
-          </Link>
+            </Link>
         </div>
       ) : (
         <div className="space-y-4">
@@ -124,15 +120,10 @@ export default async function PartnerSupportPage() {
                     </p>
                   </div>
 
-                  <Link
-                    href={`/partner/support/${ticket.id}`}
-                    className="shrink-0"
-                  >
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                  <Link href={`/partner/support/${ticket.id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "shrink-0 gap-1.5 text-xs" })}>
                       <span>View Thread</span>
                       <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
+                    </Link>
                 </div>
               </div>
             );

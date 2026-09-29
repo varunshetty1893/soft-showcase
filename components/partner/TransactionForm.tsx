@@ -4,8 +4,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Receipt, AlertCircle, ArrowLeft, Upload, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -255,6 +255,16 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
         </div>
 
         <div>
+          <Label className="text-xs font-semibold text-[#102124]">Evidence Notes (Optional)</Label>
+          <Input
+            value={paymentEvidenceNotes}
+            onChange={(e) => setPaymentEvidenceNotes(e.target.value)}
+            placeholder="e.g. Verified via Axis Bank statement reference #9812"
+            className="mt-1 text-xs"
+          />
+        </div>
+
+        <div>
           <Label className="text-xs font-semibold text-[#102124]">Delivery Status</Label>
           <select
             value={deliveryStatus}
@@ -271,10 +281,11 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
 
       {/* Submit Button */}
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Link href="/partner/transactions">
-          <Button variant="outline" size="md">
-            Cancel
-          </Button>
+        <Link
+          href="/partner/transactions"
+          className={buttonVariants({ variant: "outline", size: "md" })}
+        >
+          Cancel
         </Link>
         <Button
           type="submit"

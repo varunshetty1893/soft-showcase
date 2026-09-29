@@ -8,7 +8,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, AlertCircle, Send, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -64,10 +64,11 @@ export function InquiryForm({
           </p>
         </div>
         <div className="pt-2 flex items-center justify-center gap-3">
-          <Link href="/login">
-            <Button variant="primary" size="md">
-              Sign In to Inquire
-            </Button>
+          <Link
+            href="/login"
+            className={buttonVariants({ variant: "primary", size: "md" })}
+          >
+            Sign In to Inquire
           </Link>
           {onCancel && (
             <Button type="button" variant="outline" size="md" onClick={onCancel}>

@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAdminAuditLogs } from "@/lib/db/audit";
 import { History, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Audit Logs — Admin | Soft Showcase",
@@ -144,26 +144,18 @@ export default async function AdminAuditLogsPage({
             </span>
             <div className="flex items-center gap-2">
               {page > 1 && (
-                <Link
-                  href={`/admin/audit-logs?page=${page - 1}${
+                <Link href={`/admin/audit-logs?page=${page - 1}${
                     action ? `&action=${action}` : ""
-                  }${entityType ? `&entityType=${entityType}` : ""}`}
-                >
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                  }${entityType ? `&entityType=${entityType}` : ""}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
                     Previous
-                  </Button>
-                </Link>
+                  </Link>
               )}
               {page < totalPages && (
-                <Link
-                  href={`/admin/audit-logs?page=${page + 1}${
+                <Link href={`/admin/audit-logs?page=${page + 1}${
                     action ? `&action=${action}` : ""
-                  }${entityType ? `&entityType=${entityType}` : ""}`}
-                >
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                  }${entityType ? `&entityType=${entityType}` : ""}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
                     Next
-                  </Button>
-                </Link>
+                  </Link>
               )}
             </div>
           </div>

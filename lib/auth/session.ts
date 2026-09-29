@@ -89,8 +89,9 @@ export async function requireAdmin(useRedirect = false) {
     adminEmail &&
     session.user.email.toLowerCase() === adminEmail
   );
+  const isAdmin = Boolean(session.user.isAdmin || session.user.role === "admin" || isEnvAdmin);
 
-  if (!session.user.isAdmin && !isEnvAdmin) {
+  if (!isAdmin) {
     if (useRedirect) {
       redirect("/");
     }

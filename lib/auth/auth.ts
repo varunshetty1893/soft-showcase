@@ -13,12 +13,18 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 
-if (!process.env.AUTH_SECRET) {
+const authSecret =
+  process.env.AUTH_SECRET ||
+  (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build"
+    ? undefined
+    : "development-and-build-secret-soft-showcase-fallback-key-32-chars");
+
+if (!authSecret) {
   throw new Error("AUTH_SECRET environment variable is required and must be configured.");
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET,
+  secret: authSecret,
   trustHost: true,
 
   // ── Adapter ──────────────────────────────────────────────────────────────
@@ -132,16 +138,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
             token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
 
-            // Look up partner profile if exists
-            const partnerProfile = await db.projectProvider.findFirst({
-              where: {
-                OR: [
-                  { userId: dbUser.id },
-                  { email: dbUser.email },
-                ],
-              },
+            // Look up partner profile strictly by stable user relationship (userId)
+            let partnerProfile = await db.projectProvider.findFirst({
+              where: { userId: dbUser.id },
               select: { id: true, applicationStatus: true },
             }).catch(() => null);
+
+            // One-time fallback: If legacy unlinked record exists for email, associate it
+            if (!partnerProfile && dbUser.email) {
+              const unlinked = await db.projectProvider.findFirst({
+                where: { email: dbUser.email, userId: null },
+                select: { id: true, applicationStatus: true },
+              }).catch(() => null);
+              if (unlinked) {
+                await db.projectProvider.update({
+                  where: { id: unlinked.id },
+                  data: { userId: dbUser.id },
+                }).catch(() => null);
+                partnerProfile = unlinked;
+              }
+            }
 
             if (partnerProfile) {
               token.partnerId = partnerProfile.id;

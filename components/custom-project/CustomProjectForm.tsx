@@ -5,7 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, AlertCircle, ArrowLeft, Send, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -139,16 +139,21 @@ export function CustomProjectForm() {
         </p>
 
         <div className="mt-8 flex justify-center gap-4">
-          <Link href="/">
-            <Button variant="outline" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Return to Homepage
-            </Button>
+          <Link
+            href="/"
+            className={buttonVariants({
+              variant: "outline",
+              className: "gap-2",
+            })}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Return to Homepage
           </Link>
-          <Link href="/projects">
-            <Button variant="primary">
-              Explore Catalog
-            </Button>
+          <Link
+            href="/projects"
+            className={buttonVariants({ variant: "primary" })}
+          >
+            Explore Catalog
           </Link>
         </div>
       </div>
@@ -178,10 +183,15 @@ export function CustomProjectForm() {
               <strong>Authentication required:</strong> Please sign in to submit a custom software build request.
             </span>
           </div>
-          <Link href="/login?callbackUrl=/custom-project" className="shrink-0">
-            <Button type="button" size="sm" variant="primary">
-              Sign In to Continue
-            </Button>
+          <Link
+            href="/login?callbackUrl=/custom-project"
+            className={buttonVariants({
+              variant: "primary",
+              size: "sm",
+              className: "shrink-0",
+            })}
+          >
+            Sign In to Continue
           </Link>
         </div>
       )}
@@ -381,15 +391,15 @@ export function CustomProjectForm() {
           Strict confidentiality. Your project idea is safe with our team.
         </p>
         {!session?.user ? (
-          <Link href="/login?callbackUrl=/custom-project">
-            <Button
-              type="button"
-              size="lg"
-              className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
-            >
-              <Lock className="w-4 h-4" />
-              Sign In to Submit Request
-            </Button>
+          <Link
+            href="/login?callbackUrl=/custom-project"
+            className={buttonVariants({
+              size: "lg",
+              className: "gap-2 shadow-xs cursor-pointer w-full sm:w-auto",
+            })}
+          >
+            <Lock className="w-4 h-4" />
+            Sign In to Submit Request
           </Link>
         ) : (
           <Button

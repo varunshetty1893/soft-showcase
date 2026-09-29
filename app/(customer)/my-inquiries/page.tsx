@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { getCustomerInquiries } from "@/lib/db/queries/customer";
 import { InquiryStatusBadge } from "@/components/customer/InquiryStatusBadge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   MessageSquare,
   ArrowUpRight,
@@ -45,12 +45,10 @@ export default async function MyInquiriesPage() {
           </p>
         </div>
 
-        <Link href="/projects">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+        <Link href="/projects" className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5 text-xs" })}>
             <Layers className="w-3.5 h-3.5 text-[#155761]" />
             Explore More Projects
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {inquiries.length === 0 ? (
@@ -65,11 +63,9 @@ export default async function MyInquiriesPage() {
             Found a software project you are interested in? Inquire directly from any
             project detail page to discuss details and pricing with the verified builder.
           </p>
-          <Link href="/projects">
-            <Button variant="primary" size="md">
+          <Link href="/projects" className={buttonVariants({ variant: "primary", size: "md" })}>
               Browse Available Projects
-            </Button>
-          </Link>
+            </Link>
         </div>
       ) : (
         <div className="space-y-4">

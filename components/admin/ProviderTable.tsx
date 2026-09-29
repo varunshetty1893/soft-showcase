@@ -14,11 +14,8 @@ import {
   Mail,
   CheckCircle2,
   XCircle,
-  Clock,
-  Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export interface ProviderTableRow {
   id: string;
@@ -153,8 +150,11 @@ export function ProviderTable({ providers }: ProviderTableProps) {
           Get started by adding your first project provider or developer.
         </p>
         <div className="mt-6">
-          <Link href="/admin/providers/new">
-            <Button size="sm">Add Provider</Button>
+          <Link
+            href="/admin/providers/new"
+            className={buttonVariants({ size: "sm" })}
+          >
+            Add Provider
           </Link>
         </div>
       </div>
@@ -336,11 +336,16 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                         </>
                       )}
 
-                      <Link href={`/admin/providers/${provider.id}/edit`}>
-                        <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1">
-                          <Edit2 className="w-3 h-3" />
-                          Edit
-                        </Button>
+                      <Link
+                        href={`/admin/providers/${provider.id}/edit`}
+                        className={buttonVariants({
+                          variant: "outline",
+                          size: "sm",
+                          className: "h-8 px-2.5 text-xs gap-1",
+                        })}
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        Edit
                       </Link>
 
                       {provider.isActive && (

@@ -7,7 +7,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Menu, X, ArrowUpRight, LayoutDashboard, MessageSquare, LogOut, KeyRound, User, Sparkles, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { UserNavDropdown } from "@/components/layout/UserNavDropdown";
 import { CartNavButton } from "@/components/cart/CartNavButton";
 
@@ -118,11 +118,16 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
           {user ? (
             <div className="flex items-center gap-2">
               {user.isAdmin && (
-                <Link href="/admin">
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs text-[#155761] font-semibold border-[#155761]/30 hover:bg-[#F3F7F7]">
-                    <LayoutDashboard className="w-3.5 h-3.5 text-[#155761]" />
-                    Admin Panel
-                  </Button>
+                <Link
+                  href="/admin"
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                    className: "gap-1.5 text-xs text-[#155761] font-semibold border-[#155761]/30 hover:bg-[#F3F7F7]",
+                  })}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-[#155761]" />
+                  Admin Panel
                 </Link>
               )}
 
@@ -142,16 +147,26 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <Link href="/login">
-                <Button variant="outline" size="sm" className="text-xs sm:text-sm font-medium px-4">
-                  Sign In
-                </Button>
+              <Link
+                href="/login"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "sm",
+                  className: "text-xs sm:text-sm font-medium px-4",
+                })}
+              >
+                Sign In
               </Link>
-              <Link href="/login?callbackUrl=/custom-project">
-                <Button variant="primary" size="sm" className="text-xs sm:text-sm gap-1 shadow-xs font-semibold">
-                  Request Software
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Button>
+              <Link
+                href="/login?callbackUrl=/custom-project"
+                className={buttonVariants({
+                  variant: "primary",
+                  size: "sm",
+                  className: "text-xs sm:text-sm gap-1 shadow-xs font-semibold",
+                })}
+              >
+                Request Software
+                <ArrowUpRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           )}
@@ -297,16 +312,28 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" size="md" className="w-full text-sm font-medium">
-                    Sign In
-                  </Button>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "md",
+                    className: "w-full text-sm font-medium",
+                  })}
+                >
+                  Sign In
                 </Link>
-                <Link href="/login?callbackUrl=/custom-project" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" size="md" className="w-full text-sm font-semibold gap-1.5">
-                    Request Custom Software
-                    <ArrowUpRight className="w-4 h-4" />
-                  </Button>
+                <Link
+                  href="/login?callbackUrl=/custom-project"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={buttonVariants({
+                    variant: "primary",
+                    size: "md",
+                    className: "w-full text-sm font-semibold gap-1.5",
+                  })}
+                >
+                  Request Custom Software
+                  <ArrowUpRight className="w-4 h-4" />
                 </Link>
                 <div className="pt-2 text-center border-t border-[#D9E2E4]/60">
                   <Link

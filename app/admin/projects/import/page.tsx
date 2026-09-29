@@ -17,7 +17,7 @@ import {
   UserPlus,
   ListChecks,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 const SAMPLE_IMPORT_JSON = JSON.stringify(
   {
@@ -266,12 +266,10 @@ export default function ProjectImportPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-            <Link href={`/admin/projects/${importedProject.id}/edit`}>
-              <Button variant="primary" size="lg" className="gap-2">
+            <Link href={`/admin/projects/${importedProject.id}/edit`} className={buttonVariants({ variant: "primary", size: "lg", className: "gap-2" })}>
                 Open in Project Editor
                 <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+              </Link>
             <Button
               variant="outline"
               size="lg"
@@ -307,12 +305,10 @@ export default function ProjectImportPage() {
           </p>
         </div>
 
-        <Link href="/admin/projects">
-          <Button variant="ghost" size="sm" className="gap-1.5">
+        <Link href="/admin/projects" className={buttonVariants({ variant: "ghost", size: "sm", className: "gap-1.5" })}>
             <ArrowLeft className="w-4 h-4" />
             Back to Projects
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {errorBanner && (

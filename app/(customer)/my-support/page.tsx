@@ -16,7 +16,7 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -46,12 +46,10 @@ export default async function CustomerSupportPage() {
             </p>
           </div>
 
-          <Link href="/my-support/new">
-            <Button variant="primary" size="sm" className="gap-2 font-bold shadow-xs">
+          <Link href="/my-support/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2 font-bold shadow-xs" })}>
               <Plus className="w-4 h-4" />
               Open Support Ticket
-            </Button>
-          </Link>
+            </Link>
         </div>
 
         {tickets.length === 0 ? (
@@ -65,12 +63,10 @@ export default async function CustomerSupportPage() {
                 Have a question about a software purchase, custom scope, or need technical help? Open a support ticket anytime.
               </p>
             </div>
-            <Link href="/my-support/new">
-              <Button variant="primary" size="sm" className="gap-2">
+            <Link href="/my-support/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2" })}>
                 <Plus className="w-4 h-4" />
                 Open Support Ticket
-              </Button>
-            </Link>
+              </Link>
           </div>
         ) : (
           <div className="space-y-3">

@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { getCustomerRequests } from "@/lib/db/queries/customer";
 import { RequestStatusBadge } from "@/components/customer/RequestStatusBadge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   FileCode2,
   PlusCircle,
@@ -45,12 +45,10 @@ export default async function MyRequestsPage() {
           </p>
         </div>
 
-        <Link href="/custom-project">
-          <Button variant="primary" size="sm" className="gap-1.5 text-xs shadow-xs">
+        <Link href="/custom-project" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-1.5 text-xs shadow-xs" })}>
             <PlusCircle className="w-3.5 h-3.5" />
             New Custom Request
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {requests.length === 0 ? (
@@ -65,11 +63,9 @@ export default async function MyRequestsPage() {
             Need a completely tailored web app, mobile application, or backend service?
             Submit your project scope and our architectural review team will evaluate it.
           </p>
-          <Link href="/custom-project">
-            <Button variant="primary" size="md">
+          <Link href="/custom-project" className={buttonVariants({ variant: "primary", size: "md" })}>
               Request Custom Software
-            </Button>
-          </Link>
+            </Link>
         </div>
       ) : (
         <div className="space-y-6">

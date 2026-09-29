@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Package,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -62,11 +62,9 @@ export default async function CustomerTransactionsPage() {
                 When you purchase a software solution from a Solution Partner or place a custom order, verified transaction receipts will appear here.
               </p>
             </div>
-            <Link href="/projects">
-              <Button variant="primary" size="sm">
+            <Link href="/projects" className={buttonVariants({ variant: "primary", size: "sm" })}>
                 Browse Solutions Catalog
-              </Button>
-            </Link>
+              </Link>
           </div>
         ) : (
           <div className="space-y-4">

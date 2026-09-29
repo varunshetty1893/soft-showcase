@@ -20,7 +20,7 @@ import {
   ExternalLink,
   MessageCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { formatCurrency } from "@/lib/utils/format";
@@ -55,18 +55,14 @@ export default async function PartnerDashboardPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/partner/solutions/new">
-            <Button variant="primary" size="sm" className="gap-1.5 font-bold shadow-xs">
+          <Link href="/partner/solutions/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-1.5 font-bold shadow-xs" })}>
               <Plus className="w-4 h-4" />
               <span>Add Solution</span>
-            </Button>
-          </Link>
-          <Link href="/partner/transactions/new">
-            <Button variant="outline" size="sm" className="gap-1.5 font-semibold">
+            </Link>
+          <Link href="/partner/transactions/new" className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5 font-semibold" })}>
               <Receipt className="w-4 h-4 text-[#155761]" />
               <span>Record Transaction</span>
-            </Button>
-          </Link>
+            </Link>
         </div>
       </div>
 
@@ -173,11 +169,9 @@ export default async function PartnerDashboardPage() {
                     <p className="text-xs font-bold text-[#102124]">Inbound Project Lead</p>
                     <p className="text-[11px] text-[#526267]">Interested in custom deployment</p>
                   </div>
-                  <Link href="/partner/inquiries">
-                    <Button variant="outline" size="sm" className="h-7 text-xs px-2.5">
+                  <Link href="/partner/inquiries" className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs px-2.5" })}>
                       Open Enquiry
-                    </Button>
-                  </Link>
+                    </Link>
                 </div>
               </div>
             )}
@@ -204,11 +198,9 @@ export default async function PartnerDashboardPage() {
             {stats.transactions.total === 0 ? (
               <div className="py-8 text-center text-xs text-[#526267] space-y-3">
                 <p>No transaction records submitted yet.</p>
-                <Link href="/partner/transactions/new">
-                  <Button variant="outline" size="sm" className="text-xs">
+                <Link href="/partner/transactions/new" className={buttonVariants({ variant: "outline", size: "sm", className: "text-xs" })}>
                     Record First Transaction
-                  </Button>
-                </Link>
+                  </Link>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -239,11 +231,9 @@ export default async function PartnerDashboardPage() {
                       >
                         {tx.paymentStatus}
                       </span>
-                      <Link href={`/partner/transactions/${tx.id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                      <Link href={`/partner/transactions/${tx.id}`} className={buttonVariants({ variant: "ghost", size: "sm", className: "h-7 px-2 text-xs" })}>
                           Details
-                        </Button>
-                      </Link>
+                        </Link>
                     </div>
                   </div>
                 ))}
@@ -270,17 +260,13 @@ export default async function PartnerDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/partner/support">
-            <Button variant="outline" size="sm" className="text-xs">
+          <Link href="/partner/support" className={buttonVariants({ variant: "outline", size: "sm", className: "text-xs" })}>
               View Tickets ({stats.supportTickets.open} Open)
-            </Button>
-          </Link>
-          <Link href="/partner/support/new">
-            <Button variant="primary" size="sm" className="text-xs gap-1.5">
+            </Link>
+          <Link href="/partner/support/new" className={buttonVariants({ variant: "primary", size: "sm", className: "text-xs gap-1.5" })}>
               <Plus className="w-3.5 h-3.5" />
               <span>Create Ticket</span>
-            </Button>
-          </Link>
+            </Link>
         </div>
       </div>
     </div>

@@ -3,21 +3,14 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { db } from "@/lib/db/client";
 import { getPartnerTransactions } from "@/lib/db/queries/partner";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import {
   Receipt,
   Plus,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  AlertTriangle,
   ArrowRight,
-  ExternalLink,
-  ShieldCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -27,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PartnerTransactionsPage() {
-  const { user, partner } = await getEffectivePartnerContext();
+  const { partner } = await getEffectivePartnerContext();
 
   const partnerId = partner?.id || "prov-varun";
   let transactions = await getPartnerTransactions(partnerId);
@@ -54,11 +47,16 @@ export default async function PartnerTransactionsPage() {
           </p>
         </div>
 
-        <Link href="/partner/transactions/new">
-          <Button variant="primary" size="sm" className="gap-2 shadow-xs font-bold">
-            <Plus className="w-4 h-4" />
-            Record Transaction
-          </Button>
+        <Link
+          href="/partner/transactions/new"
+          className={buttonVariants({
+            variant: "primary",
+            size: "sm",
+            className: "gap-2 shadow-xs font-bold",
+          })}
+        >
+          <Plus className="w-4 h-4" />
+          Record Transaction
         </Link>
       </div>
 
@@ -90,11 +88,16 @@ export default async function PartnerTransactionsPage() {
               When you close an engagement with a customer, record the transaction and upload payment evidence to get creator verification.
             </p>
           </div>
-          <Link href="/partner/transactions/new">
-            <Button variant="primary" size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Record First Transaction
-            </Button>
+          <Link
+            href="/partner/transactions/new"
+            className={buttonVariants({
+              variant: "primary",
+              size: "sm",
+              className: "gap-2",
+            })}
+          >
+            <Plus className="w-4 h-4" />
+            Record First Transaction
           </Link>
         </div>
       ) : (

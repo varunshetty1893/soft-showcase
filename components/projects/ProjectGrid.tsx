@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { FolderSearch, PlusCircle } from "lucide-react";
 import { ProjectCard, type ProjectCardData } from "./ProjectCard";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 interface ProjectGridProps {
   projects: ProjectCardData[];
@@ -22,16 +22,22 @@ export function ProjectGrid({ projects }: ProjectGridProps) {
           Try clearing some filters, or request a custom build.
         </p>
         <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
-          <Link href="/projects">
-            <Button variant="outline" size="sm">
-              Clear All Filters
-            </Button>
+          <Link
+            href="/projects"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Clear All Filters
           </Link>
-          <Link href="/custom-project">
-            <Button variant="primary" size="sm" className="gap-1.5">
-              <PlusCircle className="w-4 h-4" />
-              Request Custom Build
-            </Button>
+          <Link
+            href="/custom-project"
+            className={buttonVariants({
+              variant: "primary",
+              size: "sm",
+              className: "gap-1.5",
+            })}
+          >
+            <PlusCircle className="w-4 h-4" />
+            Request Custom Build
           </Link>
         </div>
       </div>

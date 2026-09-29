@@ -16,7 +16,7 @@ import {
   Clock,
   Code2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { formatCurrency } from "@/lib/utils/format";
@@ -54,12 +54,10 @@ export default async function PartnerSolutionsPage() {
           </p>
         </div>
 
-        <Link href="/partner/solutions/new">
-          <Button variant="primary" size="sm" className="gap-2 shadow-xs font-bold">
+        <Link href="/partner/solutions/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2 shadow-xs font-bold" })}>
             <Plus className="w-4 h-4" />
             Add New Solution
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {/* ── Stats Summary ──────────────────────────────────────────────── */}
@@ -90,12 +88,10 @@ export default async function PartnerSolutionsPage() {
               You haven&apos;t added any software projects yet. Click below to add your first ready-to-deploy solution.
             </p>
           </div>
-          <Link href="/partner/solutions/new">
-            <Button variant="primary" size="sm" className="gap-2">
+          <Link href="/partner/solutions/new" className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2" })}>
               <Plus className="w-4 h-4" />
               Add Your First Solution
-            </Button>
-          </Link>
+            </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -178,12 +174,10 @@ export default async function PartnerSolutionsPage() {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <Link href={`/partner/solutions/${proj.id}/edit`}>
-                      <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1 font-semibold">
+                    <Link href={`/partner/solutions/${proj.id}/edit`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 px-2.5 text-xs gap-1 font-semibold" })}>
                         <Edit2 className="w-3 h-3" />
                         <span>Edit</span>
-                      </Button>
-                    </Link>
+                      </Link>
                   </div>
                 </div>
               </div>

@@ -5,7 +5,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ProviderTable, type ProviderTableRow } from "@/components/admin/ProviderTable";
 import { getAllProviders } from "@/lib/db/queries/providers";
 
@@ -39,12 +39,10 @@ export default async function AdminProvidersPage() {
           </p>
         </div>
 
-        <Link href="/admin/providers/new">
-          <Button size="sm" className="gap-2 shadow-xs">
+        <Link href="/admin/providers/new" className={buttonVariants({ size: "sm", className: "gap-2 shadow-xs" })}>
             <Plus className="w-4 h-4" />
             Add New Provider
-          </Button>
-        </Link>
+          </Link>
       </div>
 
       {/* ── Table Section ──────────────────────────────────────────────── */}

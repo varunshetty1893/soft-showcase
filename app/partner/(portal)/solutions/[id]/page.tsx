@@ -22,7 +22,7 @@ import {
   Eye,
   ShieldCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
@@ -99,12 +99,10 @@ export default async function PartnerSolutionDetailPage({
             <Eye className="w-3.5 h-3.5" />
             <span>Public Preview</span>
           </Link>
-          <Link href={`/partner/solutions/${project.id}/edit`}>
-            <Button variant="primary" size="sm" className="gap-2 font-bold shadow-xs">
+          <Link href={`/partner/solutions/${project.id}/edit`} className={buttonVariants({ variant: "primary", size: "sm", className: "gap-2 font-bold shadow-xs" })}>
               <Edit2 className="w-4 h-4" />
               <span>Edit Solution</span>
-            </Button>
-          </Link>
+            </Link>
         </div>
       </div>
 

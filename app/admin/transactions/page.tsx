@@ -3,12 +3,11 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
+import { requireAdmin } from "@/lib/auth/session";
 import { getAllTransactions } from "@/lib/db/queries/transactions";
-import { Receipt, CheckCircle2, Clock, XCircle, AlertTriangle, ArrowRight, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { Receipt } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -17,8 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminTransactionsPage() {
-  const session = await auth();
-  if (!session?.user?.isAdmin) return null;
+  await requireAdmin(true);
 
   const transactions = await getAllTransactions();
 
@@ -123,11 +121,9 @@ export default async function AdminTransactionsPage() {
                     </td>
 
                     <td className="py-4 px-4 text-right">
-                      <Link href={`/admin/transactions/${tx.id}`}>
-                        <Button variant="outline" size="sm" className="h-7 text-xs px-2.5">
+                      <Link href={`/admin/transactions/${tx.id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs px-2.5" })}>
                           Audit &amp; Verify
-                        </Button>
-                      </Link>
+                        </Link>
                     </td>
                   </tr>
                 ))}

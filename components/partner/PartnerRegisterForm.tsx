@@ -23,7 +23,7 @@ import {
   EyeOff,
   RefreshCw,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -503,16 +503,21 @@ export function PartnerRegisterForm() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <Link
             href={`/partner/status?email=${encodeURIComponent(formData.email.trim().toLowerCase())}&verified=true`}
-            className="w-full sm:w-auto"
+            className={buttonVariants({
+              variant: "primary",
+              className: "w-full sm:w-auto font-bold",
+            })}
           >
-            <Button variant="primary" className="w-full font-bold">
-              Check Application Status
-            </Button>
+            Check Application Status
           </Link>
-          <Link href="/login" className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full">
-              Partner Sign In
-            </Button>
+          <Link
+            href="/login"
+            className={buttonVariants({
+              variant: "outline",
+              className: "w-full sm:w-auto",
+            })}
+          >
+            Partner Sign In
           </Link>
         </div>
       </div>

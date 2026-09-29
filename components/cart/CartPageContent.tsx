@@ -3,9 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart/cart-context";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils/format";
 import {
   ShoppingCart,
@@ -13,7 +11,6 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  MessageSquare,
   Sparkles,
   ExternalLink,
 } from "lucide-react";
@@ -73,16 +70,21 @@ export function CartPageContent() {
             Explore hundreds of verified software projects, developer toolkits, and web applications ready for deployment.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/projects">
-              <Button variant="primary" className="gap-2">
-                <span>Browse Projects</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+            <Link
+              href="/projects"
+              className={buttonVariants({
+                variant: "primary",
+                className: "gap-2",
+              })}
+            >
+              <span>Browse Projects</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link href="/custom-project">
-              <Button variant="outline">
-                Request Custom Build
-              </Button>
+            <Link
+              href="/custom-project"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Request Custom Build
             </Link>
           </div>
         </div>
@@ -216,11 +218,15 @@ export function CartPageContent() {
               </div>
 
               <div className="pt-3">
-                <Link href="/projects" className="block">
-                  <Button variant="primary" className="w-full gap-2">
-                    <span>Continue Browsing</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
+                <Link
+                  href="/projects"
+                  className={buttonVariants({
+                    variant: "primary",
+                    className: "w-full gap-2",
+                  })}
+                >
+                  <span>Continue Browsing</span>
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>

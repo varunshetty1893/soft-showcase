@@ -3,12 +3,10 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
+import { requireAdmin } from "@/lib/auth/session";
 import { getAllSupportTickets } from "@/lib/db/queries/support";
-import { Headphones, MessageSquare, Clock, ArrowRight, User, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils/format";
+import { Headphones, MessageSquare, ArrowRight } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -17,8 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminSupportPage() {
-  const session = await auth();
-  if (!session?.user?.isAdmin) return null;
+  await requireAdmin(true);
 
   const tickets = await getAllSupportTickets();
 

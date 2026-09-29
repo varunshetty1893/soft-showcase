@@ -4,8 +4,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Headphones, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,10 +119,11 @@ export function SupportTicketForm({ returnUrl = "/partner/support" }: { returnUr
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Link href={returnUrl}>
-          <Button variant="outline" size="md">
-            Cancel
-          </Button>
+        <Link
+          href={returnUrl}
+          className={buttonVariants({ variant: "outline", size: "md" })}
+        >
+          Cancel
         </Link>
         <Button
           type="submit"

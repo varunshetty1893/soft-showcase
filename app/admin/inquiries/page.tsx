@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Inquiries — Admin | Soft Showcase",
@@ -203,11 +203,9 @@ export default async function AdminInquiriesPage({
 
                       {/* Actions */}
                       <td className="py-3 px-4 text-right">
-                        <Link href={`/admin/inquiries/${inq.id}`}>
-                          <Button variant="outline" size="sm" className="h-7 text-xs px-2.5">
+                        <Link href={`/admin/inquiries/${inq.id}`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs px-2.5" })}>
                             Manage
-                          </Button>
-                        </Link>
+                          </Link>
                       </td>
                     </tr>
                   );
@@ -225,26 +223,18 @@ export default async function AdminInquiriesPage({
             </span>
             <div className="flex items-center gap-2">
               {page > 1 && (
-                <Link
-                  href={`/admin/inquiries?page=${page - 1}${
+                <Link href={`/admin/inquiries?page=${page - 1}${
                     status ? `&status=${status}` : ""
-                  }`}
-                >
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                  }`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
                     Previous
-                  </Button>
-                </Link>
+                  </Link>
               )}
               {page < totalPages && (
-                <Link
-                  href={`/admin/inquiries?page=${page + 1}${
+                <Link href={`/admin/inquiries?page=${page + 1}${
                     status ? `&status=${status}` : ""
-                  }`}
-                >
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
+                  }`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
                     Next
-                  </Button>
-                </Link>
+                  </Link>
               )}
             </div>
           </div>

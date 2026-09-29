@@ -3,7 +3,6 @@
 // Source of truth: docs/20-whatsapp-architecture.md & docs/15-api-architecture.md
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { getClientIp, whatsappLimiter } from "@/lib/utils/rate-limit";
 import { generateWhatsAppUrl } from "@/lib/whatsapp/whatsapp";
@@ -76,11 +75,18 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    // 5. Verify provider has WhatsApp configured
+    // 5. Verify provider has WhatsApp configured and is an approved, active partner
     if (!project.provider) {
       return NextResponse.json(
         { error: "No Solution Partner is associated with this project." },
         { status: 404 }
+      );
+    }
+
+    if (!project.provider.isActive || project.provider.applicationStatus !== "approved") {
+      return NextResponse.json(
+        { error: "This project partner is currently inactive or undergoing review." },
+        { status: 403 }
       );
     }
 

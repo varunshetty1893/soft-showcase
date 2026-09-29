@@ -3,12 +3,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
+import { requireAdmin } from "@/lib/auth/session";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminUserMenu } from "@/components/admin/AdminUserMenu";
 import { ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -20,22 +19,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
-  if (!session?.user) {
-    redirect("/login?callbackUrl=/admin");
-  }
-
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const isEnvAdmin = Boolean(
-    session.user.email &&
-    adminEmail &&
-    session.user.email.toLowerCase() === adminEmail
-  );
-
-  if (!session.user.isAdmin && !isEnvAdmin) {
-    redirect("/");
-  }
+  const session = await requireAdmin(true);
 
   return (
     <div className="min-h-screen bg-[#F8FAFA] text-[#102124] flex flex-col">
@@ -61,12 +45,10 @@ export default async function AdminLayout({
         </div>
 
         <div className="flex items-center gap-4">
-          <Link href="/" target="_blank" className="hidden sm:inline-flex">
-            <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-[#526267] hover:text-[#155761]">
+          <Link href="/" target="_blank" className={buttonVariants({ variant: "ghost", size: "sm", className: "hidden sm:inline-flex gap-1.5 text-xs text-[#526267] hover:text-[#155761]" })}>
               <ExternalLink className="w-3.5 h-3.5" />
               View Site
-            </Button>
-          </Link>
+            </Link>
 
           {/* Admin User Menu Dropdown */}
           <div className="pl-3 border-l border-[#D9E2E4]">

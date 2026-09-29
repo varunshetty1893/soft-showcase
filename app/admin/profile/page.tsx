@@ -2,8 +2,8 @@
 // Admin Profile & Password Management Page.
 
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth/auth";
+import { notFound } from "next/navigation";
+import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { AdminProfileForm } from "@/components/admin/AdminProfileForm";
 import { ShieldCheck } from "lucide-react";
@@ -13,15 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminProfilePage() {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    redirect("/login?callbackUrl=/admin/profile");
-  }
-
-  if (!session.user.isAdmin) {
-    redirect("/");
-  }
+  const session = await requireAdmin(true);
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },

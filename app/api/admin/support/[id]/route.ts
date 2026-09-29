@@ -2,7 +2,7 @@
 // Admin ticket status management and resolution.
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { UpdateTicketStatusSchema } from "@/lib/validation/support.schema";
 
@@ -10,8 +10,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.isAdmin) {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    if (e instanceof AuthError) return authErrorResponse(e);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

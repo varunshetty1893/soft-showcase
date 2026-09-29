@@ -7,7 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { KeyRound, ArrowLeft, Mail, CheckCircle2, AlertCircle, Loader2, Lock, Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function ForgotPasswordPage() {
@@ -269,11 +269,9 @@ export default function ForgotPasswordPage() {
                 <div className="p-3 bg-[#DDF4EC] text-[#155761] rounded-xl text-xs font-medium border border-[#2F7D78]/25">
                   Your new password is now active! You can sign in using your email and new password.
                 </div>
-                <Link href="/login">
-                  <Button variant="primary" className="w-full">
+                <Link href="/login" className={buttonVariants({ variant: "primary", className: "w-full" })}>
                     Proceed to Sign In
-                  </Button>
-                </Link>
+                  </Link>
               </div>
             )}
           </div>
