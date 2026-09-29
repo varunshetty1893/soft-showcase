@@ -114,6 +114,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
+    // If provider is deactivated, demote their published projects to DRAFT
+    // so they are removed from the user side but remain as draft in the partner portal
+    if (data.isActive === false) {
+      await db.project.updateMany({
+        where: {
+          providerId: id,
+          status: "PUBLISHED",
+        },
+        data: {
+          status: "DRAFT",
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: "Provider updated successfully",

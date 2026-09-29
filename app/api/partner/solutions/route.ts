@@ -123,6 +123,16 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
+    if (data.status === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        {
+          error:
+            "Your partner profile is currently inactive or deactivated. You can only save solutions as Draft until an administrator activates your account.",
+        },
+        { status: 403 }
+      );
+    }
+
     const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
       ? body.features
       : [];

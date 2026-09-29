@@ -32,6 +32,9 @@ export async function getPublishedProjects(options: {
 
   const where = {
     status: "PUBLISHED" as ProjectStatus,
+    provider: {
+      isActive: true,
+    },
     ...(featured !== undefined && { featured }),
     ...(categorySlug && { category: { slug: categorySlug } }),
     ...(technologySlug && {
@@ -102,6 +105,9 @@ export const getProjectBySlug = cache(async (slug: string) => {
         { slug: { equals: trimmed, mode: "insensitive" } },
       ],
       status: "PUBLISHED",
+      provider: {
+        isActive: true,
+      },
     },
     include: {
       category: true,

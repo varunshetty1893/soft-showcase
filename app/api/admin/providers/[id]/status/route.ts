@@ -32,6 +32,10 @@ export async function PATCH(
       parsed.data;
 
     const isApproving = applicationStatus === "approved";
+    const isDeactivating =
+      applicationStatus === "deactivated" ||
+      applicationStatus === "suspended" ||
+      applicationStatus === "rejected";
 
     const updated = await db.projectProvider.update({
       where: { id },
@@ -46,6 +50,11 @@ export async function PATCH(
               providerConsentConfirmedAt: new Date(),
               verificationStatus: verificationStatus || "verified",
             }
+          : isDeactivating
+          ? {
+              isActive: false,
+              ...(verificationStatus !== undefined ? { verificationStatus } : {}),
+            }
           : {
               ...(verificationStatus !== undefined ? { verificationStatus } : {}),
             }),
@@ -53,6 +62,20 @@ export async function PATCH(
         ...(verificationNotes !== undefined ? { verificationNotes } : {}),
       },
     });
+
+    if (isDeactivating) {
+      // Deactivating partner: change all their published projects to DRAFT
+      // so they disappear from the user side but stay as draft in the partner portal
+      await db.project.updateMany({
+        where: {
+          providerId: id,
+          status: "PUBLISHED",
+        },
+        data: {
+          status: "DRAFT",
+        },
+      });
+    }
 
     // Also update associated user role if approved
     if (updated.userId) {

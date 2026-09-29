@@ -77,8 +77,8 @@ const SAMPLE_IMPORT_JSON = JSON.stringify(
     price: null,
     demoUrl: "https://demo.example.com",
     provider: {
-      name: "Rahul",
-      email: "rahul@example.com",
+      name: "Sample Partner",
+      email: "partner@example.com",
       whatsapp: "+919876543210",
     },
   },

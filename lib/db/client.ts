@@ -103,31 +103,6 @@ const initialProviders = [
 // Seeded Projects
 const initialProjects = [
   {
-    id: "proj-1",
-    title: "AI Resume & Portfolio Analyzer",
-    slug: "ai-resume-analyzer",
-    shortDescription:
-      "ATS score optimizer and skill gap engine powered by generative AI with candidate dashboard.",
-    fullDescription:
-      "A complete full-stack platform for career coaches, job seekers, and recruiters. Evaluates resumes against target job descriptions, computes ATS pass scores, and generates actionable rewrite suggestions.",
-    status: "PUBLISHED",
-    featured: true,
-    priceMode: "FIXED",
-    price: 24999,
-    demoUrl: "https://example.com/demo/resume-analyzer",
-    projectType: "Full-Stack Web App",
-    whatsIncluded: [
-      "Next.js 15 + TypeScript Frontend & Backend API",
-      "PostgreSQL / Prisma schema with migrations",
-      "Pre-configured ATS parsing and LLM scoring prompts",
-      "Docker deployment configs and setup guide",
-    ],
-    categoryId: "cat-7", // AI / ML
-    providerId: "prov-1",
-    createdAt: new Date("2025-01-10"),
-    updatedAt: new Date("2025-01-10"),
-  },
-  {
     id: "proj-2",
     title: "OmniCart Multi-Vendor Marketplace",
     slug: "omnicart-marketplace",
@@ -233,16 +208,6 @@ const initialProjects = [
 
 const initialProjectImages = [
   {
-    id: "img-1",
-    projectId: "proj-1",
-    url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
-    storageKey: "mock-1",
-    altText: "AI Resume Analyzer Dashboard",
-    isPrimary: true,
-    sortOrder: 1,
-    createdAt: new Date("2025-01-10"),
-  },
-  {
     id: "img-2",
     projectId: "proj-2",
     url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=500&fit=crop",
@@ -305,9 +270,6 @@ const initialProjectImages = [
 ];
 
 const initialProjectFeatures = [
-  { id: "feat-1", projectId: "proj-1", feature: "Instant ATS score calculation", sortOrder: 1 },
-  { id: "feat-2", projectId: "proj-1", feature: "Skill extraction & gap analysis", sortOrder: 2 },
-  { id: "feat-3", projectId: "proj-1", feature: "Export report as PDF", sortOrder: 3 },
   { id: "feat-4", projectId: "proj-2", feature: "Multi-vendor store architecture", sortOrder: 1 },
   { id: "feat-5", projectId: "proj-2", feature: "Stripe Connect automated payouts", sortOrder: 2 },
   { id: "feat-6", projectId: "proj-3", feature: "Interactive chart widgets", sortOrder: 1 },
@@ -325,9 +287,6 @@ const initialProjectFeatures = [
 ];
 
 const initialProjectSpecs = [
-  { id: "spec-1", projectId: "proj-1", key: "Frontend", value: "Next.js 15, Tailwind CSS, TypeScript", sortOrder: 1 },
-  { id: "spec-2", projectId: "proj-1", key: "Backend", value: "Next.js Route Handlers, Prisma", sortOrder: 2 },
-  { id: "spec-3", projectId: "proj-1", key: "AI Model", value: "Gemini 2.5 Flash / OpenAI API", sortOrder: 3 },
   { id: "spec-4", projectId: "proj-2", key: "Frontend", value: "React 19, Tailwind CSS", sortOrder: 1 },
   { id: "spec-5", projectId: "proj-2", key: "Database", value: "PostgreSQL with Prisma ORM", sortOrder: 2 },
   { id: "spec-6", projectId: "proj-3", key: "Tech Stack", value: "Next.js, Recharts, Tailwind CSS", sortOrder: 1 },
@@ -344,7 +303,6 @@ const initialProjectSpecs = [
 ];
 
 const initialProjectFaqs = [
-  { id: "faq-1", projectId: "proj-1", question: "Can this project be customized?", answer: "Yes, full source code is provided with documentation.", sortOrder: 1 },
   { id: "faq-2", projectId: "proj-2", question: "Does it support custom payment gateways?", answer: "Yes, alternative payment handlers can be easily integrated.", sortOrder: 1 },
   // Global Farmer FAQ
   { id: "faq-gf-1", projectId: "proj-global-farmer", question: "How do I install Global Farmer locally?", answer: "Place the project in your XAMPP htdocs folder, import globalfarmer_db.sql into phpMyAdmin, and configure dbconnection.php.", sortOrder: 1 },
@@ -353,9 +311,6 @@ const initialProjectFaqs = [
 ];
 
 const initialProjectTechnologies = [
-  { projectId: "proj-1", technologyId: "tech-2" }, // Next.js
-  { projectId: "proj-1", technologyId: "tech-6" }, // TypeScript
-  { projectId: "proj-1", technologyId: "tech-8" }, // Tailwind CSS
   { projectId: "proj-2", technologyId: "tech-1" }, // React
   { projectId: "proj-2", technologyId: "tech-17" }, // PostgreSQL
   { projectId: "proj-3", technologyId: "tech-2" }, // Next.js
@@ -449,7 +404,12 @@ class InMemoryStore {
           const extra = initialProviders.filter(
             (p) => !existingIds.has(p.id) && !existingEmails.has(p.email.toLowerCase())
           );
-          this.providers = [...parsed.providers, ...extra];
+          this.providers = [...parsed.providers, ...extra].filter(
+            (p) => p.displayName?.toLowerCase() !== "rahul" && !p.email?.toLowerCase().includes("rahul")
+          );
+        }
+        if (Array.isArray(parsed.projects)) {
+          this.projects = parsed.projects.filter((p: any) => p.slug !== "ai-resume-analyzer");
         }
         if (Array.isArray(parsed.users)) {
           const existingEmails = new Set(parsed.users.map((u: any) => u.email?.toLowerCase()));
@@ -545,6 +505,16 @@ function filterProjectItem(p: any, where?: any): boolean {
     if (typeof where.id === "string" && p.id !== where.id) return false;
     if (where.id.not && p.id === where.id.not) return false;
     if (Array.isArray(where.id.in) && !where.id.in.includes(p.id)) return false;
+  }
+
+  if (p.slug === "ai-resume-analyzer") return false;
+  const pProvider = p.provider || memoryStore.providers.find((pr) => pr.id === p.providerId);
+  if (pProvider?.displayName?.toLowerCase() === "rahul" || pProvider?.email?.toLowerCase().includes("rahul")) {
+    return false;
+  }
+
+  if (where.provider?.isActive !== undefined) {
+    if (!pProvider || pProvider.isActive !== where.provider.isActive) return false;
   }
 
   if (where.slug && p.slug !== where.slug) return false;
@@ -972,6 +942,26 @@ function createModelDelegate(modelName: string) {
 
     async deleteMany(args?: any) {
       let count = 0;
+      if (modelName === "project") {
+        const initialLen = memoryStore.projects.length;
+        if (args?.where?.providerId) {
+          memoryStore.projects = memoryStore.projects.filter((p) => p.providerId !== args.where.providerId);
+        } else if (args?.where?.slug) {
+          memoryStore.projects = memoryStore.projects.filter((p) => p.slug !== args.where.slug);
+        } else if (args?.where?.id?.in) {
+          memoryStore.projects = memoryStore.projects.filter((p) => !args.where.id.in.includes(p.id));
+        }
+        count = initialLen - memoryStore.projects.length;
+        memoryStore.saveToDisk();
+      }
+      if (modelName === "projectProvider") {
+        const initialLen = memoryStore.providers.length;
+        if (args?.where?.id) {
+          memoryStore.providers = memoryStore.providers.filter((p) => p.id !== args.where.id);
+        }
+        count = initialLen - memoryStore.providers.length;
+        memoryStore.saveToDisk();
+      }
       if (modelName === "verificationToken") {
         const identifier = args?.where?.identifier?.toLowerCase();
         if (identifier) {
@@ -984,6 +974,23 @@ function createModelDelegate(modelName: string) {
           count = memoryStore.verificationTokens.length;
           memoryStore.verificationTokens = [];
         }
+        memoryStore.saveToDisk();
+      }
+      return { count };
+    },
+
+    async updateMany(args?: any) {
+      let count = 0;
+      if (modelName === "project") {
+        memoryStore.projects.forEach((p) => {
+          let match = true;
+          if (args?.where?.providerId && p.providerId !== args.where.providerId) match = false;
+          if (args?.where?.status && p.status !== args.where.status) match = false;
+          if (match) {
+            Object.assign(p, args?.data || {}, { updatedAt: new Date() });
+            count++;
+          }
+        });
         memoryStore.saveToDisk();
       }
       return { count };
@@ -1260,60 +1267,55 @@ async function ensureDatabaseSeeded(p: PrismaClient) {
             },
           }).catch(() => null);
 
-          await p.project.upsert({
-            where: { slug: "ai-resume-analyzer" },
-            update: {},
-            create: {
-              title: "AI Resume & Portfolio Analyzer",
-              slug: "ai-resume-analyzer",
-              shortDescription: "ATS score optimizer and skill gap engine powered by generative AI with candidate dashboard.",
-              fullDescription: "A complete full-stack platform for career coaches, job seekers, and recruiters. Evaluates resumes against target job descriptions, computes ATS pass scores, and generates actionable rewrite suggestions.",
-              status: "PUBLISHED",
-              featured: true,
-              priceMode: "FIXED",
-              price: 24999,
-              demoUrl: "https://example.com/demo/resume-analyzer",
-              projectType: "Full-Stack Web App",
-              whatsIncluded: [
-                "Next.js 15 + TypeScript Frontend & Backend API",
-                "PostgreSQL / Prisma schema with migrations",
-                "Pre-configured ATS parsing and LLM scoring prompts",
-                "Docker deployment configs and setup guide",
+          // Automatically remove partner Rahul and his projects from the database
+          const rahulProviders = await p.projectProvider.findMany({
+            where: {
+              OR: [
+                { displayName: { equals: "Rahul", mode: "insensitive" } },
+                { email: { contains: "rahul", mode: "insensitive" } },
               ],
-              categoryId: aimlCat.id,
-              providerId: varunProvider.id,
-              images: {
-                create: [
-                  {
-                    url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
-                    storageKey: "mock-1",
-                    altText: "AI Resume Analyzer Dashboard",
-                    isPrimary: true,
-                    sortOrder: 1,
-                  },
-                ],
-              },
-              features: {
-                create: [
-                  { feature: "Instant ATS score calculation", sortOrder: 1 },
-                  { feature: "Skill extraction & gap analysis", sortOrder: 2 },
-                  { feature: "Export report as PDF", sortOrder: 3 },
-                ],
-              },
-              specifications: {
-                create: [
-                  { key: "Frontend", value: "Next.js 15, Tailwind CSS, TypeScript", sortOrder: 1 },
-                  { key: "Backend", value: "Next.js Route Handlers, Prisma", sortOrder: 2 },
-                  { key: "AI Model", value: "Gemini 2.5 Flash / OpenAI API", sortOrder: 3 },
-                ],
-              },
-              faqs: {
-                create: [
-                  { question: "Can this project be customized?", answer: "Yes, full source code is provided with documentation.", sortOrder: 1 },
-                ],
-              },
             },
-          }).catch(() => null);
+          }).catch(() => []);
+
+          for (const rahul of rahulProviders) {
+            const rahulProjects = await p.project.findMany({
+              where: { providerId: rahul.id },
+              select: { id: true },
+            }).catch(() => []);
+
+            const rIds = rahulProjects.map((rp) => rp.id);
+            if (rIds.length > 0) {
+              await p.projectImage.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.projectFeature.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.projectSpecification.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.projectFaq.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.projectTechnology.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.inquiry.deleteMany({ where: { projectId: { in: rIds } } }).catch(() => null);
+              await p.project.deleteMany({ where: { id: { in: rIds } } }).catch(() => null);
+            }
+
+            if (rahul.userId) {
+              await p.user.delete({ where: { id: rahul.userId } }).catch(() => null);
+            }
+            await p.projectProvider.delete({ where: { id: rahul.id } }).catch(() => null);
+          }
+
+          // Remove ai-resume-analyzer project from database if present
+          const airProjects = await p.project.findMany({
+            where: { slug: "ai-resume-analyzer" },
+            select: { id: true },
+          }).catch(() => []);
+
+          if (airProjects.length > 0) {
+            const airIds = airProjects.map((rp) => rp.id);
+            await p.projectImage.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.projectFeature.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.projectSpecification.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.projectFaq.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.projectTechnology.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.inquiry.deleteMany({ where: { projectId: { in: airIds } } }).catch(() => null);
+            await p.project.deleteMany({ where: { id: { in: airIds } } }).catch(() => null);
+          }
         }
       }
     }

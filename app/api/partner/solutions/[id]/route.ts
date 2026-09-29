@@ -125,6 +125,16 @@ export async function PUT(
 
     const data = parsed.data;
 
+    if (data.status === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        {
+          error:
+            "Your partner profile is currently inactive or deactivated. You can only save solutions as Draft until an administrator activates your account.",
+        },
+        { status: 403 }
+      );
+    }
+
     const updated = await db.project.update({
       where: { id },
       data: {
