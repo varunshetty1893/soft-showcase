@@ -6,6 +6,40 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { CreateMessageSchema } from "@/lib/validation/support.schema";
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const ticket = await db.supportTicket.findUnique({
+      where: { id },
+      include: {
+        messages: { orderBy: { createdAt: "asc" } },
+      },
+    });
+
+    if (!ticket) {
+      return NextResponse.json({ error: "Support ticket not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && ticket.requesterId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden: Not your support ticket" }, { status: 403 });
+    }
+
+    return NextResponse.json({ messages: ticket.messages, ticket });
+  } catch (err: unknown) {
+    console.error("Failed to load ticket messages:", err);
+    return NextResponse.json({ error: "Failed to load messages" }, { status: 500 });
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,6 +52,18 @@ export async function POST(
   const { id } = await params;
 
   try {
+    const ticket = await db.supportTicket.findUnique({
+      where: { id },
+    });
+
+    if (!ticket) {
+      return NextResponse.json({ error: "Support ticket not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && ticket.requesterId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden: Not your support ticket" }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = CreateMessageSchema.safeParse(body);
 

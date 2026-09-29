@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         resolvedTechIds.push(existingByName.id);
       } else {
         const newTech = await db.technology.create({
-          data: { name: trimmed, slug: techSlug || `tech-${Date.now()}`, isActive: true, sortOrder: 99 },
+          data: { name: trimmed, slug: techSlug || `tech-${Date.now()}`, isActive: true },
         }).catch(() => null);
         if (newTech) resolvedTechIds.push(newTech.id);
       }
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         status,
         featured,
         priceMode,
-        price: price ?? null,
+        price: priceMode === "CONTACT" || priceMode === "FREE" ? null : (price ?? null),
         demoUrl: demoUrl ?? null,
         projectType: projectType ?? null,
         whatsIncluded,

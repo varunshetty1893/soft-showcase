@@ -49,7 +49,12 @@ export const ProviderSchema = z.object({
 });
 
 // Partial version for updates
-export const ProviderUpdateSchema = ProviderSchema.partial();
+export const ProviderUpdateSchema = ProviderSchema.extend({
+  applicationStatus: z.enum(["pending", "approved", "rejected", "suspended", "deactivated"]).optional(),
+  rejectionReason: z.string().max(1000).optional().nullable(),
+  verificationStatus: z.enum(["not_required", "pending", "submitted", "verified", "rejected"]).optional(),
+  adminNotes: z.string().max(2000).optional().nullable(),
+}).partial();
 
 export type ProviderInput = z.infer<typeof ProviderSchema>;
 export type ProviderUpdateInput = z.infer<typeof ProviderUpdateSchema>;

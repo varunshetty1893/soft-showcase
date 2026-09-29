@@ -125,7 +125,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           resolvedTechIds.push(existingByName.id);
         } else {
           const newTech = await db.technology.create({
-            data: { name: trimmed, slug: techSlug || `tech-${Date.now()}`, isActive: true, sortOrder: 99 },
+            data: { name: trimmed, slug: techSlug || `tech-${Date.now()}`, isActive: true },
           }).catch(() => null);
           if (newTech) resolvedTechIds.push(newTech.id);
         }
@@ -142,7 +142,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...(status !== undefined && { status }),
         ...(featured !== undefined && { featured }),
         ...(priceMode !== undefined && { priceMode }),
-        ...(price !== undefined && { price: price ?? null }),
+        ...((price !== undefined || priceMode !== undefined) && {
+          price:
+            (priceMode === "CONTACT" || priceMode === "FREE" || (priceMode === undefined && (existing.priceMode === "CONTACT" || existing.priceMode === "FREE")))
+              ? null
+              : (price ?? null),
+        }),
         ...(demoUrl !== undefined && { demoUrl: demoUrl ?? null }),
         ...(projectType !== undefined && { projectType: projectType ?? null }),
         ...(whatsIncluded !== undefined && { whatsIncluded }),

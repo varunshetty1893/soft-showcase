@@ -101,10 +101,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // Admin is only permitted to manage platform and visibility controls.
     // Provider identity and studio profile details are strictly managed by the provider only.
+    const isApproving = data.applicationStatus === "approved";
+    const isDeactivating =
+      data.isActive === false ||
+      data.applicationStatus === "deactivated" ||
+      data.applicationStatus === "suspended" ||
+      data.applicationStatus === "rejected";
+
     const updated = await db.projectProvider.update({
       where: { id },
       data: {
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.isActive !== undefined && { isActive: isApproving ? true : isDeactivating ? false : data.isActive }),
+        ...(data.applicationStatus !== undefined && { applicationStatus: data.applicationStatus }),
+        ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
+        ...(data.verificationStatus !== undefined && { verificationStatus: data.verificationStatus }),
+        ...(data.adminNotes !== undefined && { adminNotes: data.adminNotes }),
         ...(data.showEmail !== undefined && { showEmail: data.showEmail }),
         ...(data.showWhatsapp !== undefined && { showWhatsapp: data.showWhatsapp }),
         ...(data.providerConsentConfirmed !== undefined && {
@@ -116,7 +127,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // If provider is deactivated, demote their published projects to DRAFT
     // so they are removed from the user side but remain as draft in the partner portal
-    if (data.isActive === false) {
+    if (isDeactivating) {
       await db.project.updateMany({
         where: {
           providerId: id,
@@ -126,6 +137,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           status: "DRAFT",
         },
       });
+    }
+
+    if (updated.userId && data.applicationStatus) {
+      await db.user.update({
+        where: { id: updated.userId },
+        data: {
+          role: data.applicationStatus === "approved" ? "solution_partner" : "customer",
+        },
+      }).catch(() => null);
     }
 
     return NextResponse.json({
@@ -148,12 +168,23 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     // Deactivation logic per docs/21-provider-management.md: sets isActive = false
     const updated = await db.projectProvider.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, applicationStatus: "deactivated" },
+    });
+
+    // Demote published projects to DRAFT (Issue 13: Provider Deactivation Inconsistency)
+    await db.project.updateMany({
+      where: {
+        providerId: id,
+        status: "PUBLISHED",
+      },
+      data: {
+        status: "DRAFT",
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Provider deactivated successfully. Contact buttons are now hidden on all assigned projects.",
+      message: "Provider deactivated successfully. Published solutions were converted to draft.",
       provider: updated,
     });
   } catch (error) {

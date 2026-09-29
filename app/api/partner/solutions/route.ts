@@ -186,7 +186,6 @@ export async function POST(req: NextRequest) {
             name: trimmed,
             slug: slug || `tech-${Date.now()}`,
             isActive: true,
-            sortOrder: 99,
           },
         }).catch(() => null);
 
@@ -208,6 +207,9 @@ export async function POST(req: NextRequest) {
       sanitizedImages[0].isPrimary = true;
     }
 
+    const primaryImg = sanitizedImages.find((img) => img.isPrimary) || sanitizedImages[0];
+    const primaryImageUrl = primaryImg ? primaryImg.url.trim() : null;
+
     const newProject = await db.project.create({
       data: {
         title: data.title,
@@ -217,7 +219,7 @@ export async function POST(req: NextRequest) {
         status: data.status || "DRAFT",
         featured: false,
         priceMode: data.priceMode,
-        price: data.price || 0,
+        price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
         demoUrl: data.demoUrl || null,
         projectType: data.projectType || "Web Application",
         whatsIncluded: data.whatsIncluded || [],

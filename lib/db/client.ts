@@ -1404,6 +1404,9 @@ export const db = new Proxy(
       const mockDelegate = createModelDelegate(prop);
 
       if (!realPrisma || prismaConnectionFailed) {
+        if (process.env.NODE_ENV === "production" && hasValidDatabaseUrl) {
+          throw new Error("Production database connection is unavailable");
+        }
         return mockDelegate;
       }
 
@@ -1412,7 +1415,7 @@ export const db = new Proxy(
         return mockDelegate;
       }
 
-      // Delegate with try/catch fallback to in-memory mock
+      // Delegate with try/catch fallback to in-memory mock in dev/preview only
       return new Proxy(realDelegate, {
         get(target, method: string) {
           const origMethod = target[method];
@@ -1422,6 +1425,9 @@ export const db = new Proxy(
 
           return async (...args: any[]) => {
             if (prismaConnectionFailed || !realPrisma) {
+              if (process.env.NODE_ENV === "production" && hasValidDatabaseUrl) {
+                throw new Error("Production database connection is unavailable");
+              }
               const fallback = (mockDelegate as any)[method];
               return fallback ? fallback(...args) : null;
             }
@@ -1429,8 +1435,17 @@ export const db = new Proxy(
             try {
               ensureDatabaseSeeded(realPrisma).catch(() => null);
               return await origMethod.apply(target, args);
-            } catch {
-              // Gracefully fallback to mock data without throwing or polluting logs
+            } catch (dbError) {
+              // Issue 10 & 11: In production or when a valid database is configured,
+              // or on write operations, failures must NOT silently fall back to mock database
+              // producing false success.
+              const isWriteOp = ["create", "createMany", "update", "updateMany", "upsert", "delete", "deleteMany"].includes(method);
+              if (process.env.NODE_ENV === "production" || hasValidDatabaseUrl || isWriteOp) {
+                console.error(`Database error during ${prop}.${method}:`, dbError);
+                throw dbError;
+              }
+
+              // In local development without configured DB, allow fallback for development convenience
               prismaConnectionFailed = true;
               const fallbackMethod = (mockDelegate as any)[method];
               if (fallbackMethod) {

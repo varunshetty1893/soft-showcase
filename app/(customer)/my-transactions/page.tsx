@@ -117,9 +117,11 @@ export default async function CustomerTransactionsPage() {
                     <p className="text-[#526267]">
                       <strong>Solution Partner:</strong> {tx.partner?.displayName}
                     </p>
-                    <p className="text-[#526267]">
-                      <strong>Contact:</strong> {tx.partner?.email}
-                    </p>
+                    {tx.partner?.email ? (
+                      <p className="text-[#526267]">
+                        <strong>Contact:</strong> {tx.partner.email}
+                      </p>
+                    ) : null}
                     {tx.partner?.whatsappNumber && (
                       <a
                         href={`https://wa.me/${tx.partner.whatsappNumber}?text=${encodeURIComponent(

@@ -13,6 +13,30 @@ export async function GET() {
   }
 
   try {
+    let partner = await db.projectProvider.findFirst({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { email: session.user.email || "" },
+        ],
+      },
+    });
+
+    if (!partner && session.user.isAdmin) {
+      partner = await db.projectProvider.findFirst();
+    }
+
+    if (!partner && !session.user.isAdmin) {
+      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && partner && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
+    }
+
     const tickets = await db.supportTicket.findMany({
       where: { requesterId: session.user.id },
       include: {
@@ -35,6 +59,30 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    let partner = await db.projectProvider.findFirst({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { email: session.user.email || "" },
+        ],
+      },
+    });
+
+    if (!partner && session.user.isAdmin) {
+      partner = await db.projectProvider.findFirst();
+    }
+
+    if (!partner && !session.user.isAdmin) {
+      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && partner && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const parsed = CreateTicketSchema.safeParse(body);
 

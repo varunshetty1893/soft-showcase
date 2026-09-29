@@ -30,6 +30,13 @@ export async function GET() {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
     }
 
+    if (!session.user.isAdmin && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
+    }
+
     const transactions = await db.transaction.findMany({
       where: { partnerId: partner.id },
       include: {
@@ -70,6 +77,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
     }
 
+    if (!session.user.isAdmin && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const parsed = CreateTransactionSchema.safeParse(body);
 
@@ -81,6 +95,38 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+
+    // Verify ownership of solutionId if provided (Issue 5: Transaction Cross-Linking)
+    if (data.solutionId) {
+      const solution = await db.project.findUnique({
+        where: { id: data.solutionId },
+      });
+      if (!solution) {
+        return NextResponse.json({ error: "Selected solution not found" }, { status: 404 });
+      }
+      if (solution.providerId !== partner.id && !session.user.isAdmin) {
+        return NextResponse.json(
+          { error: "Forbidden: The specified solution does not belong to your partner account" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Verify ownership of enquiryId if provided (Issue 5: Transaction Cross-Linking)
+    if (data.enquiryId) {
+      const enquiry = await db.inquiry.findUnique({
+        where: { id: data.enquiryId },
+      });
+      if (!enquiry) {
+        return NextResponse.json({ error: "Selected inquiry not found" }, { status: 404 });
+      }
+      if (enquiry.providerId !== partner.id && !session.user.isAdmin) {
+        return NextResponse.json(
+          { error: "Forbidden: The specified inquiry does not belong to your partner account" },
+          { status: 403 }
+        );
+      }
+    }
 
     // Generate unique transaction number: e.g. TXN-YYYYMMDD-XXXX
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");

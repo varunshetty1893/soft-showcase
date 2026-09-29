@@ -98,7 +98,7 @@ export async function getPublishedProjects(options: {
  */
 export const getProjectBySlug = cache(async (slug: string) => {
   const trimmed = slug.trim();
-  return db.project.findFirst({
+  const project = await db.project.findFirst({
     where: {
       OR: [
         { slug: trimmed },
@@ -111,7 +111,22 @@ export const getProjectBySlug = cache(async (slug: string) => {
     },
     include: {
       category: true,
-      provider: true,
+      provider: {
+        select: {
+          id: true,
+          displayName: true,
+          bio: true,
+          avatarUrl: true,
+          location: true,
+          portfolioUrl: true,
+          githubUrl: true,
+          linkedinUrl: true,
+          showEmail: true,
+          showWhatsapp: true,
+          email: true,
+          whatsappNumber: true,
+        },
+      },
       images: { orderBy: { sortOrder: "asc" } },
       features: { orderBy: { sortOrder: "asc" } },
       specifications: { orderBy: { sortOrder: "asc" } },
@@ -121,6 +136,20 @@ export const getProjectBySlug = cache(async (slug: string) => {
       },
     },
   });
+
+  if (!project) return null;
+
+  // Mask contact info if provider visibility is disabled
+  if (project.provider) {
+    if (!project.provider.showEmail) {
+      project.provider.email = "";
+    }
+    if (!project.provider.showWhatsapp) {
+      project.provider.whatsappNumber = null;
+    }
+  }
+
+  return project;
 });
 
 /**

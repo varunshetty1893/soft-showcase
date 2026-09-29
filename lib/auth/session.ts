@@ -3,6 +3,7 @@
 // Used in server components, API routes, and layout guards.
 
 import { auth } from "@/lib/auth/auth";
+export { auth };
 import { redirect } from "next/navigation";
 
 // ── Error classes ─────────────────────────────────────────────────────────────

@@ -96,7 +96,33 @@ export const ProjectSchema = z
 
 // Partial version for updates — built from raw fields so .partial() works
 // (ZodEffects returned by .refine() does not support .partial())
-export const ProjectUpdateSchema = z.object(projectFields).partial();
+export const ProjectUpdateSchema = z
+  .object(projectFields)
+  .partial()
+  .refine(
+    (data) => {
+      if (data.priceMode === "FIXED" || data.priceMode === "STARTING_FROM") {
+        return data.price === undefined || (data.price !== null && data.price > 0);
+      }
+      return true;
+    },
+    {
+      message: "A price is required for FIXED and STARTING_FROM price modes",
+      path: ["price"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.priceMode === "CONTACT" || data.priceMode === "FREE") {
+        return data.price === undefined || data.price === null;
+      }
+      return true;
+    },
+    {
+      message: "Price must be null for CONTACT and FREE price modes",
+      path: ["price"],
+    }
+  );
 
 export type ProjectInput = z.infer<typeof ProjectSchema>;
 export type ProjectUpdateInput = z.infer<typeof ProjectUpdateSchema>;

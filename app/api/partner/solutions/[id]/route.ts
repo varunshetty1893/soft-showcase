@@ -19,6 +19,30 @@ export async function GET(
   const { id } = await params;
 
   try {
+    let partner = await db.projectProvider.findFirst({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { email: session.user.email || "" },
+        ],
+      },
+    });
+
+    if (!partner && session.user.isAdmin) {
+      partner = await db.projectProvider.findFirst();
+    }
+
+    if (!partner) {
+      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
+    }
+
     const project = await db.project.findUnique({
       where: { id },
       include: {
@@ -33,6 +57,10 @@ export async function GET(
 
     if (!project) {
       return NextResponse.json({ error: "Solution not found" }, { status: 404 });
+    }
+
+    if (project.providerId !== partner.id && !session.user.isAdmin) {
+      return NextResponse.json({ error: "Forbidden: Not your solution" }, { status: 403 });
     }
 
     return NextResponse.json({ project });
@@ -189,7 +217,6 @@ export async function PUT(
             name: trimmed,
             slug: slug || `tech-${Date.now()}`,
             isActive: true,
-            sortOrder: 99,
           },
         }).catch(() => null);
 
@@ -210,6 +237,9 @@ export async function PUT(
     if (!hasPrimary && sanitizedImages.length > 0) {
       sanitizedImages[0].isPrimary = true;
     }
+
+    const primaryImg = sanitizedImages.find((img) => img.isPrimary) || sanitizedImages[0];
+    const primaryImageUrl = primaryImg ? primaryImg.url.trim() : null;
 
     const updated = await db.project.update({
       where: { id },
@@ -269,7 +299,7 @@ export async function PUT(
       }
     }
 
-    if (rawTechList.length > 0) {
+    if (Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) {
       await db.projectTechnology.deleteMany({ where: { projectId: id } }).catch(() => null);
       for (const techId of resolvedTechIds) {
         await db.projectTechnology.create({
@@ -332,6 +362,13 @@ export async function DELETE(
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
+    }
+
+    if (!session.user.isAdmin && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Partner account is not active or approved" },
+        { status: 403 }
+      );
     }
 
     const existing = await db.project.findUnique({ where: { id } });

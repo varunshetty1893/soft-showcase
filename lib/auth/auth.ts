@@ -14,7 +14,7 @@ import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 
 if (!process.env.AUTH_SECRET) {
-  process.env.AUTH_SECRET = "soft-showcase-fallback-auth-secret-key-32chars";
+  throw new Error("AUTH_SECRET environment variable is required and must be configured.");
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

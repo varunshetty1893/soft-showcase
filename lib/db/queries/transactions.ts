@@ -58,7 +58,7 @@ export async function getTransactionById(id: string) {
 
 export async function getCustomerTransactions(userId: string, email: string) {
   try {
-    return await db.transaction.findMany({
+    const transactions = await db.transaction.findMany({
       where: {
         OR: [
           { customerId: userId },
@@ -70,11 +70,29 @@ export async function getCustomerTransactions(userId: string, email: string) {
           select: { id: true, title: true, slug: true },
         },
         partner: {
-          select: { id: true, displayName: true, email: true, whatsappNumber: true },
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            whatsappNumber: true,
+            showEmail: true,
+            showWhatsapp: true,
+          },
         },
       },
       orderBy: { createdAt: "desc" },
     });
+
+    return transactions.map((tx: any) => ({
+      ...tx,
+      partner: tx.partner
+        ? {
+            ...tx.partner,
+            email: tx.partner.showEmail ? tx.partner.email : null,
+            whatsappNumber: tx.partner.showWhatsapp ? tx.partner.whatsappNumber : null,
+          }
+        : null,
+    }));
   } catch (error) {
     console.warn("Failed to get customer transactions:", error);
     return [];
