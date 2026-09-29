@@ -12,12 +12,14 @@ import { useSession } from "next-auth/react";
 
 interface WhatsAppButtonProps {
   projectSlug: string;
+  projectId?: string;
   className?: string;
   size?: "sm" | "md" | "lg";
 }
 
 export function WhatsAppButton({
   projectSlug,
+  projectId,
   className = "w-full",
   size = "lg",
 }: WhatsAppButtonProps) {
@@ -37,7 +39,8 @@ export function WhatsAppButton({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/whatsapp`);
+      const queryParam = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/whatsapp${queryParam}`);
       const data = await res.json();
 
       if (res.status === 401) {

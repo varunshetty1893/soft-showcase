@@ -85,6 +85,10 @@ export function ProviderTable({ providers }: ProviderTableProps) {
         body: JSON.stringify({
           applicationStatus: "approved",
           verificationStatus: "verified",
+          isActive: true,
+          showWhatsapp: true,
+          showEmail: true,
+          providerConsentConfirmed: true,
         }),
       });
 

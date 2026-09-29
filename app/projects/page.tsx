@@ -110,15 +110,15 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <Navbar />
 
-      <main className="flex-1 py-10 sm:py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Header & Search */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-[#D9E2E4]">
+      <main className="flex-1 pb-16">
+        {/* Sticky Header & Search Bar — stays pinned as project cards scroll */}
+        <div className="sticky top-16 z-20 bg-[#F8FAFA]/95 backdrop-blur-md border-b border-[#D9E2E4] py-4 shadow-2xs">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-[#102124]">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#102124]">
                 Software Project Catalog
               </h1>
-              <p className="mt-2 text-sm text-[#526267]">
+              <p className="mt-1 text-xs sm:text-sm text-[#526267]">
                 Showing {projectsData.total}{" "}
                 {projectsData.total === 1 ? "project" : "projects"} available for deployment or customization.
               </p>
@@ -126,12 +126,14 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
             <ProjectSearch />
           </div>
+        </div>
 
-          {/* Main Layout: Filters + Project Grid */}
-          <div className="mt-8 flex flex-col lg:flex-row gap-8">
+        {/* Main Content Area: Sticky Category Sidebar + Scrollable Project Cards */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
             <ProjectFilters categories={categories} />
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 w-full space-y-8">
               <ProjectGrid projects={projectsData.projects} />
 
               <Pagination

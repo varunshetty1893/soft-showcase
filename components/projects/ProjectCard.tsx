@@ -104,7 +104,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <div className="flex-1 p-5 flex flex-col justify-between">
         <div className="flex-1 flex flex-col">
           <h3 className="text-base font-bold text-[#102124] group-hover:text-[#155761] transition-colors line-clamp-1">
-            <Link href={`/projects/${project.slug}`}>
+            <Link href={`/projects/${project.slug}`} prefetch={true}>
               <span className="absolute inset-0 z-10" />
               {project.title}
             </Link>

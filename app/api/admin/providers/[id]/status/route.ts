@@ -31,12 +31,25 @@ export async function PATCH(
     const { applicationStatus, rejectionReason, adminNotes, verificationStatus, verificationNotes } =
       parsed.data;
 
+    const isApproving = applicationStatus === "approved";
+
     const updated = await db.projectProvider.update({
       where: { id },
       data: {
         applicationStatus,
+        ...(isApproving
+          ? {
+              isActive: true,
+              showWhatsapp: true,
+              showEmail: true,
+              providerConsentConfirmed: true,
+              providerConsentConfirmedAt: new Date(),
+              verificationStatus: verificationStatus || "verified",
+            }
+          : {
+              ...(verificationStatus !== undefined ? { verificationStatus } : {}),
+            }),
         ...(rejectionReason !== undefined ? { rejectionReason } : {}),
-        ...(verificationStatus !== undefined ? { verificationStatus } : {}),
         ...(verificationNotes !== undefined ? { verificationNotes } : {}),
       },
     });

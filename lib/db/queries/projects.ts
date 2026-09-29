@@ -2,6 +2,7 @@
 // Database query helpers for projects.
 // These are server-side only — never import in client components.
 
+import { cache } from "react";
 import { db } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE } from "@/config/constants";
@@ -89,11 +90,19 @@ export async function getPublishedProjects(options: {
 
 /**
  * Fetch a single published project by slug for the detail page.
+ * Memoized with React cache() to deduplicate metadata and page queries.
  * Returns null if not found or not published.
  */
-export async function getProjectBySlug(slug: string) {
+export const getProjectBySlug = cache(async (slug: string) => {
+  const trimmed = slug.trim();
   return db.project.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: {
+      OR: [
+        { slug: trimmed },
+        { slug: { equals: trimmed, mode: "insensitive" } },
+      ],
+      status: "PUBLISHED",
+    },
     include: {
       category: true,
       provider: true,
@@ -106,16 +115,17 @@ export async function getProjectBySlug(slug: string) {
       },
     },
   });
-}
+});
 
 /**
  * Fetch related projects in the same category (excluding the current project).
+ * Memoized with React cache().
  */
-export async function getRelatedProjects(
+export const getRelatedProjects = cache(async (
   categoryId: string,
   excludeProjectId: string,
   limit = 3
-) {
+) => {
   return db.project.findMany({
     where: {
       categoryId,
@@ -140,7 +150,7 @@ export async function getRelatedProjects(
       },
     },
   });
-}
+});
 
 /**
  * Fetch all published project slugs — used for static generation.

@@ -40,8 +40,8 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
   const hasActiveFilters = Boolean(activeCategory || searchParams.get("q"));
 
   return (
-    <aside className="w-full lg:w-64 shrink-0 space-y-6">
-      <div className="bg-white rounded-xl border border-[#D9E2E4] p-5 shadow-xs">
+    <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-[8.75rem] lg:self-start lg:max-h-[calc(100vh-10.5rem)] lg:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6">
+      <div className="bg-white rounded-2xl border border-[#D9E2E4] p-5 shadow-xs">
         <div className="flex items-center justify-between pb-3 border-b border-[#F3F7F7]">
           <div className="flex items-center gap-2 text-sm font-bold text-[#102124]">
             <Filter className="w-4 h-4 text-[#155761]" />

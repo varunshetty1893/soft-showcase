@@ -50,11 +50,14 @@ export async function POST(request: NextRequest) {
 
     const { projectId, name, email, whatsapp, message, contactMethod } = parseResult.data;
 
-    // 3. Resolve project & verify it is published
+    // 3. Resolve project & verify it exists
     const project = await db.project.findFirst({
       where: {
-        id: projectId,
-        status: "PUBLISHED",
+        OR: [
+          { id: projectId },
+          { slug: projectId },
+          { slug: { equals: projectId, mode: "insensitive" } },
+        ],
       },
       include: {
         provider: true,

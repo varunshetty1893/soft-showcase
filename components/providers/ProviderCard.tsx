@@ -90,7 +90,7 @@ export function ProviderCard({
         ) : (
           <div className="space-y-2.5 pt-2">
             {hasWhatsApp && (
-              <WhatsAppButton projectSlug={projectSlug} />
+              <WhatsAppButton projectSlug={projectSlug} projectId={projectId} />
             )}
 
             <Button

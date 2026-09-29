@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Save, ShieldCheck, AlertCircle, Lock } from "lucide-react";
+import { ArrowLeft, Save, ShieldCheck, AlertCircle, Lock, CheckCircle2 } from "lucide-react";
 
 interface ProviderFormData {
   id?: string;
@@ -218,16 +218,48 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
 
       {/* ── 2. Visibility & Contact Toggles ─────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-4">
-        <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
-          2. Contact Channels & Status
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <h3 className="text-base font-bold text-gray-900">
+            2. Contact Channels &amp; Status
+          </h3>
+          <button
+            type="button"
+            onClick={() =>
+              setFormData((prev) => ({
+                ...prev,
+                isActive: true,
+                showWhatsapp: true,
+                showEmail: true,
+                providerConsentConfirmed: true,
+              }))
+            }
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/30 font-bold text-xs hover:bg-[#cceed6] transition-colors cursor-pointer"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#2F7D78]" />
+            <span>Approve &amp; Tick All 3 Channels</span>
+          </button>
+        </div>
 
         <div className="space-y-4">
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+              onChange={(e) => {
+                const nextActive = e.target.checked;
+                setFormData((prev) => ({
+                  ...prev,
+                  isActive: nextActive,
+                  // If admin activates the provider, automatically tick all 3 channels + consent
+                  ...(nextActive
+                    ? {
+                        showWhatsapp: true,
+                        showEmail: true,
+                        providerConsentConfirmed: true,
+                      }
+                    : {}),
+                }));
+              }}
               className="mt-1 w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
             />
             <div>

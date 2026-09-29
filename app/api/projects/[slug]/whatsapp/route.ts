@@ -42,17 +42,32 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    // 2. Resolve slug param
-    const { slug } = await params;
-    if (!slug) {
-      return NextResponse.json({ error: "Project slug is required" }, { status: 400 });
+    // 2. Resolve slug and optional projectId param
+    const resolvedParams = await params;
+    const rawSlug = resolvedParams?.slug ? String(resolvedParams.slug).trim() : "";
+    const decodedSlug = decodeURIComponent(rawSlug).trim();
+
+    const { searchParams } = new URL(request.url);
+    const projectIdQuery = searchParams.get("projectId")?.trim();
+
+    if (!rawSlug && !projectIdQuery) {
+      return NextResponse.json({ error: "Project slug or ID is required" }, { status: 400 });
     }
 
-    // 3. Find published project and its provider
+    // 3. Find project and its provider (by slug, lowercase slug, decoded slug, or projectId)
     const project = await db.project.findFirst({
       where: {
-        slug,
-        status: "PUBLISHED",
+        OR: [
+          ...(projectIdQuery ? [{ id: projectIdQuery }] : []),
+          { slug: rawSlug },
+          { slug: decodedSlug },
+          { slug: rawSlug.toLowerCase() },
+          { slug: decodedSlug.toLowerCase() },
+          { slug: { equals: rawSlug, mode: "insensitive" } },
+          { slug: { equals: decodedSlug, mode: "insensitive" } },
+          { id: rawSlug },
+          { id: decodedSlug },
+        ],
       },
       include: {
         provider: true,
@@ -63,22 +78,42 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // 4. Verify provider has WhatsApp enabled and configured
-    if (!project.provider || !project.provider.showWhatsapp) {
+    // 4. Verify publication status (allow admin or project owner to test)
+    const isAdmin = Boolean(session.user?.isAdmin);
+    const isOwner = Boolean(
+      project.provider?.userId && project.provider.userId === session.user?.id
+    );
+
+    if (project.status !== "PUBLISHED" && !isAdmin && !isOwner) {
       return NextResponse.json(
-        { error: "WhatsApp contact is not enabled for this project provider" },
+        { error: "This solution is currently in draft and not yet available for public inquiries." },
         { status: 403 }
+      );
+    }
+
+    // 5. Verify provider has WhatsApp configured
+    if (!project.provider) {
+      return NextResponse.json(
+        { error: "No Solution Partner is associated with this project." },
+        { status: 404 }
       );
     }
 
     if (!project.provider.whatsappNumber) {
       return NextResponse.json(
-        { error: "No WhatsApp number configured for this provider" },
+        { error: "No WhatsApp contact number is configured for this Solution Partner yet." },
         { status: 400 }
       );
     }
 
-    // 5. Generate secure wa.me deep link
+    if (!project.provider.showWhatsapp && !isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: "WhatsApp contact is currently disabled for this Solution Partner." },
+        { status: 403 }
+      );
+    }
+
+    // 6. Generate secure wa.me deep link
     const projectUrl = `${APP_URL}/projects/${project.slug}`;
     const url = generateWhatsAppUrl({
       phoneNumber: project.provider.whatsappNumber,
