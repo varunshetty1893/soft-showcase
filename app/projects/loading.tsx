@@ -9,21 +9,19 @@ export default function ProjectsLoading() {
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <Navbar />
 
-      <main className="flex-1 pb-16 animate-pulse">
-        {/* Sticky Header Skeleton */}
-        <div className="border-b border-[#D9E2E4] py-5 bg-white/50">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <main className="flex-1 py-10 sm:py-12 animate-pulse">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Header & Search Skeleton */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-[#D9E2E4]">
             <div className="space-y-2">
               <div className="h-8 w-64 bg-[#102124]/10 rounded-lg" />
               <div className="h-4 w-48 bg-[#D9E2E4]/60 rounded-md" />
             </div>
             <div className="h-10 w-full md:w-80 bg-[#D9E2E4]/40 rounded-xl" />
           </div>
-        </div>
 
-        {/* Catalog Layout Skeleton */}
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
-          <div className="flex flex-col lg:flex-row gap-8 items-start">
+          {/* Catalog Layout Skeleton */}
+          <div className="mt-8 flex flex-col lg:flex-row gap-8 items-start">
             {/* Sidebar Skeleton */}
             <div className="w-full lg:w-64 shrink-0 bg-white rounded-2xl border border-[#D9E2E4] p-5 space-y-3">
               <div className="h-5 w-28 bg-[#102124]/10 rounded-md pb-2 border-b border-[#F3F7F7]" />
