@@ -53,16 +53,18 @@ export default function BecomeAPartnerPage() {
               Connect directly with verified buyers, businesses, and founders looking for production-ready applications, turnkey web platforms, and tailored software engineering.
             </p>
             <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/partner-registration">
-                <button className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-bold text-sm shadow-xs transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
-                  <span>Apply to Become a Solution Partner</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+              <Link
+                href="/partner-registration"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-bold text-sm shadow-xs transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              >
+                <span>Apply to Become a Solution Partner</span>
+                <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link href="/login?callbackUrl=/partner/dashboard">
-                <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] font-semibold text-sm transition-all duration-150 cursor-pointer">
-                  <span>Partner Sign In</span>
-                </button>
+              <Link
+                href="/login?callbackUrl=/partner/dashboard"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-[#F3F7F7] text-[#102124] border border-[#D9E2E4] font-semibold text-sm transition-all duration-150 cursor-pointer"
+              >
+                <span>Partner Sign In</span>
               </Link>
             </div>
           </div>
@@ -285,15 +287,17 @@ export default function BecomeAPartnerPage() {
               Showcase your code to business buyers and engineering leaders. Get started with your application today.
             </p>
             <div className="pt-2 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/partner-registration">
-                <button className="px-8 py-3.5 rounded-xl bg-white text-[#155761] font-bold text-sm shadow-md hover:bg-[#F3F7F7] transition-all cursor-pointer">
-                  Apply to Become a Solution Partner
-                </button>
+              <Link
+                href="/partner-registration"
+                className="px-8 py-3.5 rounded-xl bg-white text-[#155761] font-bold text-sm shadow-md hover:bg-[#F3F7F7] transition-all cursor-pointer inline-block"
+              >
+                Apply to Become a Solution Partner
               </Link>
-              <Link href="/support">
-                <button className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm border border-white/15 transition-all cursor-pointer">
-                  Have Questions? Contact Support
-                </button>
+              <Link
+                href="/support"
+                className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm border border-white/15 transition-all cursor-pointer inline-block"
+              >
+                Have Questions? Contact Support
               </Link>
             </div>
           </div>

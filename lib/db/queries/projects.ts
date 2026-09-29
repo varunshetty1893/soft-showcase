@@ -34,6 +34,7 @@ export async function getPublishedProjects(options: {
     status: "PUBLISHED" as ProjectStatus,
     provider: {
       isActive: true,
+      applicationStatus: "approved",
     },
     ...(featured !== undefined && { featured }),
     ...(categorySlug && { category: { slug: categorySlug } }),
@@ -128,6 +129,7 @@ export const getProjectBySlug = cache(async (slug: string) => {
       status: "PUBLISHED",
       provider: {
         isActive: true,
+        applicationStatus: "approved",
       },
     },
     include: {
@@ -187,6 +189,10 @@ export const getRelatedProjects = cache(async (
       categoryId,
       status: "PUBLISHED",
       id: { not: excludeProjectId },
+      provider: {
+        isActive: true,
+        applicationStatus: "approved",
+      },
     },
     take: limit,
     orderBy: { featured: "desc" },
@@ -214,7 +220,13 @@ export const getRelatedProjects = cache(async (
 export async function getAllPublishedSlugs(): Promise<string[]> {
   try {
     const projects = await db.project.findMany({
-      where: { status: "PUBLISHED" },
+      where: {
+        status: "PUBLISHED",
+        provider: {
+          isActive: true,
+          applicationStatus: "approved",
+        },
+      },
       select: { slug: true },
     });
     return projects.map((p) => p.slug);

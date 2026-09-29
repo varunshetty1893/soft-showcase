@@ -27,6 +27,7 @@ import {
 import { APP_NAME, APP_URL } from "@/config/constants";
 import { ChevronRight, ExternalLink, ShieldCheck, CheckCircle2, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
+import { safeJsonLd } from "@/lib/utils";
 
 export const revalidate = 3600; // 1 hour
 
@@ -161,11 +162,11 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(softwareJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }}
       />
       <Navbar />
 

@@ -58,11 +58,12 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
 
         {/* Quick Action Button */}
         <div className="px-1">
-          <Link href="/partner/solutions/new">
-            <button className="w-full inline-flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer">
-              <PlusCircle className="w-4 h-4" />
-              <span>Add New Solution</span>
-            </button>
+          <Link
+            href="/partner/solutions/new"
+            className="w-full inline-flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-[#155761] hover:bg-[#10474F] text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add New Solution</span>
           </Link>
         </div>
 

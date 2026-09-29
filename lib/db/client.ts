@@ -516,6 +516,9 @@ function filterProjectItem(p: any, where?: any): boolean {
   if (where.provider?.isActive !== undefined) {
     if (!pProvider || pProvider.isActive !== where.provider.isActive) return false;
   }
+  if (where.provider?.applicationStatus !== undefined) {
+    if (!pProvider || pProvider.applicationStatus !== where.provider.applicationStatus) return false;
+  }
 
   if (where.slug && p.slug !== where.slug) return false;
   if (where.status && p.status !== where.status) return false;
@@ -1379,13 +1382,27 @@ export const db = new Proxy(
     get(_target, prop: string) {
       if (prop === "$transaction") {
         return async (callbackOrArray: any) => {
-          if (Array.isArray(callbackOrArray)) {
-            return Promise.all(callbackOrArray);
+          if (realPrisma && !prismaConnectionFailed) {
+            return (realPrisma as any).$transaction(callbackOrArray);
           }
-          if (typeof callbackOrArray === "function") {
-            return callbackOrArray(db);
+
+          // In-memory mock atomic transaction with rollback snapshot
+          const snapshot = JSON.parse(JSON.stringify(memoryStore));
+          try {
+            if (Array.isArray(callbackOrArray)) {
+              return await Promise.all(callbackOrArray);
+            }
+            if (typeof callbackOrArray === "function") {
+              return await callbackOrArray(db);
+            }
+            return [];
+          } catch (txError) {
+            // Rollback on failure
+            for (const key of Object.keys(snapshot)) {
+              (memoryStore as any)[key] = snapshot[key];
+            }
+            throw txError;
           }
-          return [];
         };
       }
 
@@ -1433,7 +1450,6 @@ export const db = new Proxy(
             }
 
             try {
-              ensureDatabaseSeeded(realPrisma).catch(() => null);
               return await origMethod.apply(target, args);
             } catch (dbError) {
               // Issue 10 & 11: In production or when a valid database is configured,

@@ -245,10 +245,11 @@ export default async function PartnerSolutionDetailPage({
               Updates to your code, repository link, or deliverables sync instantly across the Soft Showcase catalog.
             </p>
             <div className="pt-2">
-              <Link href={`/partner/solutions/${project.id}/edit`}>
-                <button className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-[#F3F7F7] text-[#155761] font-bold text-xs shadow-xs transition-colors cursor-pointer">
-                  Update Listing Details
-                </button>
+              <Link
+                href={`/partner/solutions/${project.id}/edit`}
+                className="w-full inline-block text-center py-2.5 px-4 rounded-xl bg-white hover:bg-[#F3F7F7] text-[#155761] font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Update Listing Details
               </Link>
             </div>
           </div>

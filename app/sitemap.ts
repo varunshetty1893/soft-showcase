@@ -30,19 +30,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.8,
     },
-    {
-      url: `${baseUrl}/cart`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
   ];
 
-  // Dynamic project pages — only PUBLISHED projects
+  // Dynamic project pages — only PUBLISHED projects with approved active providers
   let projectRoutes: MetadataRoute.Sitemap = [];
   try {
     const projects = await db.project.findMany({
-      where: { status: "PUBLISHED" },
+      where: {
+        status: "PUBLISHED",
+        provider: {
+          isActive: true,
+          applicationStatus: "approved",
+        },
+      },
       select: { slug: true, updatedAt: true },
     });
 
