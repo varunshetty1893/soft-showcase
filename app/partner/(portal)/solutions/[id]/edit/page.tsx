@@ -32,7 +32,7 @@ export default async function EditPartnerSolutionPage({
         features: { orderBy: { sortOrder: "asc" } },
         specifications: { orderBy: { sortOrder: "asc" } },
         faqs: { orderBy: { sortOrder: "asc" } },
-        technologies: true,
+        technologies: { include: { technology: true } },
       },
     }),
     db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),

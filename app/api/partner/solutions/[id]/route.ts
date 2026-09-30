@@ -127,8 +127,31 @@ export async function PUT(
       demoUrl = trimmed;
     }
 
+    // Sanitize features array
+    const sanitizedFeatures = Array.isArray(body.features)
+      ? body.features
+          .map((f: any) => {
+            const text = typeof f === "string" ? f : f?.feature || f?.title || f?.name || "";
+            return typeof text === "string" && text.trim().length >= 2 ? { feature: text.trim() } : null;
+          })
+          .filter(Boolean)
+      : undefined;
+
+    // Sanitize technologies array (ensure only non-empty strings, eliminate nulls/objects)
+    const sanitizedTechnologies = Array.isArray(body.technologies)
+      ? body.technologies
+          .map((t: any) => {
+            if (typeof t === "string" && t.trim()) return t.trim();
+            if (t && typeof t.name === "string" && t.name.trim()) return t.name.trim();
+            return null;
+          })
+          .filter((t: any): t is string => Boolean(t))
+      : undefined;
+
     const parsed = ProjectSchema.safeParse({
       ...body,
+      ...(sanitizedFeatures !== undefined && { features: sanitizedFeatures }),
+      ...(sanitizedTechnologies !== undefined && { technologies: sanitizedTechnologies }),
       slug,
       price,
       demoUrl,

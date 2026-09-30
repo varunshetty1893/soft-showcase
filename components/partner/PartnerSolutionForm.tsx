@@ -74,7 +74,7 @@ export function PartnerSolutionForm({
   );
   const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "24999");
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
-  const [projectType, setProjectType] = React.useState(initialData?.projectType || "Full-Stack Web App");
+  const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
     initialData?.status || "PUBLISHED"
   );
@@ -91,15 +91,23 @@ export function PartnerSolutionForm({
   );
   const [newDeliverable, setNewDeliverable] = React.useState("");
 
-  // Features list
-  const [features, setFeatures] = React.useState<{ feature: string }[]>(
-    initialData?.features?.length
-      ? initialData.features.map((f: any) => ({ feature: f.feature }))
-      : [
-          { feature: "Responsive modern user interface built with Tailwind CSS" },
-          { feature: "Role-based access control and secure authentication" },
-        ]
-  );
+  // Features list - normalize string or object format
+  const [features, setFeatures] = React.useState<{ feature: string }[]>(() => {
+    if (initialData?.features?.length) {
+      const items = initialData.features
+        .map((f: any) => {
+          const text = typeof f === "string" ? f : f?.feature || f?.name || f?.title || "";
+          return typeof text === "string" ? text.trim() : "";
+        })
+        .filter((text: string) => text.length >= 2)
+        .map((text: string) => ({ feature: text }));
+      if (items.length > 0) return items;
+    }
+    return [
+      { feature: "Responsive modern user interface built with Tailwind CSS" },
+      { feature: "Role-based access control and secure authentication" },
+    ];
+  });
   const [newFeature, setNewFeature] = React.useState("");
 
   // Specifications
@@ -134,8 +142,10 @@ export function PartnerSolutionForm({
     if (initialData?.technologies) {
       initialData.technologies.forEach((pt: any) => {
         const t = pt.technology || pt;
-        if (t && t.id && !list.some((existing) => existing.id === t.id)) {
-          list.push({ id: t.id, name: t.name || t.id });
+        const id = t?.id || pt?.technologyId;
+        const name = t?.name || t?.id || pt?.technologyId;
+        if (id && !list.some((existing) => existing.id === id)) {
+          list.push({ id, name });
         }
       });
     }
@@ -144,14 +154,20 @@ export function PartnerSolutionForm({
 
   const [selectedTechs, setSelectedTechs] = React.useState<string[]>(() => {
     if (initialData?.technologies?.length) {
-      return initialData.technologies.map((t: any) => t.technologyId || t.id);
+      const extracted = initialData.technologies
+        .map((t: any) => {
+          if (typeof t === "string" && t.trim()) return t.trim();
+          return t?.technologyId || t?.technology?.id || t?.id || null;
+        })
+        .filter((id: any): id is string => Boolean(id && typeof id === "string"));
+      if (extracted.length > 0) return extracted;
     }
-    return technologies.slice(0, 3).map((t) => t.id);
+    return technologies.slice(0, 3).map((t) => t.id).filter(Boolean);
   });
 
   const [customTagInput, setCustomTagInput] = React.useState("");
 
-  // ── Photos and Screenshots Gallery ─────────────────────────────────────────
+  // ── Photos and Screenshots Gallery (Starts empty - no unwanted default cover) ──
   const [photos, setPhotos] = React.useState<PhotoItem[]>(() => {
     if (initialData?.images?.length) {
       return initialData.images.map((img: any, idx: number) => ({
@@ -162,14 +178,7 @@ export function PartnerSolutionForm({
         storageKey: img.storageKey,
       }));
     }
-    return [
-      {
-        id: "default-photo-1",
-        url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop",
-        altText: "Cover Preview",
-        isPrimary: true,
-      },
-    ];
+    return [];
   });
 
   const [newPhotoUrl, setNewPhotoUrl] = React.useState("");
@@ -428,6 +437,22 @@ export function PartnerSolutionForm({
             : `https://${trimmed}`;
       }
 
+      // Clean and sanitize features so empty/malformed values are never sent
+      const cleanedFeatures = features
+        .map((f) => (typeof f === "string" ? f : f?.feature || ""))
+        .filter((feat) => typeof feat === "string" && feat.trim().length >= 2)
+        .map((feat, i) => ({ feature: feat.trim(), sortOrder: i + 1 }));
+
+      // Clean and sanitize technologies so null/undefined are never sent
+      const validTechIds = selectedTechs.filter((id): id is string => Boolean(id && typeof id === "string" && id.trim()));
+      const cleanedTechNames = validTechIds
+        .map((id) => {
+          const tech = allTechs.find((t) => t && t.id === id);
+          const name = tech?.name || id;
+          return typeof name === "string" && name.trim() ? name.trim() : null;
+        })
+        .filter((name): name is string => Boolean(name));
+
       const payload = {
         title: title.trim(),
         slug: initialData?.slug || undefined,
@@ -437,25 +462,26 @@ export function PartnerSolutionForm({
         priceMode,
         price: computedPrice,
         demoUrl: formattedDemoUrl,
-        projectType: projectType.trim() || "Web Application",
+        projectType: projectType.trim() ? projectType.trim() : null,
         status,
-        whatsIncluded,
-        features: features.map((f, i) => ({ feature: f.feature, sortOrder: i + 1 })),
-        specifications: specifications.map((s, i) => ({
-          key: s.key,
-          value: s.value,
-          sortOrder: i + 1,
-        })),
-        faqs: faqs.map((faq, i) => ({
-          question: faq.question,
-          answer: faq.answer,
-          sortOrder: i + 1,
-        })),
-        technologyIds: selectedTechs,
-        technologies: selectedTechs.map((id) => {
-          const tech = allTechs.find((t) => t.id === id);
-          return tech ? tech.name : id;
-        }),
+        whatsIncluded: whatsIncluded.filter((w) => w && w.trim()),
+        features: cleanedFeatures,
+        specifications: specifications
+          .filter((s) => s.key && s.key.trim() && s.value && s.value.trim())
+          .map((s, i) => ({
+            key: s.key.trim(),
+            value: s.value.trim(),
+            sortOrder: i + 1,
+          })),
+        faqs: faqs
+          .filter((faq) => faq.question && faq.question.trim() && faq.answer && faq.answer.trim())
+          .map((faq, i) => ({
+            question: faq.question.trim(),
+            answer: faq.answer.trim(),
+            sortOrder: i + 1,
+          })),
+        technologyIds: validTechIds,
+        technologies: cleanedTechNames,
         images: photos.map((p, i) => ({
           url: p.url.trim(),
           storageKey: p.storageKey || `partner-sol-${Date.now()}-${i}`,
@@ -547,11 +573,11 @@ export function PartnerSolutionForm({
           </div>
 
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">Project Deliverable Type</Label>
+            <Label className="text-xs font-semibold text-[#102124]">Project Deliverable Type (Optional)</Label>
             <Input
               value={projectType}
               onChange={(e) => setProjectType(e.target.value)}
-              placeholder="e.g. Full-Stack Web App, Microservice, Boilerplate"
+              placeholder="e.g. Full-Stack Web App, Microservice, Boilerplate (Optional)"
               className="mt-1"
             />
           </div>

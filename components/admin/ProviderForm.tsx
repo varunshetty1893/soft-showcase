@@ -57,12 +57,14 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
         : `/api/admin/providers/${initialData?.id}`;
     const method = mode === "create" ? "POST" : "PATCH";
 
-    // In edit mode, administrators only control status & platform settings;
-    // provider profile details are owned and modified solely by the provider.
+    // In edit mode, administrators control status & platform settings;
+    // activating sets applicationStatus to approved and verificationStatus to verified.
     const payload =
       mode === "edit"
         ? {
             isActive: formData.isActive,
+            applicationStatus: formData.isActive ? "approved" : "deactivated",
+            verificationStatus: formData.isActive ? "verified" : "not_required",
             showEmail: formData.showEmail,
             showWhatsapp: formData.showWhatsapp,
             providerConsentConfirmed: formData.providerConsentConfirmed,

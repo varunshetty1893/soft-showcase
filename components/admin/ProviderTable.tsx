@@ -40,7 +40,7 @@ interface ProviderTableProps {
 
 export function ProviderTable({ providers }: ProviderTableProps) {
   const router = useRouter();
-  const [filter, setFilter] = React.useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [filter, setFilter] = React.useState<"all" | "pending" | "approved" | "rejected" | "inactive">("all");
   const [deactivatingProvider, setDeactivatingProvider] = React.useState<ProviderTableRow | null>(null);
   const [rejectingProvider, setRejectingProvider] = React.useState<ProviderTableRow | null>(null);
   const [rejectionReason, setRejectionReason] = React.useState("");
@@ -135,12 +135,14 @@ export function ProviderTable({ providers }: ProviderTableProps) {
   const filteredProviders = providers.filter((p) => {
     if (filter === "all") return true;
     if (filter === "pending") return p.applicationStatus === "pending";
-    if (filter === "approved") return p.applicationStatus === "approved";
+    if (filter === "approved") return p.applicationStatus === "approved" && p.isActive;
     if (filter === "rejected") return p.applicationStatus === "rejected";
+    if (filter === "inactive") return !p.isActive || p.applicationStatus === "deactivated";
     return true;
   });
 
   const pendingCount = providers.filter((p) => p.applicationStatus === "pending").length;
+  const inactiveCount = providers.filter((p) => !p.isActive || p.applicationStatus === "deactivated").length;
 
   if (providers.length === 0) {
     return (
@@ -217,6 +219,23 @@ export function ProviderTable({ providers }: ProviderTableProps) {
         >
           Rejected
         </button>
+
+        <button
+          type="button"
+          onClick={() => setFilter("inactive")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+            filter === "inactive"
+              ? "bg-slate-800 text-white"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          <span>Inactive / Deactivated</span>
+          {inactiveCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-800">
+              {inactiveCount}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
@@ -280,8 +299,10 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   <td className="py-4 px-6">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        provider.applicationStatus === "approved"
+                        provider.isActive && provider.applicationStatus === "approved"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : !provider.isActive
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
                           : provider.applicationStatus === "pending"
                           ? "bg-amber-50 text-amber-800 border border-amber-200"
                           : provider.applicationStatus === "rejected"
@@ -289,7 +310,13 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                           : "bg-gray-100 text-gray-700"
                       }`}
                     >
-                      {provider.applicationStatus || "Active"}
+                      {provider.isActive && provider.applicationStatus === "approved"
+                        ? "Active & Approved"
+                        : !provider.isActive
+                        ? "Inactive / Deactivated"
+                        : provider.applicationStatus === "pending"
+                        ? "Pending Review"
+                        : provider.applicationStatus || "Active"}
                     </span>
                   </td>
 
@@ -319,7 +346,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                             size="sm"
                             onClick={() => handleApprovePartner(provider.id)}
                             isLoading={isSubmitting}
-                            className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1"
+                            className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 cursor-pointer shadow-xs"
                           >
                             <CheckCircle2 className="w-3 h-3" />
                             Approve
@@ -328,12 +355,25 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => setRejectingProvider(provider)}
-                            className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-rose-200 gap-1"
+                            className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-rose-200 gap-1 cursor-pointer"
                           >
                             <XCircle className="w-3 h-3" />
                             Reject
                           </Button>
                         </>
+                      )}
+
+                      {(!provider.isActive || provider.applicationStatus === "deactivated" || provider.applicationStatus === "rejected") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprovePartner(provider.id)}
+                          isLoading={isSubmitting}
+                          className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 cursor-pointer shadow-xs"
+                          title="Activate and approve this partner account"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          Activate Partner
+                        </Button>
                       )}
 
                       <Link
@@ -353,7 +393,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeactivatingProvider(provider)}
-                          className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
+                          className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 gap-1 cursor-pointer"
                           title="Deactivate provider"
                         >
                           <UserX className="w-3 h-3" />
