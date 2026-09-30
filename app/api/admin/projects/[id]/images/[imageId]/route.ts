@@ -3,6 +3,7 @@
 // Source of truth: docs/24-image-storage.md & docs/15-api-architecture.md
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { deleteImage } from "@/lib/storage/storage-service";
@@ -44,6 +45,12 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
         });
       }
     }
+
+    // Revalidate public catalog, homepage, and project details (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    const proj = await db.project.findUnique({ where: { id }, select: { slug: true } });
+    if (proj?.slug) revalidatePath(`/projects/${proj.slug}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -88,6 +95,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...(body.sortOrder !== undefined && { sortOrder: Number(body.sortOrder) }),
       },
     });
+
+    // Revalidate public catalog, homepage, and project details (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    const proj = await db.project.findUnique({ where: { id }, select: { slug: true } });
+    if (proj?.slug) revalidatePath(`/projects/${proj.slug}`);
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

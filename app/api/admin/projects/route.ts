@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireAdmin();
 
+    // Request size limit: reject payloads > 512KB (Issue 46)
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 524288) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
@@ -196,8 +202,14 @@ export async function POST(req: NextRequest) {
       { success: true, message: "Project created successfully", project },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AuthError) return authErrorResponse(error);
+    if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
+      return NextResponse.json(
+        { error: "A project with this slug already exists" },
+        { status: 409 }
+      );
+    }
     console.error("POST /api/admin/projects error:", error);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   }

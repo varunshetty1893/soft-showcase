@@ -135,19 +135,19 @@ export async function POST(req: NextRequest) {
     const features: { feature: string; sortOrder?: number }[] = (
       Array.isArray(body.features) ? body.features : []
     )
-      .filter((f) => f && typeof f.feature === "string" && f.feature.trim())
+      .filter((f: any) => f && typeof f.feature === "string" && f.feature.trim())
       .slice(0, 25);
 
     const specifications: { key: string; value: string; sortOrder?: number }[] = (
       Array.isArray(body.specifications) ? body.specifications : []
     )
-      .filter((s) => s && typeof s.key === "string" && typeof s.value === "string" && s.key.trim())
+      .filter((s: any) => s && typeof s.key === "string" && typeof s.value === "string" && s.key.trim())
       .slice(0, 25);
 
     const faqs: { question: string; answer: string; sortOrder?: number }[] = (
       Array.isArray(body.faqs) ? body.faqs : []
     )
-      .filter((f) => f && typeof f.question === "string" && typeof f.answer === "string" && f.question.trim())
+      .filter((f: any) => f && typeof f.question === "string" && typeof f.answer === "string" && f.question.trim())
       .slice(0, 20);
 
     const rawTechList: string[] = (

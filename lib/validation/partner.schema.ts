@@ -117,14 +117,26 @@ export const PartnerProfileUpdateSchema = z.object({
   bio: z
     .string()
     .trim()
+    .min(10, "Please provide a short professional description (at least 10 characters)")
     .max(1000, "Bio cannot exceed 1000 characters")
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal("")),
   whatsappNumber: z
     .string()
     .trim()
-    .max(20)
-    .regex(/^\+?[1-9]\d{7,14}$/, "Please provide a valid WhatsApp number with country code")
+    .transform((val) => {
+      if (!val) return val;
+      const cleaned = val.replace(/[\s\-()]/g, "");
+      if (/^\d{12}$/.test(cleaned)) {
+        return `+${cleaned}`;
+      }
+      return cleaned;
+    })
+    .refine(
+      (val) => !val || /^\+[1-9]\d{11}$/.test(val),
+      "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)"
+    )
     .optional()
     .nullable()
     .or(z.literal("")),
@@ -164,7 +176,7 @@ export const PartnerProfileUpdateSchema = z.object({
   portfolioUrl: z
     .string()
     .trim()
-    .url("Please provide a valid portfolio URL")
+    .url("Please provide a valid portfolio URL (e.g. https://yourportfolio.dev)")
     .max(300)
     .optional()
     .nullable()
@@ -172,7 +184,7 @@ export const PartnerProfileUpdateSchema = z.object({
   githubUrl: z
     .string()
     .trim()
-    .url("Please provide a valid GitHub profile URL")
+    .url("Please provide a valid GitHub profile URL (e.g. https://github.com/username)")
     .max(300)
     .optional()
     .nullable()
@@ -180,7 +192,7 @@ export const PartnerProfileUpdateSchema = z.object({
   linkedinUrl: z
     .string()
     .trim()
-    .url("Please provide a valid LinkedIn profile URL")
+    .url("Please provide a valid LinkedIn profile URL (e.g. https://linkedin.com/in/username)")
     .max(300)
     .optional()
     .nullable()

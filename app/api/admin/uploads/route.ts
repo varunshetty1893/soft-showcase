@@ -3,6 +3,7 @@
 // Source of truth: docs/24-image-storage.md & docs/15-api-architecture.md
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { validateImageFile, uploadImage } from "@/lib/storage/storage-service";
@@ -132,6 +133,14 @@ export async function POST(request: NextRequest) {
           sortOrder,
         },
       });
+
+      // Revalidate project page and catalog caches (Issue 54)
+      revalidatePath("/");
+      revalidatePath("/projects");
+      if (project.title) {
+        const fullProj = await db.project.findUnique({ where: { id: projectId }, select: { slug: true } });
+        if (fullProj?.slug) revalidatePath(`/projects/${fullProj.slug}`);
+      }
 
       return NextResponse.json({ success: true, data: image }, { status: 201 });
     });

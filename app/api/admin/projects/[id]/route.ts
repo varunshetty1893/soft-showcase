@@ -37,6 +37,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await requireAdmin();
+
+    // Request size limit: reject payloads > 512KB (Issue 46)
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 524288) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
     const { id } = await params;
 
     const body = await req.json().catch(() => null);
@@ -210,8 +217,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ success: true, message: "Project updated successfully", project });
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof AuthError) return authErrorResponse(error);
+    if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
+      return NextResponse.json(
+        { error: "A project with this slug already exists" },
+        { status: 409 }
+      );
+    }
     console.error("PATCH /api/admin/projects/[id] error:", error);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
   }

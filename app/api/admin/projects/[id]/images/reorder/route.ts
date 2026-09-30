@@ -3,6 +3,7 @@
 // Source of truth: docs/24-image-storage.md
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 
@@ -28,6 +29,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
         })
       )
     );
+
+    // Revalidate public catalog, homepage, and project details (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    const proj = await db.project.findUnique({ where: { id }, select: { slug: true } });
+    if (proj?.slug) revalidatePath(`/projects/${proj.slug}`);
 
     return NextResponse.json({ success: true, message: "Images reordered successfully" });
   } catch (error) {

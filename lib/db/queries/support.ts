@@ -62,8 +62,15 @@ export async function getSupportTicketById(id: string) {
   }
 }
 
-export async function getUserSupportTickets(userId: string) {
+export async function getUserSupportTickets(
+  userId: string,
+  options?: { page?: number; pageSize?: number }
+) {
   try {
+    const pageSize = options?.pageSize || 50;
+    const page = options?.page || 1;
+    const skip = (page - 1) * pageSize;
+
     return await db.supportTicket.findMany({
       where: { requesterId: userId },
       include: {
@@ -72,6 +79,8 @@ export async function getUserSupportTickets(userId: string) {
         },
       },
       orderBy: { updatedAt: "desc" },
+      skip,
+      take: pageSize,
     });
   } catch (error) {
     console.warn("Failed to get user support tickets:", error);
