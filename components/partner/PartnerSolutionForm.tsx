@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Layers,
-  ArrowLeft,
   Plus,
   Trash2,
   Image as ImageIcon,

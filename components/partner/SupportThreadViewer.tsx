@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Send, CheckCircle2, Clock, User, Shield, AlertCircle } from "lucide-react";
+import { Send, User, Shield, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils/format";
@@ -31,7 +31,6 @@ export function SupportThreadViewer({
   initialMessages,
   currentUserId,
   ticketStatus,
-  isAdminView = false,
 }: SupportThreadViewerProps) {
   const router = useRouter();
   const [messages, setMessages] = React.useState<Message[]>(initialMessages);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, AlertCircle, CheckCircle2, Mail, ArrowRight, RefreshCw } from "lucide-react";
@@ -19,23 +19,7 @@ export function VerifyEmailForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Auto-verify if both email and token are provided in the URL
-  useEffect(() => {
-    if (queryEmail && queryToken && queryToken.length === 6) {
-      verifyCode(queryEmail, queryToken);
-    }
-  }, [queryEmail, queryToken]);
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const interval = setInterval(() => {
-      setResendCooldown((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
-
-  async function verifyCode(emailToVerify: string, codeToVerify: string) {
+  const verifyCode = useCallback(async (emailToVerify: string, codeToVerify: string) => {
     setLoading(true);
     setErrorMessage(null);
 
@@ -73,7 +57,23 @@ export function VerifyEmailForm() {
       setErrorMessage("Network error verifying code. Please try again.");
       setLoading(false);
     }
-  }
+  }, [router, searchParams]);
+
+  // Auto-verify if both email and token are provided in the URL
+  useEffect(() => {
+    if (queryEmail && queryToken && queryToken.length === 6) {
+      verifyCode(queryEmail, queryToken);
+    }
+  }, [queryEmail, queryToken, verifyCode]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

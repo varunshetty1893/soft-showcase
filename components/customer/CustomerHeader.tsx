@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Lock, Receipt, Headphones } from "lucide-react";
+import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Receipt, Headphones } from "lucide-react";
 import { useCart } from "@/lib/cart/cart-context";
 
 interface CustomerHeaderProps {

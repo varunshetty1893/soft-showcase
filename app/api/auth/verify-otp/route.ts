@@ -3,7 +3,7 @@
 
 import { db } from "@/lib/db/client";
 import { VerifyOtpSchema } from "@/lib/validation/auth.schema";
-import { hashSecretToken, verifySecretToken } from "@/lib/utils/crypto";
+import { verifySecretToken } from "@/lib/utils/crypto";
 import { otpVerifyLimiter, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function POST(req: Request) {

@@ -12,7 +12,6 @@ import {
   Sparkles,
   Layers,
   CheckCircle2,
-  AlertCircle,
   Menu,
   X,
   LayoutDashboard,
@@ -21,7 +20,6 @@ import {
   Users,
   Settings,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 
 interface PartnerHeaderProps {

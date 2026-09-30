@@ -5,15 +5,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Headphones,
   CheckCircle2,
-  Clock,
   ArrowLeft,
-  User,
-  Shield,
   Save,
   Send,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +27,10 @@ interface Message {
 
 interface AdminSupportDetailManagerProps {
   ticket: any;
-  currentUserId: string;
+  currentUserId?: string;
 }
 
-export function AdminSupportDetailManager({ ticket, currentUserId }: AdminSupportDetailManagerProps) {
+export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerProps) {
   const router = useRouter();
 
   const [status, setStatus] = React.useState(ticket.status || "OPEN");

@@ -11,7 +11,6 @@ import {
   KeyRound,
   LogOut,
   ExternalLink,
-  Shield,
 } from "lucide-react";
 
 interface AdminUserMenuProps {

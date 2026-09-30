@@ -2,7 +2,6 @@
 // Shared TypeScript types for authentication and sessions.
 
 import type { User } from "@prisma/client";
-import type { Session as _Session } from "next-auth";
 
 // Extend NextAuth session type to include isAdmin, role, partnerStatus, partnerId, and id
 declare module "next-auth" {
