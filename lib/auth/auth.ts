@@ -46,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            allowDangerousEmailAccountLinking: true,
+            allowDangerousEmailAccountLinking: false,
           }),
         ]
       : []),
@@ -132,6 +132,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   // ── Callbacks ─────────────────────────────────────────────────────────────
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // 1. Google OAuth security validation
+      if (account?.provider === "google") {
+        const isGoogleVerified = (profile as { email_verified?: boolean })?.email_verified;
+        if (!isGoogleVerified) {
+          console.warn(`[Auth] Blocked Google login: unverified Google email (${user.email})`);
+          return false;
+        }
+
+        if (user.email) {
+          const normalizedEmail = user.email.toLowerCase().trim();
+          const existingUser = await db.user.findUnique({
+            where: { email: normalizedEmail },
+            include: { accounts: true },
+          });
+
+          if (existingUser) {
+            // If existing user has a credentials password set and no linked Google account,
+            // prevent silent account takeover. Require user to log in with password.
+            const hasGoogleAccount = existingUser.accounts.some(
+              (acc) => acc.provider === "google"
+            );
+            if (existingUser.passwordHash && !hasGoogleAccount) {
+              console.warn(
+                `[Auth] Blocked OAuth account takeover for ${normalizedEmail}. Password account exists.`
+              );
+              return "/login?error=OAuthAccountNotLinked";
+            }
+
+            // Auto-mark email as verified if they successfully sign in with verified Google
+            if (!existingUser.emailVerified) {
+              await db.user.update({
+                where: { id: existingUser.id },
+                data: { emailVerified: new Date() },
+              });
+            }
+          }
+        }
+      }
+
+      return true;
+    },
+
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;

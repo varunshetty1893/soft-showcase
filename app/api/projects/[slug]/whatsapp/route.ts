@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    if (!project.provider.isActive || project.provider.applicationStatus !== "approved") {
+    if (!project.provider.isActive || (project.provider.applicationStatus && project.provider.applicationStatus !== "approved")) {
       return NextResponse.json(
         { error: "This project partner is currently inactive or undergoing review." },
         { status: 403 }

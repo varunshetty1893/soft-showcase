@@ -42,6 +42,6 @@
 ## Security Implementation
 
 1. **Password Hashing**: Passwords are never stored in plain text; hashed using `bcryptjs` with salt rounds = 10.
-2. **Account Linking**: `allowDangerousEmailAccountLinking: true` allows linking Google OAuth accounts with existing verified email accounts.
+2. **Account Linking & OAuth Security**: Dangerous automatic account linking is disabled (`allowDangerousEmailAccountLinking: false`). In the `signIn` callback, Google OAuth emails must be verified by Google (`profile.email_verified === true`). If a credentials account with a password already exists, silent OAuth account takeover is strictly blocked (returning `/login?error=OAuthAccountNotLinked`), protecting users from unauthorized account merging.
 3. **Session Guards**: `isAdmin` flag is always fetched fresh from the database during session evaluation — never trusted from client-tamperable state.
 4. **Credential Isolation**: SMTP credentials and password hashes are strictly server-side and never exposed in client bundles.
