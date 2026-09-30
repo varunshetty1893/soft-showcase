@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     // 1. Rate Limiting Check (3 per IP per hour as per docs/26-custom-project-system.md)
     const ip = getClientIp(request);
-    const rateLimit = customRequestLimiter.check(ip);
+    const rateLimit = await customRequestLimiter.check(ip);
 
     if (!rateLimit.success) {
       const retryAfterSeconds = Math.max(

@@ -25,7 +25,7 @@ export default async function PartnerTransactionDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await getEffectivePartnerContext();
+  const { partner, user } = await getEffectivePartnerContext();
 
   const { id } = await params;
 
@@ -39,6 +39,11 @@ export default async function PartnerTransactionDetailPage({
   });
 
   if (!transaction) {
+    notFound();
+  }
+
+  // Verify the record belongs to the logged-in partner unless the user is admin
+  if (transaction.partnerId !== partner.id && !user.isAdmin) {
     notFound();
   }
 

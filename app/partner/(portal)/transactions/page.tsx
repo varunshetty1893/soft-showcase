@@ -22,11 +22,8 @@ export const metadata: Metadata = {
 export default async function PartnerTransactionsPage() {
   const { partner } = await getEffectivePartnerContext();
 
-  const partnerId = partner?.id || "prov-varun";
-  let transactions = await getPartnerTransactions(partnerId);
-  if (transactions.length === 0) {
-    transactions = await getPartnerTransactions("prov-varun");
-  }
+  const partnerId = partner.id;
+  const transactions = await getPartnerTransactions(partnerId);
 
   const verified = transactions.filter((t) => t.paymentStatus === "VERIFIED" || t.paymentStatus === "COMPLETED");
   const pending = transactions.filter((t) => t.paymentStatus === "PENDING" || t.paymentStatus === "EVIDENCE_SUBMITTED" || t.paymentStatus === "UNDER_REVIEW");

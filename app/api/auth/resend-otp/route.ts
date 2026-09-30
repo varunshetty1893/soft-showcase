@@ -25,8 +25,8 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check rate limit on resend requests (Issue 22)
-    const rateCheck = otpResendLimiter.check(`resend:${normalizedEmail}`);
-    const ipCheck = otpResendLimiter.check(`ip:${ip}`);
+    const rateCheck = await otpResendLimiter.check(`resend:${normalizedEmail}`);
+    const ipCheck = await otpResendLimiter.check(`ip:${ip}`);
     if (!rateCheck.success || !ipCheck.success) {
       return Response.json(
         { error: "Too many resend requests. Please wait a few minutes before trying again." },

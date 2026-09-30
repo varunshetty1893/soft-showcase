@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = getClientIp(req);
-  const rateCheck = transactionCreateLimiter.check(session.user.id || ip);
+  const rateCheck = await transactionCreateLimiter.check(session.user.id || ip);
   if (!rateCheck.success) {
     return NextResponse.json(
       { error: "Too many transaction recording requests. Please wait a few moments." },

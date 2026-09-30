@@ -1,10 +1,13 @@
 // lib/utils/rate-limit.ts
-// Multi-instance and persistent rate limiter for Soft Showcase.
-// Stores state in shared memory + persisted disk state to reliably share limits across instances/workers.
+// Production-grade Rate Limiter for Soft Showcase.
+// - Production / Vercel Serverless: Upstash Redis (@upstash/ratelimit) distributed rate limiting.
+// - Development: In-memory fallback (no disk or /tmp storage).
+// - Graceful Fallback: If Upstash credentials are not supplied or fail, smoothly falls back to memory.
 
-import fs from "fs";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
-interface RateLimitOptions {
+export interface RateLimitOptions {
   /** Maximum number of requests per window */
   limit: number;
   /** Time window in milliseconds */
@@ -17,63 +20,18 @@ export interface RateLimitResult {
   reset: number; // Unix timestamp (ms) when the window resets
 }
 
+export type RateLimitReturn = Promise<RateLimitResult> & RateLimitResult;
+
 interface WindowEntry {
   count: number;
   resetAt: number;
 }
 
-const DISK_STORE_PATH = "/tmp/softshowcase_rate_limits.json";
-
-class PersistentRateLimitStore {
+// ── In-Memory Store (Active in Development or as Graceful Fallback) ───────────
+class InMemoryRateLimitStore {
   private cache: Map<string, WindowEntry> = new Map();
-  private lastSave = 0;
-
-  constructor() {
-    this.loadFromDisk();
-  }
-
-  private loadFromDisk() {
-    try {
-      if (fs.existsSync(DISK_STORE_PATH)) {
-        const raw = fs.readFileSync(DISK_STORE_PATH, "utf-8");
-        const parsed = JSON.parse(raw);
-        const now = Date.now();
-        for (const [k, v] of Object.entries(parsed)) {
-          const entry = v as WindowEntry;
-          if (entry && entry.resetAt > now) {
-            this.cache.set(k, entry);
-          }
-        }
-      }
-    } catch {
-      // Ignore initial file read errors
-    }
-  }
-
-  private saveToDisk() {
-    const now = Date.now();
-    // Throttle disk writes to once per 200ms
-    if (now - this.lastSave < 200) return;
-    this.lastSave = now;
-
-    try {
-      const obj: Record<string, WindowEntry> = {};
-      for (const [k, v] of this.cache.entries()) {
-        if (v.resetAt > now) {
-          obj[k] = v;
-        }
-      }
-      fs.writeFileSync(DISK_STORE_PATH, JSON.stringify(obj), "utf-8");
-    } catch {
-      // Non-fatal
-    }
-  }
 
   get(key: string): WindowEntry | undefined {
-    // Re-check disk if missing
-    if (!this.cache.has(key)) {
-      this.loadFromDisk();
-    }
     const entry = this.cache.get(key);
     if (entry && Date.now() > entry.resetAt) {
       this.cache.delete(key);
@@ -82,88 +40,189 @@ class PersistentRateLimitStore {
     return entry;
   }
 
-  set(key: string, entry: WindowEntry) {
+  set(key: string, entry: WindowEntry): void {
     this.cache.set(key, entry);
-    this.saveToDisk();
   }
 
-  delete(key: string) {
+  delete(key: string): void {
     this.cache.delete(key);
-    this.saveToDisk();
+  }
+
+  clear(): void {
+    this.cache.clear();
   }
 }
 
-const globalStore: PersistentRateLimitStore =
-  (globalThis as any).__softshowcase_rate_limit_store ||
-  ((globalThis as any).__softshowcase_rate_limit_store = new PersistentRateLimitStore());
+// Keep singleton across module reloads in development
+const globalMemoryStore: InMemoryRateLimitStore =
+  (globalThis as any).__softshowcase_memory_rate_limit_store ||
+  ((globalThis as any).__softshowcase_memory_rate_limit_store = new InMemoryRateLimitStore());
 
+// Shared Redis client singleton for connection pooling
+let sharedRedis: Redis | null = null;
+function getSharedRedis(): Redis | null {
+  if (sharedRedis) return sharedRedis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  try {
+    sharedRedis = new Redis({ url, token });
+    return sharedRedis;
+  } catch (err) {
+    console.warn("[RateLimit] Failed to initialize Upstash Redis client:", err);
+    return null;
+  }
+}
+
+/**
+ * Creates a rate limiter instance with Upstash Redis in production and in-memory fallback in development.
+ */
 export function createRateLimiter(options: RateLimitOptions, namespace = "rl") {
-  return {
-    check(key: string): RateLimitResult {
-      const now = Date.now();
-      const scopedKey = `${namespace}:${key}`;
-      const entry = globalStore.get(scopedKey);
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const redis = getSharedRedis();
 
-      if (!entry || now > entry.resetAt) {
-        // Start a new window
-        const newEntry: WindowEntry = {
-          count: 1,
-          resetAt: now + options.windowMs,
-        };
-        globalStore.set(scopedKey, newEntry);
-        return {
-          success: true,
-          remaining: options.limit - 1,
-          reset: newEntry.resetAt,
-        };
-      }
+  // In development, fall back to in-memory unless explicitly forced via RATE_LIMIT_PROVIDER=upstash
+  const shouldUseUpstash =
+    Boolean(redis) && (!isDevelopment || process.env.RATE_LIMIT_PROVIDER === "upstash");
 
-      if (entry.count >= options.limit) {
-        return { success: false, remaining: 0, reset: entry.resetAt };
-      }
+  let upstashRatelimit: Ratelimit | null = null;
+  if (shouldUseUpstash && redis) {
+    try {
+      upstashRatelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(options.limit, `${options.windowMs} ms`),
+        prefix: `softshowcase:${namespace}`,
+        ephemeralCache: new Map(),
+      });
+    } catch (err) {
+      console.warn(`[RateLimit] Failed to create Upstash Ratelimit for ${namespace}:`, err);
+    }
+  }
 
-      entry.count++;
-      globalStore.set(scopedKey, entry);
+  function checkInMemory(key: string): RateLimitResult {
+    const now = Date.now();
+    const scopedKey = `${namespace}:${key}`;
+    const entry = globalMemoryStore.get(scopedKey);
+
+    if (!entry || now > entry.resetAt) {
+      const newEntry: WindowEntry = {
+        count: 1,
+        resetAt: now + options.windowMs,
+      };
+      globalMemoryStore.set(scopedKey, newEntry);
       return {
         success: true,
-        remaining: options.limit - entry.count,
+        remaining: Math.max(0, options.limit - 1),
+        reset: newEntry.resetAt,
+      };
+    }
+
+    if (entry.count >= options.limit) {
+      return {
+        success: false,
+        remaining: 0,
         reset: entry.resetAt,
       };
+    }
+
+    entry.count++;
+    globalMemoryStore.set(scopedKey, entry);
+    return {
+      success: true,
+      remaining: Math.max(0, options.limit - entry.count),
+      reset: entry.resetAt,
+    };
+  }
+
+  return {
+    /**
+     * Checks rate limit for the given key.
+     * Returns a hybrid object that can be awaited (`await limiter.check(key)`)
+     * or read synchronously (`limiter.check(key).success`) for maximum route compatibility.
+     */
+    check(key: string): RateLimitReturn {
+      const memResult = checkInMemory(key);
+
+      // If Upstash is not active (dev or unconfigured), resolve with in-memory result
+      if (!upstashRatelimit) {
+        const promise = Promise.resolve(memResult);
+        Object.assign(promise, memResult);
+        return promise as RateLimitReturn;
+      }
+
+      // Query Upstash Redis with fallback to in-memory on error
+      const asyncCheck = async (): Promise<RateLimitResult> => {
+        try {
+          const res = await upstashRatelimit!.limit(key);
+          return {
+            success: res.success,
+            remaining: res.remaining,
+            reset: res.reset,
+          };
+        } catch (err) {
+          console.warn(`[RateLimit] Upstash limit error for ${namespace}:${key}, falling back to memory:`, err);
+          return memResult;
+        }
+      };
+
+      const promise = asyncCheck();
+      Object.assign(promise, memResult);
+      return promise as RateLimitReturn;
     },
 
-    reset(key: string) {
-      globalStore.delete(`${namespace}:${key}`);
+    /**
+     * Resets the rate limit for the given key.
+     */
+    async reset(key: string): Promise<void> {
+      const scopedKey = `${namespace}:${key}`;
+      globalMemoryStore.delete(scopedKey);
+
+      if (redis) {
+        try {
+          await redis.del(`softshowcase:${namespace}:${key}`);
+        } catch {
+          // Non-fatal
+        }
+      }
+    },
+
+    /**
+     * Alias for .check(key) matching @upstash/ratelimit native API.
+     */
+    limit(key: string): RateLimitReturn {
+      return this.check(key);
     },
   };
 }
 
 // ── Pre-configured limiters for security-sensitive endpoints ─────────────────
 
-// Public inquiry submission limiter
+// Public inquiry submission limiter (5 requests per 15 minutes)
 export const inquiryLimiter = createRateLimiter(
   { limit: 5, windowMs: 15 * 60 * 1000 },
   "inquiry"
 );
 
-// WhatsApp deep-link generation limiter
+// WhatsApp deep-link generation limiter (10 requests per 15 minutes)
 export const whatsappLimiter = createRateLimiter(
   { limit: 10, windowMs: 15 * 60 * 1000 },
   "whatsapp"
 );
 
-// Custom project request limiter
+// Custom project request limiter (3 requests per 60 minutes)
 export const customRequestLimiter = createRateLimiter(
   { limit: 3, windowMs: 60 * 60 * 1000 },
   "custom"
 );
 
-// User registration limiter
+// User registration limiter (5 requests per 15 minutes)
 export const authRegisterLimiter = createRateLimiter(
   { limit: 5, windowMs: 15 * 60 * 1000 },
   "auth_reg"
 );
 
-// Partner registration limiter
+// Partner registration limiter (5 requests per 15 minutes)
 export const partnerRegisterLimiter = createRateLimiter(
   { limit: 5, windowMs: 15 * 60 * 1000 },
   "part_reg"
@@ -175,42 +234,75 @@ export const otpVerifyLimiter = createRateLimiter(
   "otp_verify"
 );
 
-// OTP Resend limiter
+// OTP Resend limiter (3 requests per 15 minutes)
 export const otpResendLimiter = createRateLimiter(
   { limit: 3, windowMs: 15 * 60 * 1000 },
   "otp_resend"
 );
 
-// Password Reset Request limiter (Issue 20)
+// Password Reset Request limiter (3 requests per 15 minutes)
 export const passwordResetRequestLimiter = createRateLimiter(
   { limit: 3, windowMs: 15 * 60 * 1000 },
   "pwd_req"
 );
 
-// Password Reset Code Verification limiter (Issue 20)
+// Password Reset Code Verification limiter (5 attempts per 15 minutes)
 export const passwordResetVerifyLimiter = createRateLimiter(
   { limit: 5, windowMs: 15 * 60 * 1000 },
   "pwd_verify"
 );
 
-// Support action / message limiter
+// Support action / message limiter (15 requests per 10 minutes)
 export const supportActionLimiter = createRateLimiter(
   { limit: 15, windowMs: 10 * 60 * 1000 },
   "support"
 );
 
-// Transaction creation limiter
+// Transaction creation limiter (10 requests per 10 minutes)
 export const transactionCreateLimiter = createRateLimiter(
   { limit: 10, windowMs: 10 * 60 * 1000 },
   "txn_create"
 );
 
+// Credentials login limiter (Max 5 attempts per 15 minutes by IP and by Email)
+export const authLoginLimiter = createRateLimiter(
+  { limit: 5, windowMs: 15 * 60 * 1000 },
+  "auth_login"
+);
+export const loginLimiter = authLoginLimiter;
+
 /**
  * Extracts the client IP from a Next.js request.
  * Falls back to "unknown" if no IP can be determined.
  */
-export function getClientIp(request: Request): string {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";
-  return request.headers.get("x-real-ip") ?? "unknown";
+export function getClientIp(request?: Request | null): string {
+  if (!request) return "unknown";
+  try {
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";
+    return request.headers.get("x-real-ip") ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Extracts the client IP from the request or via Next.js next/headers.
+ */
+export async function getRequestIp(request?: Request | null): Promise<string> {
+  const ip = getClientIp(request);
+  if (ip && ip !== "unknown") return ip;
+
+  try {
+    const { headers } = await import("next/headers");
+    const headerList = await headers();
+    const forwardedFor = headerList.get("x-forwarded-for");
+    if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";
+    const realIp = headerList.get("x-real-ip");
+    if (realIp) return realIp.trim();
+  } catch {
+    // Non-fatal if next/headers is not in request context
+  }
+
+  return "127.0.0.1";
 }

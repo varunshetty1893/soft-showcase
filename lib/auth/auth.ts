@@ -5,13 +5,22 @@
 // - Database: PrismaAdapter for OAuth accounts, users, and tokens
 // - isAdmin is read from the users table and propagated to the session.
 
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
+import { authLoginLimiter, getRequestIp } from "@/lib/utils/rate-limit";
+
+export class LoginRateLimitError extends CredentialsSignin {
+  code = "TOO_MANY_ATTEMPTS";
+}
+
+export class EmailNotVerifiedError extends CredentialsSignin {
+  code = "EMAIL_NOT_VERIFIED";
+}
 
 const authSecret =
   process.env.AUTH_SECRET ||
@@ -47,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) {
           console.warn("[Auth] Invalid login credentials format");
@@ -57,25 +66,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { email, password } = parsed.data;
         const normalizedEmail = email.trim().toLowerCase();
 
+        // ── TASK 2: Login Brute-Force Rate Limiting (by IP and by email) ───────
+        // Max 5 attempts per 15 minutes window
+        const ip = await getRequestIp(request as Request);
+        const ipKey = `ip:${ip}`;
+        const emailKey = `email:${normalizedEmail}`;
+
+        const ipCheck = await authLoginLimiter.check(ipKey);
+        const emailCheck = await authLoginLimiter.check(emailKey);
+
+        if (!ipCheck.success || !emailCheck.success) {
+          console.warn(`[Auth] Credentials login rate limit exceeded (IP: ${ip})`);
+          throw new LoginRateLimitError();
+        }
+
         const user = await db.user.findUnique({
           where: { email: normalizedEmail },
         });
 
         if (!user || !user.passwordHash) {
-          console.warn(`[Auth] User not found or has no password set: ${normalizedEmail}`);
+          console.warn("[Auth] Invalid login attempt (user not found or no password)");
           return null;
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
-          console.warn(`[Auth] Password mismatch for user: ${normalizedEmail}`);
+          console.warn("[Auth] Invalid login attempt (password mismatch)");
           return null;
         }
 
         if (!user.emailVerified) {
-          console.warn(`[Auth] User email not verified: ${normalizedEmail}`);
-          throw new Error("EMAIL_NOT_VERIFIED");
+          console.warn("[Auth] User email not verified");
+          throw new EmailNotVerifiedError();
         }
+
+        // Reset rate limiter on successful authentication
+        await authLoginLimiter.reset(ipKey);
+        await authLoginLimiter.reset(emailKey);
 
         const userRole = (user as { role?: "admin" | "customer" | "solution_partner" }).role;
         return {

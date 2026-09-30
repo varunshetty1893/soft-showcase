@@ -20,7 +20,7 @@ export default async function EditPartnerSolutionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await getEffectivePartnerContext();
+  const { partner, user } = await getEffectivePartnerContext();
 
   const { id } = await params;
 
@@ -40,6 +40,11 @@ export default async function EditPartnerSolutionPage({
   ]);
 
   if (!project) {
+    notFound();
+  }
+
+  // Verify the solution belongs to the logged-in partner unless admin
+  if (project.providerId !== partner.id && !user.isAdmin) {
     notFound();
   }
 

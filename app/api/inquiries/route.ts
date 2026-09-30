@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Rate limiting by IP
     const ip = getClientIp(request);
-    const rateLimitResult = inquiryLimiter.check(ip);
+    const rateLimitResult = await inquiryLimiter.check(ip);
 
     if (!rateLimitResult.success) {
       const retryAfterSeconds = Math.max(

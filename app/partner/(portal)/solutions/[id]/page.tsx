@@ -32,7 +32,7 @@ export default async function PartnerSolutionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await getEffectivePartnerContext();
+  const { partner, user } = await getEffectivePartnerContext();
 
   const project = await db.project.findUnique({
     where: { id },
@@ -48,6 +48,11 @@ export default async function PartnerSolutionDetailPage({
   });
 
   if (!project) {
+    notFound();
+  }
+
+  // Verify the solution belongs to the logged-in partner unless admin
+  if (project.providerId !== partner.id && !user.isAdmin) {
     notFound();
   }
 

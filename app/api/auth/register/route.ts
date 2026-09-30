@@ -12,7 +12,7 @@ import { authRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
-    const rateCheck = authRegisterLimiter.check(ip);
+    const rateCheck = await authRegisterLimiter.check(ip);
     if (!rateCheck.success) {
       return Response.json(
         { error: "Too many registration attempts. Please try again later." },

@@ -30,7 +30,7 @@ export default async function PartnerInquiryDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await getEffectivePartnerContext();
+  const { partner, user } = await getEffectivePartnerContext();
 
   const inquiry = await db.inquiry.findUnique({
     where: { id },
@@ -41,6 +41,15 @@ export default async function PartnerInquiryDetailPage({
   });
 
   if (!inquiry) {
+    notFound();
+  }
+
+  // Verify the record belongs to the logged-in partner unless the user is admin
+  const isOwner =
+    inquiry.providerId === partner.id ||
+    (inquiry.project && inquiry.project.providerId === partner.id);
+
+  if (!isOwner && !user.isAdmin) {
     notFound();
   }
 

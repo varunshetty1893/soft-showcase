@@ -15,7 +15,7 @@ import { partnerRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    const rateCheck = partnerRegisterLimiter.check(ip);
+    const rateCheck = await partnerRegisterLimiter.check(ip);
     if (!rateCheck.success) {
       return NextResponse.json(
         { error: "Too many registration attempts. Please try again later." },

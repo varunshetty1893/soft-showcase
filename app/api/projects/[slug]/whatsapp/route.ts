@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     // 1. Rate limiting by client IP
     const ip = getClientIp(request);
-    const rateLimitResult = whatsappLimiter.check(ip);
+    const rateLimitResult = await whatsappLimiter.check(ip);
 
     if (!rateLimitResult.success) {
       const retryAfterSeconds = Math.max(

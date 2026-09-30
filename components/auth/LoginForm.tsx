@@ -58,6 +58,26 @@ export function LoginForm() {
         message: "You can now enter your password to sign in.",
       };
     }
+    const urlCode = searchParams.get("code");
+    if (
+      urlCode === "TOO_MANY_ATTEMPTS" ||
+      urlCode === "RATE_LIMIT_EXCEEDED" ||
+      urlError === "TOO_MANY_ATTEMPTS" ||
+      urlError === "RATE_LIMIT_EXCEEDED"
+    ) {
+      return {
+        type: "error",
+        title: "Too many login attempts",
+        message: "Too many failed login attempts. For security reasons, please wait 15 minutes before trying again.",
+      };
+    }
+    if (urlCode === "EMAIL_NOT_VERIFIED" || urlError === "EMAIL_NOT_VERIFIED") {
+      return {
+        type: "error",
+        title: "Email unverified",
+        message: "Please complete email verification before signing in.",
+      };
+    }
     if (urlError === "OAuthAccountNotLinked") {
       return {
         type: "error",
@@ -107,7 +127,26 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        if (result.error.includes("EMAIL_NOT_VERIFIED")) {
+        const isRateLimited =
+          result.code === "TOO_MANY_ATTEMPTS" ||
+          result.code === "RATE_LIMIT_EXCEEDED" ||
+          result.error === "TOO_MANY_ATTEMPTS" ||
+          result.error.includes("TOO_MANY_ATTEMPTS") ||
+          result.error === "RATE_LIMIT_EXCEEDED" ||
+          result.error.includes("RATE_LIMIT_EXCEEDED");
+
+        const isUnverified =
+          result.code === "EMAIL_NOT_VERIFIED" ||
+          result.error === "EMAIL_NOT_VERIFIED" ||
+          result.error.includes("EMAIL_NOT_VERIFIED");
+
+        if (isRateLimited) {
+          setActiveBanner({
+            type: "error",
+            title: "Too many login attempts",
+            message: "Too many failed login attempts. For security reasons, please wait 15 minutes before trying again.",
+          });
+        } else if (isUnverified) {
           setActiveBanner({
             type: "error",
             title: "Email unverified",

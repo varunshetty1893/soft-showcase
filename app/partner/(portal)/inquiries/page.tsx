@@ -23,10 +23,7 @@ export const metadata: Metadata = {
 export default async function PartnerInquiriesPage() {
   const { partner } = await getEffectivePartnerContext();
   const partnerId = partner.id;
-  let inquiries = await getPartnerInquiries(partnerId);
-  if (inquiries.length === 0) {
-    inquiries = await getPartnerInquiries("prov-varun");
-  }
+  const inquiries = await getPartnerInquiries(partnerId);
 
   return (
     <div className="space-y-8">

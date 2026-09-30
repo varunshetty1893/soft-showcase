@@ -24,10 +24,7 @@ export const metadata: Metadata = {
 export default async function PartnerSolutionsPage() {
   const { partner } = await getEffectivePartnerContext();
   const partnerId = partner.id;
-  let projects = await getPartnerProjects(partnerId);
-  if (projects.length === 0) {
-    projects = await getPartnerProjects("prov-varun");
-  }
+  const projects = await getPartnerProjects(partnerId);
 
   const published = projects.filter((p) => p.status === "PUBLISHED");
   const drafts = projects.filter((p) => p.status === "DRAFT");

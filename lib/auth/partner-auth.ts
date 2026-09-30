@@ -1,10 +1,12 @@
 // lib/auth/partner-auth.ts
-// Resolves the effective partner and user session for the Partner Portal.
-// Provides resilient fallback so the Partner Portal is fully viewable and navigable
-// with complete headers, sidebars, and data across all devices and sessions.
+// Resolves the authenticated partner and user session for the Partner Portal.
+// Strict access control: requires active login, verifies approved/active partner status (or admin),
+// and eliminates any demo guest or other partner data fallbacks.
 
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
+import { redirect } from "next/navigation";
+import { AuthError } from "@/lib/auth/session";
 
 export interface EffectivePartnerContext {
   user: {
@@ -32,42 +34,63 @@ export interface EffectivePartnerContext {
     linkedinUrl?: string | null;
     solutionsOffered?: string | null;
   };
-  isDemoGuest: boolean;
+  isDemoGuest: false;
 }
 
-export async function getEffectivePartnerContext(): Promise<EffectivePartnerContext> {
+/**
+ * Require an authenticated partner (or admin) for the Partner Portal.
+ *
+ * @param useRedirect - When true (in Server Components/Pages), redirects unauthenticated
+ *                      users to /login and unapproved users to /partner/status.
+ *                      When false (in API routes), throws AuthError.
+ */
+export async function requirePartner(useRedirect = true): Promise<EffectivePartnerContext> {
   const session = await auth();
 
-  // 1. If real user is logged in
-  if (session?.user) {
-    const userEmail = (session.user.email || "").toLowerCase().trim();
-    let partner = null;
-
-    try {
-      // Primary: resolve by stable, unique user relationship
-      partner = await db.projectProvider.findFirst({
-        where: { userId: session.user.id },
-      });
-
-      // Fallback: If unlinked legacy record exists for verified email, link it permanently
-      if (!partner && userEmail) {
-        const unlinked = await db.projectProvider.findFirst({
-          where: { email: userEmail, userId: null },
-        });
-        if (unlinked) {
-          partner = await db.projectProvider.update({
-            where: { id: unlinked.id },
-            data: { userId: session.user.id },
-          }).catch(() => unlinked);
-        }
-      }
-    } catch (e) {
-      console.warn("Could not query provider for session:", e);
+  // 1. Check authentication
+  if (!session?.user?.id) {
+    if (useRedirect) {
+      redirect("/login?callbackUrl=/partner");
     }
+    throw new AuthError("UNAUTHORIZED", "Authentication required");
+  }
 
+  const user = session.user;
+  const userEmail = (user.email || "").toLowerCase().trim();
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const isEnvAdmin = Boolean(userEmail && adminEmail && userEmail === adminEmail);
+  const isAdmin = Boolean(user.isAdmin || user.role === "admin" || isEnvAdmin);
+
+  // 2. Query partner profile for this user
+  let partner = null;
+  try {
+    partner = await db.projectProvider.findFirst({
+      where: { userId: user.id },
+    });
+
+    // Fallback: If legacy unlinked record exists for this email, link it permanently
+    if (!partner && userEmail) {
+      const unlinked = await db.projectProvider.findFirst({
+        where: { email: userEmail, userId: null },
+      });
+      if (unlinked) {
+        partner = await db.projectProvider
+          .update({
+            where: { id: unlinked.id },
+            data: { userId: user.id },
+          })
+          .catch(() => unlinked);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to query partner profile:", e);
+  }
+
+  // 3. Admin access bypass: Admins are allowed
+  if (isAdmin) {
     if (partner) {
       return {
-        user: session.user,
+        user,
         partner: {
           ...partner,
           skills: partner.skills as string[] | null,
@@ -77,100 +100,63 @@ export async function getEffectivePartnerContext(): Promise<EffectivePartnerCont
       };
     }
 
-    // If user is Admin or has solution_partner role without direct provider record, find primary provider or construct one
-    try {
-      const primaryProvider = await db.projectProvider.findFirst({
-        where: {
-          OR: [
-            { email: "softshowcase1@gmail.com" },
-            { email: "shettybvarun@gmail.com" },
-            { applicationStatus: "approved" },
-          ],
-        },
-      });
-
-      if (primaryProvider) {
-        return {
-          user: session.user,
-          partner: {
-            ...primaryProvider,
-            displayName: session.user.name || primaryProvider.displayName,
-            skills: primaryProvider.skills as string[] | null,
-            technologies: primaryProvider.technologies as string[] | null,
-          },
-          isDemoGuest: false,
-        };
-      }
-    } catch (e) {
-      console.warn("Could not find primary provider:", e);
-    }
-
+    // Admin without dedicated provider profile: provide an admin partner context
     return {
-      user: session.user,
+      user,
       partner: {
-        id: "prov-varun",
-        displayName: session.user.name || "Soft Showcase Studio",
-        email: session.user.email || "softshowcase1@gmail.com",
-        bio: "Creator of production web applications, developer tooling, and modern full-stack systems.",
-        avatarUrl: session.user.image || null,
+        id: `admin-${user.id}`,
+        displayName: user.name || "Platform Administrator",
+        email: user.email || "",
+        bio: "Platform Administrator with full oversight.",
+        avatarUrl: user.image || null,
         verificationStatus: "verified",
         applicationStatus: "approved",
-        whatsappNumber: "+919876543210",
-        location: "Bengaluru, India",
-        skills: ["Next.js", "TypeScript", "React", "Tailwind CSS"],
-        technologies: ["Next.js", "Node.js", "Prisma", "PostgreSQL"],
+        whatsappNumber: null,
+        location: null,
+        skills: ["Administration", "Full Oversight"],
+        technologies: ["Next.js", "Prisma", "PostgreSQL"],
+        portfolioUrl: null,
+        githubUrl: null,
+        linkedinUrl: null,
+        solutionsOffered: "Platform Management",
       },
       isDemoGuest: false,
     };
   }
 
-  // 2. Guest / Unauthenticated Visitor: Provide default partner view (Soft Showcase Studio)
-  let defaultProvider = null;
-  try {
-    defaultProvider = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { email: "softshowcase1@gmail.com" },
-          { email: "shettybvarun@gmail.com" },
-          { id: "prov-varun" },
-          { applicationStatus: "approved" },
-        ],
-      },
-    });
-  } catch (e) {
-    console.warn("Could not query default provider:", e);
+  // 4. Partner profile must exist, be approved, and be active
+  if (!partner) {
+    if (useRedirect) {
+      redirect("/partner/status");
+    }
+    throw new AuthError("FORBIDDEN", "No partner profile found for this account.");
   }
 
-  const fallbackPartner = defaultProvider
-    ? {
-        ...defaultProvider,
-        skills: defaultProvider.skills as string[] | null,
-        technologies: defaultProvider.technologies as string[] | null,
-      }
-    : {
-        id: "prov-varun",
-        userId: "user-guest-partner",
-        displayName: "Soft Showcase Studio",
-        email: "softshowcase1@gmail.com",
-        bio: "Creator of production web applications, developer tooling, and modern full-stack systems.",
-        avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
-        verificationStatus: "verified",
-        applicationStatus: "approved",
-        whatsappNumber: "+919876543210",
-        location: "Bengaluru, India",
-        skills: ["Next.js", "TypeScript", "React", "Tailwind CSS"],
-        technologies: ["Next.js", "Node.js", "Prisma", "PostgreSQL"],
-      };
+  const isApproved = partner.applicationStatus === "approved";
+  const isActive = partner.isActive !== false; // Active by default unless explicitly disabled
+
+  if (!isApproved || !isActive) {
+    if (useRedirect) {
+      redirect(`/partner/status?status=${encodeURIComponent(partner.applicationStatus || "pending")}`);
+    }
+    throw new AuthError("FORBIDDEN", "Partner profile is not approved or active.");
+  }
 
   return {
-    user: {
-      id: (fallbackPartner as any).userId || "user-guest-partner",
-      name: fallbackPartner.displayName,
-      email: fallbackPartner.email,
-      role: "solution_partner",
-      isAdmin: false,
+    user,
+    partner: {
+      ...partner,
+      skills: partner.skills as string[] | null,
+      technologies: partner.technologies as string[] | null,
     },
-    partner: fallbackPartner,
-    isDemoGuest: true,
+    isDemoGuest: false,
   };
+}
+
+/**
+ * Backward-compatible alias for requirePartner().
+ * Always enforces active session and approved partner profile.
+ */
+export async function getEffectivePartnerContext(): Promise<EffectivePartnerContext> {
+  return requirePartner(true);
 }

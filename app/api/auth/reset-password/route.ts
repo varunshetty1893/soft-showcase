@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
       const { email } = parsed.data;
 
       // Rate limit password reset requests (Issue 20 & 22)
-      const ipCheck = passwordResetRequestLimiter.check(`ip:${ip}`);
-      const emailCheck = passwordResetRequestLimiter.check(`email:${email}`);
+      const ipCheck = await passwordResetRequestLimiter.check(`ip:${ip}`);
+      const emailCheck = await passwordResetRequestLimiter.check(`email:${email}`);
       if (!ipCheck.success || !emailCheck.success) {
         return NextResponse.json(
           { error: "Too many password reset requests. Please wait 15 minutes before trying again." },
@@ -182,8 +182,8 @@ export async function POST(req: NextRequest) {
       const { email, code, newPassword } = parsed.data;
 
       // Rate limit reset verification attempts (Issue 20)
-      const verifyCheck = passwordResetVerifyLimiter.check(`verify:${email}`);
-      const ipCheck = passwordResetVerifyLimiter.check(`ip:${ip}`);
+      const verifyCheck = await passwordResetVerifyLimiter.check(`verify:${email}`);
+      const ipCheck = await passwordResetVerifyLimiter.check(`ip:${ip}`);
       if (!verifyCheck.success || !ipCheck.success) {
         // Invalidate token on too many attempts
         await db.verificationToken.deleteMany({
@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
         }).catch(() => null);
       });
 
-      passwordResetVerifyLimiter.reset(`verify:${email}`);
+      await passwordResetVerifyLimiter.reset(`verify:${email}`);
 
       return NextResponse.json({
         success: true,

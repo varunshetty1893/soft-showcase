@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check rate limit and maximum attempt limits per email and IP (Issue 17 & 22)
-    const emailAttemptCheck = otpVerifyLimiter.check(`email:${normalizedEmail}`);
-    const ipAttemptCheck = otpVerifyLimiter.check(`ip:${ip}`);
+    const emailAttemptCheck = await otpVerifyLimiter.check(`email:${normalizedEmail}`);
+    const ipAttemptCheck = await otpVerifyLimiter.check(`ip:${ip}`);
 
     if (!emailAttemptCheck.success || !ipAttemptCheck.success) {
       // Invalidate the token after too many failed attempts to prevent brute force
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         identifier: normalizedEmail,
       },
     });
-    otpVerifyLimiter.reset(`email:${normalizedEmail}`);
+    await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
 
     const isPartner = updatedUser?.role === "solution_partner";
 

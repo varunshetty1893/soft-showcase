@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function NewPartnerTransactionPage() {
   const { partner } = await getEffectivePartnerContext();
-  const partnerId = partner?.id || "prov-varun";
+  const partnerId = partner.id;
 
   const solutions = await db.project.findMany({
     where: { providerId: partnerId },
