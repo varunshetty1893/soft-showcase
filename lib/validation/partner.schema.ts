@@ -99,6 +99,10 @@ export type PartnerRegisterInput = z.infer<typeof PartnerRegisterSchema>;
 
 export const PartnerStatusUpdateSchema = z.object({
   applicationStatus: z.enum(["pending", "approved", "rejected", "suspended", "deactivated"]),
+  isActive: z.boolean().optional(),
+  showWhatsapp: z.boolean().optional(),
+  showEmail: z.boolean().optional(),
+  providerConsentConfirmed: z.boolean().optional(),
   rejectionReason: z.string().trim().max(500).optional().nullable(),
   adminNotes: z.string().trim().max(2000).optional().nullable(),
   verificationStatus: z.enum(["not_required", "pending", "submitted", "verified", "rejected"]).optional(),

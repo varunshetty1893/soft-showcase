@@ -5,7 +5,6 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Edit2,
   UserX,
   AlertTriangle,
   ShieldCheck,
@@ -14,6 +13,7 @@ import {
   Mail,
   CheckCircle2,
   XCircle,
+  Eye,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
@@ -40,20 +40,35 @@ interface ProviderTableProps {
 
 export function ProviderTable({ providers }: ProviderTableProps) {
   const router = useRouter();
+  const [providerList, setProviderList] = React.useState<ProviderTableRow[]>(providers);
   const [filter, setFilter] = React.useState<"all" | "pending" | "approved" | "rejected" | "inactive">("all");
   const [deactivatingProvider, setDeactivatingProvider] = React.useState<ProviderTableRow | null>(null);
   const [rejectingProvider, setRejectingProvider] = React.useState<ProviderTableRow | null>(null);
   const [rejectionReason, setRejectionReason] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setProviderList(providers);
+  }, [providers]);
 
   const handleDeactivate = async () => {
     if (!deactivatingProvider) return;
     setIsSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
+
+    const targetId = deactivatingProvider.id;
+    // Optimistic update
+    setProviderList((prev) =>
+      prev.map((p) =>
+        p.id === targetId ? { ...p, isActive: false, applicationStatus: "deactivated" } : p
+      )
+    );
 
     try {
-      const res = await fetch(`/api/admin/providers/${deactivatingProvider.id}`, {
+      const res = await fetch(`/api/admin/providers/${targetId}`, {
         method: "DELETE",
       });
 
@@ -63,8 +78,10 @@ export function ProviderTable({ providers }: ProviderTableProps) {
       }
 
       setDeactivatingProvider(null);
+      setSuccessMessage("Partner deactivated successfully.");
       router.refresh();
     } catch (err: unknown) {
+      setProviderList(providers);
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setIsSubmitting(false);
@@ -74,6 +91,25 @@ export function ProviderTable({ providers }: ProviderTableProps) {
   const handleApprovePartner = async (providerId: string) => {
     setIsSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
+
+    const target = providerList.find((p) => p.id === providerId);
+    // Optimistic update so the user immediately sees the active partner
+    setProviderList((prev) =>
+      prev.map((p) =>
+        p.id === providerId
+          ? {
+              ...p,
+              applicationStatus: "approved",
+              verificationStatus: "verified",
+              isActive: true,
+              showWhatsapp: true,
+              showEmail: true,
+              providerConsentConfirmed: true,
+            }
+          : p
+      )
+    );
 
     try {
       const res = await fetch(`/api/admin/providers/${providerId}/status`, {
@@ -94,8 +130,12 @@ export function ProviderTable({ providers }: ProviderTableProps) {
         throw new Error(data.error || "Failed to approve partner");
       }
 
+      setSuccessMessage(
+        `Partner "${target?.displayName || "Partner"}" has been successfully activated and approved.`
+      );
       router.refresh();
     } catch (err: unknown) {
+      setProviderList(providers);
       setError(err instanceof Error ? err.message : "Failed to approve partner");
     } finally {
       setIsSubmitting(false);
@@ -106,14 +146,25 @@ export function ProviderTable({ providers }: ProviderTableProps) {
     if (!rejectingProvider) return;
     setIsSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
+
+    const targetId = rejectingProvider.id;
+    // Optimistic update
+    setProviderList((prev) =>
+      prev.map((p) =>
+        p.id === targetId ? { ...p, isActive: false, applicationStatus: "rejected" } : p
+      )
+    );
 
     try {
-      const res = await fetch(`/api/admin/providers/${rejectingProvider.id}/status`, {
+      const res = await fetch(`/api/admin/providers/${targetId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           applicationStatus: "rejected",
-          rejectionReason: rejectionReason.trim() || "Application did not meet marketplace requirements at this time.",
+          rejectionReason:
+            rejectionReason.trim() ||
+            "Application did not meet marketplace requirements at this time.",
         }),
       });
 
@@ -124,15 +175,17 @@ export function ProviderTable({ providers }: ProviderTableProps) {
 
       setRejectingProvider(null);
       setRejectionReason("");
+      setSuccessMessage("Partner application rejected.");
       router.refresh();
     } catch (err: unknown) {
+      setProviderList(providers);
       setError(err instanceof Error ? err.message : "Failed to reject partner");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredProviders = providers.filter((p) => {
+  const filteredProviders = providerList.filter((p) => {
     if (filter === "all") return true;
     if (filter === "pending") return p.applicationStatus === "pending";
     if (filter === "approved") return p.applicationStatus === "approved" && p.isActive;
@@ -141,10 +194,12 @@ export function ProviderTable({ providers }: ProviderTableProps) {
     return true;
   });
 
-  const pendingCount = providers.filter((p) => p.applicationStatus === "pending").length;
-  const inactiveCount = providers.filter((p) => !p.isActive || p.applicationStatus === "deactivated").length;
+  const pendingCount = providerList.filter((p) => p.applicationStatus === "pending").length;
+  const inactiveCount = providerList.filter(
+    (p) => !p.isActive || p.applicationStatus === "deactivated"
+  ).length;
 
-  if (providers.length === 0) {
+  if (providerList.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
         <h3 className="text-base font-bold text-gray-900">No Providers Found</h3>
@@ -176,7 +231,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
               : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
           }`}
         >
-          All Providers ({providers.length})
+          All Providers ({providerList.length})
         </button>
 
         <button
@@ -237,6 +292,38 @@ export function ProviderTable({ providers }: ProviderTableProps) {
           )}
         </button>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-rose-600 hover:text-rose-800 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-600 hover:text-emerald-800 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -381,11 +468,12 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                         className={buttonVariants({
                           variant: "outline",
                           size: "sm",
-                          className: "h-8 px-2.5 text-xs gap-1",
+                          className: "h-8 px-2.5 text-xs gap-1 cursor-pointer",
                         })}
+                        title="View and edit partner details"
                       >
-                        <Edit2 className="w-3 h-3" />
-                        Edit
+                        <Eye className="w-3 h-3 text-[#155761]" />
+                        <span>View / Edit</span>
                       </Link>
 
                       {provider.isActive && (

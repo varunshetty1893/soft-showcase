@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
           priceMode: data.priceMode,
           price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
           demoUrl: data.demoUrl || null,
-          projectType: data.projectType || "Web Application",
+          projectType: data.projectType || null,
           whatsIncluded: data.whatsIncluded || [],
           categoryId: data.categoryId,
           providerId: partner.id,

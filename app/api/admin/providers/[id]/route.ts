@@ -3,6 +3,7 @@
 // Source of truth: docs/21-provider-management.md & docs/15-api-architecture.md
 
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { ProviderUpdateSchema } from "@/lib/validation/provider.schema";
@@ -144,9 +145,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         where: { id: updated.userId },
         data: {
           role: data.applicationStatus === "approved" ? "solution_partner" : "customer",
+          ...(data.applicationStatus === "approved" ? { emailVerified: new Date() } : {}),
         },
       }).catch(() => null);
     }
+
+    revalidatePath("/admin/providers");
+    revalidatePath(`/admin/providers/${id}/edit`);
+    revalidatePath("/partner");
+    revalidatePath("/projects");
 
     return NextResponse.json({
       success: true,

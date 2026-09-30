@@ -72,26 +72,20 @@ export function PartnerSolutionForm({
   const [priceMode, setPriceMode] = React.useState<"FIXED" | "STARTING_FROM" | "CONTACT">(
     initialData?.priceMode || "FIXED"
   );
-  const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "24999");
+  const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "");
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
     initialData?.status || "PUBLISHED"
   );
 
-  // Deliverables (what's included)
+  // Deliverables (what's included - starts empty, no automatic pre-filling)
   const [whatsIncluded, setWhatsIncluded] = React.useState<string[]>(
-    initialData?.whatsIncluded?.length
-      ? initialData.whatsIncluded
-      : [
-          "Complete source code repository with MIT/Commercial license",
-          "Database schema and seed migrations",
-          "Deployment guides and environment variable templates",
-        ]
+    initialData?.whatsIncluded?.length ? initialData.whatsIncluded : []
   );
   const [newDeliverable, setNewDeliverable] = React.useState("");
 
-  // Features list - normalize string or object format
+  // Features list - normalize string or object format (starts empty if new)
   const [features, setFeatures] = React.useState<{ feature: string }[]>(() => {
     if (initialData?.features?.length) {
       const items = initialData.features
@@ -103,35 +97,24 @@ export function PartnerSolutionForm({
         .map((text: string) => ({ feature: text }));
       if (items.length > 0) return items;
     }
-    return [
-      { feature: "Responsive modern user interface built with Tailwind CSS" },
-      { feature: "Role-based access control and secure authentication" },
-    ];
+    return [];
   });
   const [newFeature, setNewFeature] = React.useState("");
 
-  // Specifications
+  // Specifications (starts empty if new)
   const [specifications, setSpecifications] = React.useState<{ key: string; value: string }[]>(
     initialData?.specifications?.length
       ? initialData.specifications.map((s: any) => ({ key: s.key, value: s.value }))
-      : [
-          { key: "Frontend", value: "Next.js 15, Tailwind CSS, TypeScript" },
-          { key: "Database", value: "PostgreSQL / Prisma" },
-        ]
+      : []
   );
   const [specKey, setSpecKey] = React.useState("");
   const [specVal, setSpecVal] = React.useState("");
 
-  // FAQs
+  // FAQs (starts empty if new)
   const [faqs, setFaqs] = React.useState<{ question: string; answer: string }[]>(
     initialData?.faqs?.length
       ? initialData.faqs.map((faq: any) => ({ question: faq.question, answer: faq.answer }))
-      : [
-          {
-            question: "Can this solution be customized for our enterprise?",
-            answer: "Yes, our team can tailor the features and integration to your exact requirements.",
-          },
-        ]
+      : []
   );
   const [faqQ, setFaqQ] = React.useState("");
   const [faqA, setFaqA] = React.useState("");
@@ -162,7 +145,7 @@ export function PartnerSolutionForm({
         .filter((id: any): id is string => Boolean(id && typeof id === "string"));
       if (extracted.length > 0) return extracted;
     }
-    return technologies.slice(0, 3).map((t) => t.id).filter(Boolean);
+    return [];
   });
 
   const [customTagInput, setCustomTagInput] = React.useState("");

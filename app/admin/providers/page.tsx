@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminProvidersPage() {
   let providers: ProviderTableRow[] = [];
 

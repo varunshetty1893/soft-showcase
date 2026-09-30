@@ -82,12 +82,13 @@ export async function PATCH(
         });
       }
 
-      // Also update associated user role if approved
+      // Also update associated user role if approved and mark email verified so they can log in immediately
       if (provider.userId) {
         await tx.user.update({
           where: { id: provider.userId },
           data: {
             role: applicationStatus === "approved" ? "solution_partner" : "customer",
+            ...(applicationStatus === "approved" ? { emailVerified: new Date() } : {}),
           },
         }).catch(() => null);
       }
@@ -111,9 +112,13 @@ export async function PATCH(
       return provider;
     });
 
-    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    // Revalidate public catalog, admin providers list, partner portal, and sitemap
     revalidatePath("/");
     revalidatePath("/projects");
+    revalidatePath("/admin/providers");
+    revalidatePath(`/admin/providers/${id}/edit`);
+    revalidatePath("/partner");
+    revalidatePath("/partner/dashboard");
     revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ provider: updated });

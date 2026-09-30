@@ -56,7 +56,7 @@ export default async function PartnerSolutionDetailPage({
     notFound();
   }
 
-  const primaryImage = project.images[0]?.url || "https://picsum.photos/seed/solution/1200/800";
+  const primaryImage = project.images[0]?.url || null;
   const isPublished = project.status === "PUBLISHED";
 
   return (
@@ -128,7 +128,7 @@ export default async function PartnerSolutionDetailPage({
         <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 shadow-2xs">
           <span className="text-[11px] font-bold text-[#526267] uppercase tracking-wider block">Solution Type</span>
           <p className="text-sm font-bold text-[#102124] mt-1 truncate">
-            {project.projectType || "Full-Stack System"}
+            {project.projectType || "Not specified"}
           </p>
         </div>
 
@@ -144,18 +144,29 @@ export default async function PartnerSolutionDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           {/* Main Visual */}
-          <div className="bg-white rounded-3xl border border-[#D9E2E4] overflow-hidden shadow-xs">
-            <div className="relative aspect-video w-full bg-[#102124]/5">
-              <Image
-                src={primaryImage}
-                alt={project.title}
-                fill
-                className="object-cover"
-                referrerPolicy="no-referrer"
-                priority
-              />
+          {primaryImage ? (
+            <div className="bg-white rounded-3xl border border-[#D9E2E4] overflow-hidden shadow-xs">
+              <div className="relative aspect-video w-full bg-[#102124]/5">
+                <Image
+                  src={primaryImage}
+                  alt={project.title}
+                  fill
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                  unoptimized={primaryImage.startsWith("data:")}
+                  priority
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-[#D9E2E4] p-8 shadow-xs flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-2xl bg-[#F3F7F7] text-[#155761] flex items-center justify-center mb-2">
+                <Sparkles className="w-6 h-6 text-[#155761]" />
+              </div>
+              <p className="text-sm font-bold text-[#102124]">{project.title}</p>
+              <p className="text-xs text-[#526267] mt-1">No cover image uploaded for this solution</p>
+            </div>
+          )}
 
           {/* Description */}
           <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 space-y-4 shadow-xs">

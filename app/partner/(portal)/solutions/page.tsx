@@ -87,7 +87,7 @@ export default async function PartnerSolutionsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((proj) => {
-            const primaryImg = proj.images?.[0]?.url || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=500&fit=crop";
+            const primaryImg = proj.images?.[0]?.url || null;
 
             return (
               <div
@@ -97,11 +97,19 @@ export default async function PartnerSolutionsPage() {
                 <div>
                   {/* Thumbnail Banner — compact and properly sized */}
                   <div className="relative h-44 w-full bg-[#102124]/5 overflow-hidden">
-                    <img
-                      src={primaryImg}
-                      alt={proj.title}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                    />
+                    {primaryImg ? (
+                      <img
+                        src={primaryImg}
+                        alt={proj.title}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] p-4 text-center">
+                        <Layers className="w-8 h-8 text-[#155761]/60 mb-2" />
+                        <span className="text-xs font-semibold text-[#102124] line-clamp-1">{proj.title}</span>
+                        <span className="text-[10px] text-[#526267] mt-0.5">No cover image</span>
+                      </div>
+                    )}
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs ${
