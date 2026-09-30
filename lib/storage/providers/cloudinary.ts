@@ -42,6 +42,11 @@ export class CloudinaryStorageProvider implements StorageProvider {
    */
   async upload(file: File | Blob | Buffer, options: UploadOptions = {}): Promise<UploadResult> {
     if (!this.cloudName || !this.apiKey || !this.apiSecret) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(
+          "Cloudinary credentials (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not configured on the server."
+        );
+      }
       console.warn(
         "[Storage:Cloudinary] Cloudinary credentials not configured. Returning simulated mock asset for development."
       );

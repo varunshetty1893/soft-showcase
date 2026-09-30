@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // 2. Validate image type and size
+    // 2. Validate image type, size, and real file magic bytes
     try {
-      validateImageFile(file);
+      await validateImageFile(file);
     } catch (valErr) {
       return NextResponse.json(
         { error: valErr instanceof Error ? valErr.message : "Invalid image file" },

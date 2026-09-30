@@ -1,5 +1,7 @@
 // app/api/partner/uploads/route.ts
 // Partner API endpoint for uploading project screenshots and photos.
+// Enforces real file magic bytes validation and uploads to Cloudinary storage.
+// Does NOT allow or store base64 data URLs in the database.
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/session";
@@ -29,8 +31,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image file provided" }, { status: 400 });
     }
 
+    // Validate size, extension, MIME type, and real file magic bytes (Issue Task 4)
     try {
-      validateImageFile(file);
+      await validateImageFile(file);
     } catch (valErr) {
       return NextResponse.json(
         { error: valErr instanceof Error ? valErr.message : "Invalid image file" },
@@ -38,32 +41,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try uploading to configured storage provider
+    // Upload to configured storage provider (Cloudinary).
+    // If upload fails, return an error. Do NOT fall back to base64 data URLs.
     try {
       const result = await uploadImage(file, `soft-showcase/partners/${partner?.id || "temp"}`);
-      if (result?.url && !result.url.includes("unsplash.com")) {
-        return NextResponse.json({
-          success: true,
-          url: result.url,
-          storageKey: result.storageKey,
-        });
-      }
-    } catch {
-      // Fallback to inline Base64 data URL if external storage provider is offline/unconfigured
+      return NextResponse.json({
+        success: true,
+        url: result.url,
+        storageKey: result.storageKey,
+      });
+    } catch (uploadErr) {
+      const message = uploadErr instanceof Error ? uploadErr.message : "Cloudinary upload failed";
+      console.error("[Upload:Partner] Cloudinary upload failed:", message);
+      return NextResponse.json(
+        { error: `Image upload failed: ${message}. Cloudinary storage is currently unavailable.` },
+        { status: 502 }
+      );
     }
-
-    // Convert to Base64 data URL fallback so uploaded image works out-of-the-box
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString("base64");
-    const mimeType = file.type || "image/jpeg";
-    const dataUrl = `data:${mimeType};base64,${base64}`;
-
-    return NextResponse.json({
-      success: true,
-      url: dataUrl,
-      storageKey: `local-file-${Date.now()}`,
-    });
   } catch (error) {
     console.error("POST /api/partner/uploads error:", error);
     return NextResponse.json({ error: "Failed to upload image file" }, { status: 500 });

@@ -11,7 +11,8 @@ import { transactionCreateLimiter, getClientIp } from "@/lib/utils/rate-limit";
 function isValidEvidenceUrl(url: string | null | undefined): boolean {
   if (!url) return true;
   const trimmed = url.trim();
-  if (trimmed.startsWith("data:image/")) return true;
+  // Do NOT allow base64 images to be stored in the database
+  if (trimmed.startsWith("data:image/")) return false;
   if (trimmed.startsWith("/uploads/") || trimmed.startsWith("/api/partner/uploads")) return true;
   try {
     const parsed = new URL(trimmed);

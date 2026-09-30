@@ -221,7 +221,7 @@ export function PartnerSolutionForm({
   const handleAddPhotoByUrl = () => {
     const trimmed = newPhotoUrl.trim();
     if (!trimmed) return;
-    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("data:image/")) {
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
       setError("Please provide a valid image URL starting with http:// or https://");
       return;
     }
