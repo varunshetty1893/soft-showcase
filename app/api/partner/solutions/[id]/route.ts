@@ -2,6 +2,7 @@
 // Updates or deletes a partner's own solution.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
@@ -12,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,12 +21,7 @@ export async function GET(
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -75,20 +71,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Request size limit: reject payloads > 512KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 524288) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const { id } = await params;
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -163,25 +160,32 @@ export async function PUT(
       );
     }
 
-    const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
-      ? body.features
-      : [];
-    const specifications: { key: string; value: string; sortOrder?: number }[] = Array.isArray(
-      body.specifications
+    // Bounded metadata arrays (Issue 48)
+    const features: { feature: string; sortOrder?: number }[] = (
+      Array.isArray(body.features) ? body.features : []
     )
-      ? body.specifications
-      : [];
-    const faqs: { question: string; answer: string; sortOrder?: number }[] = Array.isArray(
-      body.faqs
-    )
-      ? body.faqs
-      : [];
+      .filter((f: any) => f && typeof f.feature === "string" && f.feature.trim())
+      .slice(0, 25);
 
-    const rawTechList: string[] = Array.isArray(body.technologyIds)
-      ? body.technologyIds
-      : Array.isArray(body.technologies)
-      ? body.technologies
-      : [];
+    const specifications: { key: string; value: string; sortOrder?: number }[] = (
+      Array.isArray(body.specifications) ? body.specifications : []
+    )
+      .filter((s: any) => s && typeof s.key === "string" && typeof s.value === "string" && s.key.trim())
+      .slice(0, 25);
+
+    const faqs: { question: string; answer: string; sortOrder?: number }[] = (
+      Array.isArray(body.faqs) ? body.faqs : []
+    )
+      .filter((f: any) => f && typeof f.question === "string" && typeof f.answer === "string" && f.question.trim())
+      .slice(0, 20);
+
+    const rawTechList: string[] = (
+      Array.isArray(body.technologyIds)
+        ? body.technologyIds
+        : Array.isArray(body.technologies)
+        ? body.technologies
+        : []
+    ).slice(0, 20);
 
     const resolvedTechIds: string[] = [];
     for (const item of rawTechList) {
@@ -195,42 +199,29 @@ export async function PUT(
         continue;
       }
 
-      const slug = trimmed
+      const techSlug = trimmed
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-      const existingByName = await db.technology.findFirst({
-        where: {
-          OR: [
-            { name: { equals: trimmed, mode: "insensitive" } },
-            { slug: slug },
-          ],
+      const tech = await db.technology.upsert({
+        where: { slug: techSlug || `tech-${trimmed.toLowerCase()}` },
+        update: {},
+        create: {
+          name: trimmed,
+          slug: techSlug || `tech-${Date.now()}`,
+          isActive: true,
         },
       }).catch(() => null);
 
-      if (existingByName) {
-        resolvedTechIds.push(existingByName.id);
-      } else {
-        const newTech = await db.technology.create({
-          data: {
-            name: trimmed,
-            slug: slug || `tech-${Date.now()}`,
-            isActive: true,
-          },
-        }).catch(() => null);
-
-        if (newTech) {
-          resolvedTechIds.push(newTech.id);
-        }
+      if (tech) {
+        resolvedTechIds.push(tech.id);
       }
     }
 
-    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
-      body.images
-    )
-      ? body.images
-      : [];
+    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = (
+      Array.isArray(body.images) ? body.images : []
+    ).slice(0, 15);
 
     const sanitizedImages = rawImages.filter((img) => img && typeof img.url === "string" && img.url.trim().length > 0);
     const hasPrimary = sanitizedImages.some((img) => img.isPrimary);
@@ -238,95 +229,117 @@ export async function PUT(
       sanitizedImages[0].isPrimary = true;
     }
 
-    const primaryImg = sanitizedImages.find((img) => img.isPrimary) || sanitizedImages[0];
-    const primaryImageUrl = primaryImg ? primaryImg.url.trim() : null;
+    // Atomically execute updates and audit log (Issue 45)
+    const updated = await db.$transaction(async (tx) => {
+      const proj = await tx.project.update({
+        where: { id },
+        data: {
+          title: data.title,
+          shortDescription: data.shortDescription,
+          fullDescription: data.fullDescription,
+          status: data.status,
+          priceMode: data.priceMode,
+          price: data.price,
+          demoUrl: data.demoUrl || null,
+          projectType: data.projectType,
+          whatsIncluded: data.whatsIncluded,
+          categoryId: data.categoryId,
+        },
+      });
 
-    const updated = await db.project.update({
-      where: { id },
-      data: {
-        title: data.title,
-        shortDescription: data.shortDescription,
-        fullDescription: data.fullDescription,
-        status: data.status,
-        priceMode: data.priceMode,
-        price: data.price,
-        demoUrl: data.demoUrl || null,
-        projectType: data.projectType,
-        whatsIncluded: data.whatsIncluded,
-        categoryId: data.categoryId,
-      },
+      // Update relational collections if provided
+      if (Array.isArray(body.features)) {
+        await tx.projectFeature.deleteMany({ where: { projectId: id } });
+        for (let i = 0; i < features.length; i++) {
+          await tx.projectFeature.create({
+            data: {
+              projectId: id,
+              feature: features[i].feature,
+              sortOrder: features[i].sortOrder ?? i + 1,
+            },
+          });
+        }
+      }
+
+      if (Array.isArray(body.specifications)) {
+        await tx.projectSpecification.deleteMany({ where: { projectId: id } });
+        for (let i = 0; i < specifications.length; i++) {
+          await tx.projectSpecification.create({
+            data: {
+              projectId: id,
+              key: specifications[i].key,
+              value: specifications[i].value,
+              sortOrder: specifications[i].sortOrder ?? i + 1,
+            },
+          });
+        }
+      }
+
+      if (Array.isArray(body.faqs)) {
+        await tx.projectFaq.deleteMany({ where: { projectId: id } });
+        for (let i = 0; i < faqs.length; i++) {
+          await tx.projectFaq.create({
+            data: {
+              projectId: id,
+              question: faqs[i].question,
+              answer: faqs[i].answer,
+              sortOrder: faqs[i].sortOrder ?? i + 1,
+            },
+          });
+        }
+      }
+
+      if (Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) {
+        await tx.projectTechnology.deleteMany({ where: { projectId: id } });
+        for (const techId of resolvedTechIds) {
+          await tx.projectTechnology.create({
+            data: {
+              projectId: id,
+              technologyId: techId,
+            },
+          });
+        }
+      }
+
+      if (sanitizedImages.length > 0) {
+        await tx.projectImage.deleteMany({ where: { projectId: id } });
+        for (let i = 0; i < sanitizedImages.length; i++) {
+          const img = sanitizedImages[i];
+          await tx.projectImage.create({
+            data: {
+              projectId: id,
+              url: img.url.trim(),
+              storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+              altText: img.altText || data.title,
+              isPrimary: img.isPrimary ?? (i === 0),
+              sortOrder: img.sortOrder ?? i + 1,
+            },
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "PARTNER_SOLUTION_UPDATED",
+          entityType: "Project",
+          entityId: id,
+          details: {
+            title: proj.title,
+            status: proj.status,
+            partnerId: partner.id,
+          },
+        },
+      }).catch(() => null);
+
+      return proj;
     });
 
-    // Update relational collections if provided
-    if (Array.isArray(body.features)) {
-      await db.projectFeature.deleteMany({ where: { projectId: id } }).catch(() => null);
-      for (let i = 0; i < features.length; i++) {
-        await db.projectFeature.create({
-          data: {
-            projectId: id,
-            feature: features[i].feature,
-            sortOrder: features[i].sortOrder ?? i + 1,
-          },
-        }).catch(() => null);
-      }
-    }
-
-    if (Array.isArray(body.specifications)) {
-      await db.projectSpecification.deleteMany({ where: { projectId: id } }).catch(() => null);
-      for (let i = 0; i < specifications.length; i++) {
-        await db.projectSpecification.create({
-          data: {
-            projectId: id,
-            key: specifications[i].key,
-            value: specifications[i].value,
-            sortOrder: specifications[i].sortOrder ?? i + 1,
-          },
-        }).catch(() => null);
-      }
-    }
-
-    if (Array.isArray(body.faqs)) {
-      await db.projectFaq.deleteMany({ where: { projectId: id } }).catch(() => null);
-      for (let i = 0; i < faqs.length; i++) {
-        await db.projectFaq.create({
-          data: {
-            projectId: id,
-            question: faqs[i].question,
-            answer: faqs[i].answer,
-            sortOrder: faqs[i].sortOrder ?? i + 1,
-          },
-        }).catch(() => null);
-      }
-    }
-
-    if (Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) {
-      await db.projectTechnology.deleteMany({ where: { projectId: id } }).catch(() => null);
-      for (const techId of resolvedTechIds) {
-        await db.projectTechnology.create({
-          data: {
-            projectId: id,
-            technologyId: techId,
-          },
-        }).catch(() => null);
-      }
-    }
-
-    if (sanitizedImages.length > 0) {
-      await db.projectImage.deleteMany({ where: { projectId: id } }).catch(() => null);
-      for (let i = 0; i < sanitizedImages.length; i++) {
-        const img = sanitizedImages[i];
-        await db.projectImage.create({
-          data: {
-            projectId: id,
-            url: img.url.trim(),
-            storageKey: img.storageKey || `img-${Date.now()}-${i}`,
-            altText: img.altText || data.title,
-            isPrimary: img.isPrimary ?? (i === 0),
-            sortOrder: img.sortOrder ?? i + 1,
-          },
-        }).catch(() => null);
-      }
-    }
+    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${updated.slug}`);
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ project: updated });
   } catch (err) {
@@ -340,7 +353,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -348,12 +361,7 @@ export async function DELETE(
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -380,7 +388,29 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await db.project.delete({ where: { id } });
+    await db.$transaction(async (tx) => {
+      await tx.project.delete({ where: { id } });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "PARTNER_SOLUTION_DELETED",
+          entityType: "Project",
+          entityId: id,
+          details: {
+            title: existing.title,
+            partnerId: partner.id,
+          },
+        },
+      }).catch(() => null);
+    });
+
+    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${existing.slug}`);
+    revalidatePath("/sitemap.xml");
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Failed to delete partner project:", err);

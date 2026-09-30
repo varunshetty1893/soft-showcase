@@ -34,6 +34,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Request size limit: reject payloads > 128KB (Issue 46)
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 131072) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
     // 2. Validate request body
     const body = await request.json();
     const parseResult = InquirySchema.safeParse(body);

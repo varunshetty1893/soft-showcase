@@ -3,7 +3,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Headphones } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { SupportTicketForm } from "@/components/partner/SupportTicketForm";
 import { APP_NAME } from "@/config/constants";
 

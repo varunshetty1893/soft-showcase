@@ -5,7 +5,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { ProviderTable, type ProviderTableRow } from "@/components/admin/ProviderTable";
 import { getAllProviders } from "@/lib/db/queries/providers";
 

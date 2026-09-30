@@ -5,18 +5,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
 import { getUserSupportTickets } from "@/lib/db/queries/support";
 import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import {
   Headphones,
   Plus,
   MessageSquare,
-  Clock,
   ArrowRight,
-  CheckCircle2,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 

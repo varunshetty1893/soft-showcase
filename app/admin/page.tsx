@@ -17,7 +17,7 @@ import {
   UploadCloud,
   History,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { InquiryStatusBadge } from "@/components/customer/InquiryStatusBadge";
 import { RequestStatusBadge } from "@/components/customer/RequestStatusBadge";
 

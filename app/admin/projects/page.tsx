@@ -5,7 +5,7 @@ import Link from "next/link";
 import ProjectTable from "@/components/admin/ProjectTable";
 import type { Metadata } from "next";
 import { PlusCircle, UploadCloud } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Projects — Admin | Soft Showcase",

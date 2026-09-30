@@ -50,9 +50,8 @@ export async function POST(req: Request) {
     );
 
     // Create or update user
-    let user;
     if (existingUser) {
-      user = await db.user.update({
+      await db.user.update({
         where: { id: existingUser.id },
         data: {
           name,
@@ -61,7 +60,7 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      user = await db.user.create({
+      await db.user.create({
         data: {
           name,
           email: normalizedEmail,

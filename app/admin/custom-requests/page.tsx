@@ -11,7 +11,7 @@ import {
   FileQuestion,
   Tag,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Custom Requests — Admin | Soft Showcase",

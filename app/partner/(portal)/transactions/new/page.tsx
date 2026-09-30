@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db/client";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
-import { ArrowLeft, Receipt } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { TransactionForm } from "@/components/partner/TransactionForm";
 import { APP_NAME } from "@/config/constants";
 

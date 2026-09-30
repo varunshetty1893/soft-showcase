@@ -8,18 +8,13 @@ import { CreateTicketSchema } from "@/lib/validation/support.schema";
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -54,18 +49,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Request size limit: reject payloads > 128KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 131072) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -96,25 +92,44 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
     const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
 
-    const ticket = await db.supportTicket.create({
-      data: {
-        ticketNumber,
-        requesterId: session.user.id,
-        requesterRole: session.user.role || "solution_partner",
-        subject: data.subject,
-        category: data.category,
-        priority: data.priority,
-        description: data.description,
-        status: "OPEN",
-        messages: {
-          create: {
-            senderId: session.user.id,
-            senderName: session.user.name || "Partner",
-            senderRole: session.user.role || "solution_partner",
-            message: data.description,
+    // Create ticket and initial message atomically
+    const ticket = await db.$transaction(async (tx) => {
+      const created = await tx.supportTicket.create({
+        data: {
+          ticketNumber,
+          requesterId: session.user.id,
+          requesterRole: session.user.role || "solution_partner",
+          subject: data.subject,
+          category: data.category,
+          priority: data.priority,
+          description: data.description,
+          status: "OPEN",
+          messages: {
+            create: {
+              senderId: session.user.id,
+              senderName: session.user.name || "Partner",
+              senderRole: session.user.role || "solution_partner",
+              message: data.description,
+            },
           },
         },
-      },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "SUPPORT_TICKET_CREATED",
+          entityType: "SupportTicket",
+          entityId: created.id,
+          details: {
+            ticketNumber,
+            subject: data.subject,
+            category: data.category,
+          },
+        },
+      }).catch(() => null);
+
+      return created;
     });
 
     return NextResponse.json({ ticket }, { status: 201 });

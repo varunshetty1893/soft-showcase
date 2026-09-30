@@ -5,23 +5,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { validateImageFile, uploadImage } from "@/lib/storage/storage-service";
-import { MAX_IMAGE_SIZE_BYTES } from "@/config/constants";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify partner profile exists
+    // Verify partner profile exists strictly by userId (Issue 42)
     const partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && !session.user.isAdmin) {

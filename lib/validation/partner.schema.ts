@@ -47,21 +47,23 @@ export const PartnerRegisterSchema = z
       .min(10, "Please provide a short professional description (at least 10 characters)")
       .max(1000, "Bio cannot exceed 1000 characters"),
     skills: z.union([
-      z.array(z.string()),
+      z.array(z.string().trim().max(50)).max(20, "Maximum 20 skills allowed"),
       z.string().transform((str) =>
         str
           .split(",")
-          .map((s) => s.trim())
+          .map((s) => s.trim().slice(0, 50))
           .filter(Boolean)
+          .slice(0, 20)
       ),
     ]),
     technologies: z.union([
-      z.array(z.string()),
+      z.array(z.string().trim().max(50)).max(20, "Maximum 20 technologies allowed"),
       z.string().transform((str) =>
         str
           .split(",")
-          .map((s) => s.trim())
+          .map((s) => s.trim().slice(0, 50))
           .filter(Boolean)
+          .slice(0, 20)
       ),
     ]),
     experience: z.string().trim().max(500).optional().nullable().or(z.literal("")),
@@ -104,3 +106,89 @@ export const PartnerStatusUpdateSchema = z.object({
 });
 
 export type PartnerStatusUpdateInput = z.infer<typeof PartnerStatusUpdateSchema>;
+
+export const PartnerProfileUpdateSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .min(2, "Display name must be at least 2 characters")
+    .max(80, "Display name cannot exceed 80 characters")
+    .optional(),
+  bio: z
+    .string()
+    .trim()
+    .max(1000, "Bio cannot exceed 1000 characters")
+    .optional()
+    .nullable(),
+  whatsappNumber: z
+    .string()
+    .trim()
+    .max(20)
+    .regex(/^\+?[1-9]\d{7,14}$/, "Please provide a valid WhatsApp number with country code")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  avatarUrl: z
+    .string()
+    .trim()
+    .url("Please provide a valid image URL")
+    .max(500)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  skills: z
+    .union([
+      z.array(z.string().trim().max(50)).max(20, "Maximum 20 skills allowed"),
+      z.string().transform((str) =>
+        str
+          .split(",")
+          .map((s) => s.trim().slice(0, 50))
+          .filter(Boolean)
+          .slice(0, 20)
+      ),
+    ])
+    .optional(),
+  technologies: z
+    .union([
+      z.array(z.string().trim().max(50)).max(20, "Maximum 20 technologies allowed"),
+      z.string().transform((str) =>
+        str
+          .split(",")
+          .map((s) => s.trim().slice(0, 50))
+          .filter(Boolean)
+          .slice(0, 20)
+      ),
+    ])
+    .optional(),
+  experience: z.string().trim().max(500).optional().nullable().or(z.literal("")),
+  portfolioUrl: z
+    .string()
+    .trim()
+    .url("Please provide a valid portfolio URL")
+    .max(300)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  githubUrl: z
+    .string()
+    .trim()
+    .url("Please provide a valid GitHub profile URL")
+    .max(300)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  linkedinUrl: z
+    .string()
+    .trim()
+    .url("Please provide a valid LinkedIn profile URL")
+    .max(300)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  location: z.string().trim().max(100).optional().nullable().or(z.literal("")),
+  showEmail: z.boolean().optional(),
+  showWhatsapp: z.boolean().optional(),
+});
+
+export type PartnerProfileUpdateInput = z.infer<typeof PartnerProfileUpdateSchema>;
+

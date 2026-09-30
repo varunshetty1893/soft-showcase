@@ -45,8 +45,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Request size limit: reject payloads > 128KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 131072) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const { id } = await params;
@@ -76,26 +82,42 @@ export async function POST(
 
     const data = parsed.data;
 
-    const message = await db.supportMessage.create({
-      data: {
-        ticketId: id,
-        senderId: session.user.id,
-        senderName: session.user.name || "User",
-        senderRole: session.user.role || (session.user.isAdmin ? "admin" : "solution_partner"),
-        message: data.message,
-        attachmentUrl: data.attachmentUrl || null,
-        attachmentName: data.attachmentName || null,
-      },
-    });
+    // Atomically create message and update ticket status
+    const message = await db.$transaction(async (tx) => {
+      const newStatus = session.user.isAdmin ? "WAITING_CUSTOMER" : "WAITING_ADMIN";
+      const createdMsg = await tx.supportMessage.create({
+        data: {
+          ticketId: id,
+          senderId: session.user.id,
+          senderName: session.user.name || "User",
+          senderRole: session.user.role || (session.user.isAdmin ? "admin" : "solution_partner"),
+          message: data.message,
+          attachmentUrl: data.attachmentUrl || null,
+          attachmentName: data.attachmentName || null,
+        },
+      });
 
-    // Update ticket status to WAITING_ADMIN if sent by partner/customer, or WAITING_CUSTOMER if sent by admin
-    const newStatus = session.user.isAdmin ? "WAITING_CUSTOMER" : "WAITING_ADMIN";
-    await db.supportTicket.update({
-      where: { id },
-      data: {
-        status: newStatus as any,
-        updatedAt: new Date(),
-      },
+      await tx.supportTicket.update({
+        where: { id },
+        data: {
+          status: newStatus as any,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "SUPPORT_MESSAGE_POSTED",
+          entityType: "SupportTicket",
+          entityId: id,
+          details: {
+            hasAttachment: Boolean(data.attachmentUrl),
+          },
+        },
+      }).catch(() => null);
+
+      return createdMsg;
     });
 
     return NextResponse.json({ message }, { status: 201 });

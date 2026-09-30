@@ -29,18 +29,13 @@ function isValidEvidenceUrl(url: string | null | undefined): boolean {
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -76,8 +71,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Request size limit: reject payloads > 256KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 262144) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const ip = getClientIp(req);
@@ -91,12 +92,7 @@ export async function POST(req: NextRequest) {
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -191,28 +187,48 @@ export async function POST(req: NextRequest) {
         ? "IN_PROGRESS"
         : data.deliveryStatus || "PENDING";
 
-    const transaction = await db.transaction.create({
-      data: {
-        transactionNumber,
-        partnerId: partner.id,
-        customerId,
-        customerName: data.customerName,
-        customerEmail: data.customerEmail,
-        customerWhatsapp: data.customerWhatsapp || null,
-        solutionId: data.solutionId || null,
-        enquiryId: data.enquiryId || null,
-        amount: data.amount as any,
-        currency: data.currency || "INR",
-        paymentMethod: data.paymentMethod || "UPI",
-        utrNumber: data.utrNumber,
-        paymentStatus: data.paymentEvidenceUrl ? "EVIDENCE_SUBMITTED" : "PENDING",
-        paymentEvidenceUrl: data.paymentEvidenceUrl || null,
-        paymentEvidenceNotes: data.paymentEvidenceNotes || null,
-        projectType: data.projectType,
-        description: data.description || null,
-        deliveryStatus: data.deliveryStatus,
-        verificationSource: "manual_provider_submission",
-      },
+    // Atomically create transaction and audit log
+    const transaction = await db.$transaction(async (tx) => {
+      const created = await tx.transaction.create({
+        data: {
+          transactionNumber,
+          partnerId: partner.id,
+          customerId,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerWhatsapp: data.customerWhatsapp || null,
+          solutionId: data.solutionId || null,
+          enquiryId: data.enquiryId || null,
+          amount: data.amount as any,
+          currency: data.currency || "INR",
+          paymentMethod: data.paymentMethod || "UPI",
+          utrNumber: data.utrNumber,
+          paymentStatus: data.paymentEvidenceUrl ? "EVIDENCE_SUBMITTED" : "PENDING",
+          paymentEvidenceUrl: data.paymentEvidenceUrl || null,
+          paymentEvidenceNotes: data.paymentEvidenceNotes || null,
+          projectType: data.projectType,
+          description: data.description || null,
+          deliveryStatus: initialDeliveryStatus,
+          verificationSource: "manual_provider_submission",
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "TRANSACTION_RECORDED",
+          entityType: "Transaction",
+          entityId: created.id,
+          details: {
+            transactionNumber,
+            amount: data.amount,
+            currency: data.currency,
+            partnerId: partner.id,
+          },
+        },
+      }).catch(() => null);
+
+      return created;
     });
 
     return NextResponse.json({ transaction }, { status: 201 });

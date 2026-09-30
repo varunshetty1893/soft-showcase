@@ -12,9 +12,38 @@ export const CreateTicketSchema = z.object({
 
 export type CreateTicketInput = z.infer<typeof CreateTicketSchema>;
 
+const ALLOWED_ATTACHMENT_HOSTS = [
+  "res.cloudinary.com",
+  "images.unsplash.com",
+  "raw.githubusercontent.com",
+  "picsum.photos",
+  "avatars.githubusercontent.com",
+];
+
+function isValidAttachmentUrl(val: string): boolean {
+  if (!val) return true;
+  if (val.startsWith("/uploads/")) return true;
+  try {
+    const url = new URL(val);
+    if (url.protocol !== "https:") return false;
+    return ALLOWED_ATTACHMENT_HOSTS.some(
+      (host) => url.hostname === host || url.hostname.endsWith(`.${host}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const CreateMessageSchema = z.object({
   message: z.string().trim().min(1, "Message cannot be empty").max(5000),
-  attachmentUrl: z.union([z.string().url("Please provide a valid URL"), z.literal(""), z.null()]).optional(),
+  attachmentUrl: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine(isValidAttachmentUrl, "Attachment URL must be a valid secure upload from an approved host")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
   attachmentName: z.string().trim().max(100).optional().nullable().or(z.literal("")),
 });
 

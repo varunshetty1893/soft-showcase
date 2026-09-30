@@ -186,8 +186,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Revalidate public catalog
+    // Revalidate public catalog, homepage, and detail caches (Issue 54)
+    revalidatePath("/");
     revalidatePath("/projects");
+    revalidatePath(`/projects/${project.slug}`);
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json(
       { success: true, message: "Project created successfully", project },

@@ -13,16 +13,10 @@ import {
   ExternalLink,
   Globe,
   CheckCircle2,
-  Clock,
-  Layers,
   Sparkles,
-  Tag,
-  DollarSign,
-  Calendar,
   Eye,
-  ShieldCheck,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
@@ -38,7 +32,7 @@ export default async function PartnerSolutionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { partner } = await getEffectivePartnerContext();
+  await getEffectivePartnerContext();
 
   const project = await db.project.findUnique({
     where: { id },

@@ -7,6 +7,8 @@ export async function getAllSupportTickets(filters?: {
   status?: string;
   requesterRole?: string;
   limit?: number;
+  page?: number;
+  pageSize?: number;
 }) {
   try {
     const where: Record<string, unknown> = {};
@@ -16,6 +18,10 @@ export async function getAllSupportTickets(filters?: {
     if (filters?.requesterRole && filters.requesterRole !== "ALL") {
       where.requesterRole = filters.requesterRole;
     }
+
+    const pageSize = filters?.pageSize || filters?.limit || 50;
+    const page = filters?.page || 1;
+    const skip = (page - 1) * pageSize;
 
     return await db.supportTicket.findMany({
       where,
@@ -28,7 +34,8 @@ export async function getAllSupportTickets(filters?: {
         },
       },
       orderBy: { updatedAt: "desc" },
-      take: filters?.limit || 100,
+      skip,
+      take: pageSize,
     });
   } catch (error) {
     console.warn("Failed to get all support tickets:", error);

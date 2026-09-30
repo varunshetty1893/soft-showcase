@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { getCustomerRequests } from "@/lib/db/queries/customer";
 import { RequestStatusBadge } from "@/components/customer/RequestStatusBadge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   FileCode2,
   PlusCircle,

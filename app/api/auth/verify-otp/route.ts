@@ -38,8 +38,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const hashedInput = hashSecretToken(otp);
-
     // Find token matching either the SHA-256 hash or legacy plaintext token (Issue 19)
     const tokenRecords = await db.verificationToken.findMany({
       where: {

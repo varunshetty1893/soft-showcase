@@ -232,18 +232,36 @@ export async function POST(req: NextRequest) {
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
 
-      await db.user.update({
-        where: { email },
-        data: {
-          passwordHash,
-          emailVerified: user.emailVerified || new Date(),
-        },
+      await db.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { email },
+          data: {
+            passwordHash,
+            emailVerified: user.emailVerified || new Date(),
+          },
+        });
+
+        // Revoke all active sessions (Issue 58)
+        await tx.session.deleteMany({
+          where: { userId: user.id },
+        });
+
+        // Clear tokens and reset attempts
+        await tx.verificationToken.deleteMany({
+          where: { identifier: `reset:${email}` },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "PASSWORD_RESET_COMPLETED",
+            entityType: "User",
+            entityId: user.id,
+            details: { email },
+          },
+        }).catch(() => null);
       });
 
-      // Clear tokens and reset attempts
-      await db.verificationToken.deleteMany({
-        where: { identifier: `reset:${email}` },
-      });
       passwordResetVerifyLimiter.reset(`verify:${email}`);
 
       return NextResponse.json({

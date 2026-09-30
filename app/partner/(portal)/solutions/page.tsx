@@ -3,8 +3,6 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
 import { getPartnerProjects } from "@/lib/db/queries/partner";
 import {
   Plus,
@@ -12,12 +10,8 @@ import {
   Edit2,
   ExternalLink,
   MessageSquare,
-  CheckCircle2,
-  Clock,
-  Code2,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { formatCurrency } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
@@ -28,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PartnerSolutionsPage() {
-  const { user, partner } = await getEffectivePartnerContext();
+  const { partner } = await getEffectivePartnerContext();
   const partnerId = partner.id;
   let projects = await getPartnerProjects(partnerId);
   if (projects.length === 0) {

@@ -12,16 +12,11 @@ import {
   Mail,
   MessageCircle,
   Clock,
-  CheckCircle2,
-  Calendar,
-  Layers,
   Sparkles,
   ExternalLink,
-  DollarSign,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -35,7 +30,7 @@ export default async function PartnerInquiryDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { partner } = await getEffectivePartnerContext();
+  await getEffectivePartnerContext();
 
   const inquiry = await db.inquiry.findUnique({
     where: { id },

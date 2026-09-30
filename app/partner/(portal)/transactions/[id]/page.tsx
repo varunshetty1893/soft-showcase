@@ -9,15 +9,9 @@ import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import {
   ArrowLeft,
   Receipt,
-  CheckCircle2,
-  Clock,
   ExternalLink,
-  ShieldCheck,
   User,
-  Layers,
-  FileText,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 

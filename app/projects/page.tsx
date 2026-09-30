@@ -16,6 +16,8 @@ import { DEFAULT_CATEGORIES } from "@/config/categories";
 import { APP_NAME, APP_URL } from "@/config/constants";
 import { ProjectCardData } from "@/components/projects/ProjectCard";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Browse Software Projects — Soft Showcase",
   description:

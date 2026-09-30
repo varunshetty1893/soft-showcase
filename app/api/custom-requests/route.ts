@@ -24,6 +24,12 @@ export async function POST(request: Request) {
       // outside request scope or unauthenticated
     }
 
+    // Request size limit: reject payloads > 128KB (Issue 46)
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 131072) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
     // 1. Rate Limiting Check (3 per IP per hour as per docs/26-custom-project-system.md)
     const ip = getClientIp(request);
     const rateLimit = customRequestLimiter.check(ip);
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
 
     // 4. Audit Log Entry
     await createAuditLog({
+      userId: customerId,
       action: "CUSTOM_REQUEST_RECEIVED",
       entityType: "CustomProjectRequest",
       entityId: customRequest.id,

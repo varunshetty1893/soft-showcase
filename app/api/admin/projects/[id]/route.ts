@@ -203,9 +203,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
     });
 
-    // Revalidate public catalog and detail caches
-    revalidatePath(`/projects/${project.slug}`);
+    // Revalidate public catalog, homepage, and detail caches (Issue 54)
+    revalidatePath("/");
     revalidatePath("/projects");
+    revalidatePath(`/projects/${project.slug}`);
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ success: true, message: "Project updated successfully", project });
   } catch (error) {
@@ -243,9 +245,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       },
     });
 
-    // Revalidate public catalog and detail caches
-    revalidatePath(`/projects/${existing.slug}`);
+    // Revalidate public catalog, homepage, and detail caches (Issue 54)
+    revalidatePath("/");
     revalidatePath("/projects");
+    revalidatePath(`/projects/${existing.slug}`);
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ success: true, message: "Project archived successfully" });
   } catch (error) {

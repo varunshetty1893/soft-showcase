@@ -14,12 +14,9 @@ import {
   ArrowRight,
   Clock,
   Sparkles,
-  Lock,
   Layers,
   Receipt,
   Headphones,
-  CheckSquare,
-  AlertCircle,
 } from "lucide-react";
 import { APP_NAME, APP_URL } from "@/config/constants";
 

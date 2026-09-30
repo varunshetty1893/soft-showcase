@@ -70,12 +70,29 @@ export async function POST(req: NextRequest) {
     // Hash and update new password
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
-    await db.user.update({
-      where: { id: sessionUser.id },
-      data: {
-        passwordHash: newPasswordHash,
-        emailVerified: dbUser.emailVerified || new Date(),
-      },
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: sessionUser.id },
+        data: {
+          passwordHash: newPasswordHash,
+          emailVerified: dbUser.emailVerified || new Date(),
+        },
+      });
+
+      // Clear any persisted active sessions (Issue 58)
+      await tx.session.deleteMany({
+        where: { userId: sessionUser.id },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: sessionUser.id,
+          action: "PASSWORD_CHANGED",
+          entityType: "User",
+          entityId: sessionUser.id,
+          details: { email: dbUser.email },
+        },
+      }).catch(() => null);
     });
 
     return NextResponse.json({

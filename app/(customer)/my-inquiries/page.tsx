@@ -4,11 +4,12 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { getCustomerInquiries } from "@/lib/db/queries/customer";
 import { InquiryStatusBadge } from "@/components/customer/InquiryStatusBadge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   MessageSquare,
   ArrowUpRight,
@@ -87,11 +88,17 @@ export default async function MyInquiriesPage() {
                   {/* Project Info */}
                   <div className="flex items-start gap-4">
                     {primaryImage ? (
-                      <img
-                        src={primaryImage}
-                        alt={inquiry.project.title}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#D9E2E4] shrink-0"
-                      />
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#D9E2E4] shrink-0">
+                        <Image
+                          src={primaryImage}
+                          alt={inquiry.project.title}
+                          fill
+                          sizes="64px"
+                          unoptimized={primaryImage.startsWith("data:")}
+                          referrerPolicy="no-referrer"
+                          className="object-cover"
+                        />
+                      </div>
                     ) : (
                       <div className="w-16 h-16 rounded-xl bg-[#F8FAFA] text-[#526267] border border-[#D9E2E4] flex items-center justify-center shrink-0">
                         <Store className="w-6 h-6 text-[#526267]" />

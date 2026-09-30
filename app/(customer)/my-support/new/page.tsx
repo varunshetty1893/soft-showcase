@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
-import { ArrowLeft, Headphones } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { SupportTicketForm } from "@/components/partner/SupportTicketForm";
 import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import { APP_NAME } from "@/config/constants";

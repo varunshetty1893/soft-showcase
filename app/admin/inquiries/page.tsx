@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Inquiries — Admin | Soft Showcase",

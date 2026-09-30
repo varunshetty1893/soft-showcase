@@ -8,13 +8,10 @@ import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import {
   Headphones,
   Plus,
-  MessageSquare,
   Clock,
   ArrowRight,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 

@@ -61,6 +61,56 @@ const projectFields = {
     .max(20, "Maximum 20 items in what's included")
     .default([]),
 
+  features: z
+    .array(
+      z.object({
+        feature: z.string().trim().min(2).max(250),
+        sortOrder: z.number().optional(),
+      })
+    )
+    .max(25, "Maximum 25 features allowed")
+    .optional(),
+
+  specifications: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(60),
+        value: z.string().trim().min(1).max(250),
+        sortOrder: z.number().optional(),
+      })
+    )
+    .max(25, "Maximum 25 specifications allowed")
+    .optional(),
+
+  faqs: z
+    .array(
+      z.object({
+        question: z.string().trim().min(3).max(250),
+        answer: z.string().trim().min(3).max(1000),
+        sortOrder: z.number().optional(),
+      })
+    )
+    .max(20, "Maximum 20 FAQs allowed")
+    .optional(),
+
+  technologies: z
+    .array(z.string().trim().max(60))
+    .max(20, "Maximum 20 technologies allowed")
+    .optional(),
+
+  images: z
+    .array(
+      z.object({
+        url: z.string().url("Please provide a valid image URL").max(500),
+        storageKey: z.string().max(120).optional(),
+        altText: z.string().max(200).optional(),
+        isPrimary: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      })
+    )
+    .max(15, "Maximum 15 images allowed")
+    .optional(),
+
   categoryId: z.string().min(1, "Please select a category"),
 
   providerId: z.string().min(1, "Please select a provider"),

@@ -2,6 +2,7 @@
 // Administrative partner approval, rejection, and verification management.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { PartnerStatusUpdateSchema } from "@/lib/validation/partner.schema";
@@ -10,8 +11,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch (e) {
     if (e instanceof AuthError) return authErrorResponse(e);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,71 +41,80 @@ export async function PATCH(
       applicationStatus === "suspended" ||
       applicationStatus === "rejected";
 
-    const updated = await db.projectProvider.update({
-      where: { id },
-      data: {
-        applicationStatus,
-        ...(isApproving
-          ? {
-              isActive: true,
-              showWhatsapp: true,
-              showEmail: true,
-              providerConsentConfirmed: true,
-              providerConsentConfirmedAt: new Date(),
-              verificationStatus: verificationStatus || "verified",
-            }
-          : isDeactivating
-          ? {
-              isActive: false,
-              ...(verificationStatus !== undefined ? { verificationStatus } : {}),
-            }
-          : {
-              ...(verificationStatus !== undefined ? { verificationStatus } : {}),
-            }),
-        ...(rejectionReason !== undefined ? { rejectionReason } : {}),
-        ...(verificationNotes !== undefined ? { verificationNotes } : {}),
-      },
-    });
-
-    if (isDeactivating) {
-      // Deactivating partner: change all their published projects to DRAFT
-      // so they disappear from the user side but stay as draft in the partner portal
-      await db.project.updateMany({
-        where: {
-          providerId: id,
-          status: "PUBLISHED",
-        },
+    // Atomically execute status change, project draft cascading, user role update, and audit log
+    const updated = await db.$transaction(async (tx) => {
+      const provider = await tx.projectProvider.update({
+        where: { id },
         data: {
-          status: "DRAFT",
+          applicationStatus,
+          ...(isApproving
+            ? {
+                isActive: true,
+                showWhatsapp: true,
+                showEmail: true,
+                providerConsentConfirmed: true,
+                providerConsentConfirmedAt: new Date(),
+                verificationStatus: verificationStatus || "verified",
+              }
+            : isDeactivating
+            ? {
+                isActive: false,
+                ...(verificationStatus !== undefined ? { verificationStatus } : {}),
+              }
+            : {
+                ...(verificationStatus !== undefined ? { verificationStatus } : {}),
+              }),
+          ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+          ...(verificationNotes !== undefined ? { verificationNotes } : {}),
         },
       });
-    }
 
-    // Also update associated user role if approved
-    if (updated.userId) {
-      await db.user.update({
-        where: { id: updated.userId },
+      if (isDeactivating) {
+        // Deactivating partner: change all their published projects to DRAFT
+        await tx.project.updateMany({
+          where: {
+            providerId: id,
+            status: "PUBLISHED",
+          },
+          data: {
+            status: "DRAFT",
+          },
+        });
+      }
+
+      // Also update associated user role if approved
+      if (provider.userId) {
+        await tx.user.update({
+          where: { id: provider.userId },
+          data: {
+            role: applicationStatus === "approved" ? "solution_partner" : "customer",
+          },
+        }).catch(() => null);
+      }
+
+      // Create audit log
+      await tx.auditLog.create({
         data: {
-          role: applicationStatus === "approved" ? "solution_partner" : "customer",
+          userId: session.user.id,
+          action: `PARTNER_${applicationStatus.toUpperCase()}`,
+          entityType: "ProjectProvider",
+          entityId: id,
+          details: {
+            applicationStatus,
+            verificationStatus,
+            rejectionReason,
+            adminNotes,
+          },
         },
       }).catch(() => null);
-    }
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: `PARTNER_${applicationStatus.toUpperCase()}`,
-        entityType: "ProjectProvider",
-        entityId: id,
-        details: {
-          applicationStatus,
-          verificationStatus,
-          rejectionReason,
-          adminNotes,
-        },
-      },
-    }).catch(() => null);
+      return provider;
+    });
+
+    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ provider: updated });
   } catch (err) {

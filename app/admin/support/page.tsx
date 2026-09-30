@@ -6,7 +6,6 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
 import { getAllSupportTickets } from "@/lib/db/queries/support";
 import { Headphones, MessageSquare, ArrowRight } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {

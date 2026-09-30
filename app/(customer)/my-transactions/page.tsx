@@ -5,19 +5,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
 import { getCustomerTransactions } from "@/lib/db/queries/transactions";
 import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import {
   Receipt,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
   MessageCircle,
-  ShieldCheck,
-  Package,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 

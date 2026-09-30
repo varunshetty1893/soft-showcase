@@ -6,9 +6,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
-import { ArrowLeft, Headphones, Shield, User, Clock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { SupportThreadViewer } from "@/components/partner/SupportThreadViewer";
-import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {

@@ -2,9 +2,6 @@
 // Partner customer enquiries dashboard.
 
 import type { Metadata } from "next";
-import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
 import { getPartnerInquiries } from "@/lib/db/queries/partner";
 import {
   Users,
@@ -12,15 +9,10 @@ import {
   Mail,
   MessageCircle,
   Clock,
-  ArrowRight,
-  CheckCircle2,
   DollarSign,
-  Calendar,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -29,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PartnerInquiriesPage() {
-  const { user, partner } = await getEffectivePartnerContext();
+  const { partner } = await getEffectivePartnerContext();
   const partnerId = partner.id;
   let inquiries = await getPartnerInquiries(partnerId);
   if (inquiries.length === 0) {

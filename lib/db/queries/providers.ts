@@ -37,11 +37,17 @@ export async function getProviderForProject(projectId: string) {
 }
 
 /**
- * Get all providers for admin listings.
+ * Get all providers for admin listings with pagination.
  */
-export async function getAllProviders() {
+export async function getAllProviders(options?: { page?: number; pageSize?: number }) {
+  const page = options?.page || 1;
+  const pageSize = options?.pageSize || 50;
+  const skip = (page - 1) * pageSize;
+
   return db.projectProvider.findMany({
     orderBy: { displayName: "asc" },
+    skip,
+    take: pageSize,
     include: { _count: { select: { projects: true } } },
   });
 }

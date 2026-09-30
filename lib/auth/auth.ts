@@ -85,6 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           image: user.image,
           isAdmin: user.isAdmin,
           role: userRole || (user.isAdmin ? "admin" : "customer"),
+          passwordHash: user.passwordHash,
         };
       },
     }),
@@ -110,6 +111,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
         token.role = (user as { role?: string }).role || (token.isAdmin ? "admin" : "customer");
+        token.pwdHash = (user as { passwordHash?: string | null }).passwordHash
+          ? (user as { passwordHash?: string | null }).passwordHash!.substring(0, 12)
+          : "";
         token.lastChecked = Date.now();
       }
 
@@ -130,13 +134,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const dbUser = await db.user.findUnique({
             where: { id: token.id as string },
-            select: { id: true, isAdmin: true, email: true, role: true },
+            select: { id: true, isAdmin: true, email: true, role: true, passwordHash: true },
           });
 
-          if (dbUser) {
-            const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
-            token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
-            token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
+          if (!dbUser) {
+            return {};
+          }
+
+          // Invalidate session if password was changed (Issue 58)
+          const currentPwdHash = dbUser.passwordHash ? dbUser.passwordHash.substring(0, 12) : "";
+          if (token.pwdHash && currentPwdHash && token.pwdHash !== currentPwdHash) {
+            return {};
+          }
+
+          const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
+          token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
+          token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
 
             // Look up partner profile strictly by stable user relationship (userId)
             let partnerProfile = await db.projectProvider.findFirst({
@@ -169,7 +182,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               token.partnerId = null;
               token.partnerStatus = null;
             }
-          }
         } catch (e) {
           console.warn("[Auth] Failed to refresh token from db:", e);
         }
@@ -179,7 +191,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async session({ session, token }) {
-      if (session.user && token) {
+      if (!token?.id) {
+        return null as any;
+      }
+      if (session.user) {
         session.user.id = token.id as string;
         session.user.isAdmin = (token.isAdmin as boolean) ?? false;
         session.user.role = (token.role as "customer" | "solution_partner" | "admin") || (token.isAdmin ? "admin" : "customer");

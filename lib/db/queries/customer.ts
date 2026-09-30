@@ -8,18 +8,31 @@ import { db } from "@/lib/db/client";
 
 /**
  * Fetch all inquiries submitted by a specific user.
- * Matches by customerId (if logged in at submission) OR by email.
+ * Automatically links any unlinked legacy guest inquiries matching the user's email to customerId.
  */
-export async function getCustomerInquiries(userId: string, email?: string | null) {
-  const whereClause = email
-    ? {
-        OR: [{ customerId: userId }, { email: email.toLowerCase() }],
-      }
-    : { customerId: userId };
+export async function getCustomerInquiries(
+  userId: string,
+  email?: string | null,
+  options?: { page?: number; pageSize?: number }
+) {
+  if (email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    // Link unlinked past inquiries submitted before account creation (Issue 43)
+    await db.inquiry.updateMany({
+      where: { email: normalizedEmail, customerId: null },
+      data: { customerId: userId },
+    }).catch(() => null);
+  }
+
+  const page = options?.page || 1;
+  const pageSize = options?.pageSize || 50;
+  const skip = (page - 1) * pageSize;
 
   return db.inquiry.findMany({
-    where: whereClause,
+    where: { customerId: userId },
     orderBy: { createdAt: "desc" },
+    skip,
+    take: pageSize,
     select: {
       id: true,
       name: true,
@@ -56,13 +69,21 @@ export async function getCustomerInquiries(userId: string, email?: string | null
 // ─── Custom Project Requests ──────────────────────────────────────────────────
 
 /**
- * Fetch all custom project requests submitted with a specific email address.
- * The schema has no userId on CustomProjectRequest, so we match by email.
+ * Fetch custom project requests for a customer with pagination.
  */
-export async function getCustomerRequests(email: string) {
+export async function getCustomerRequests(
+  email: string,
+  options?: { page?: number; pageSize?: number }
+) {
+  const page = options?.page || 1;
+  const pageSize = options?.pageSize || 50;
+  const skip = (page - 1) * pageSize;
+
   return db.customProjectRequest.findMany({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: { email: { equals: email.trim().toLowerCase(), mode: "insensitive" } },
     orderBy: { createdAt: "desc" },
+    skip,
+    take: pageSize,
     select: {
       id: true,
       projectTitle: true,

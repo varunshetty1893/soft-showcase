@@ -3,8 +3,6 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
 import { getPartnerDashboardStats } from "@/lib/db/queries/partner";
 import {
   Layers,
@@ -13,15 +11,10 @@ import {
   Headphones,
   Plus,
   ArrowRight,
-  Clock,
   CheckCircle2,
   TrendingUp,
-  AlertCircle,
-  ExternalLink,
-  MessageCircle,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { formatCurrency } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";

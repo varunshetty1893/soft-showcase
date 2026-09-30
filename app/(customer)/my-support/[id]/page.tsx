@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
-import { ArrowLeft, Headphones } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { SupportThreadViewer } from "@/components/partner/SupportThreadViewer";
 import { CustomerHeader } from "@/components/customer/CustomerHeader";
 import { formatDate } from "@/lib/utils/format";

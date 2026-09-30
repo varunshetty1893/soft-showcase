@@ -45,8 +45,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch (e) {
     if (e instanceof AuthError) return authErrorResponse(e);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,32 +70,35 @@ export async function PATCH(
 
     const isVerified = paymentStatus === "VERIFIED" || paymentStatus === "COMPLETED";
 
-    const updated = await db.transaction.update({
-      where: { id },
-      data: {
-        paymentStatus,
-        ...(deliveryStatus ? { deliveryStatus } : {}),
-        ...(adminNotes !== undefined ? { adminNotes } : {}),
-        ...(isVerified
-          ? { verifiedAt: new Date(), verifiedBy: session.user.id }
-          : {}),
-      },
-    });
-
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: `TRANSACTION_${paymentStatus}`,
-        entityType: "Transaction",
-        entityId: id,
-        details: {
-          transactionNumber: updated.transactionNumber,
+    const updated = await db.$transaction(async (tx) => {
+      const txUpdated = await tx.transaction.update({
+        where: { id },
+        data: {
           paymentStatus,
-          adminNotes,
+          ...(deliveryStatus ? { deliveryStatus } : {}),
+          ...(adminNotes !== undefined ? { adminNotes } : {}),
+          ...(isVerified
+            ? { verifiedAt: new Date(), verifiedBy: session.user.id }
+            : {}),
         },
-      },
-    }).catch(() => null);
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: `TRANSACTION_${paymentStatus}`,
+          entityType: "Transaction",
+          entityId: id,
+          details: {
+            transactionNumber: txUpdated.transactionNumber,
+            paymentStatus,
+            adminNotes,
+          },
+        },
+      }).catch(() => null);
+
+      return txUpdated;
+    });
 
     return NextResponse.json({ transaction: updated });
   } catch (err: unknown) {

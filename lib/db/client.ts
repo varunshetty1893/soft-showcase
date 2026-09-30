@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // lib/db/client.ts
 // Prisma client with resilient in-memory fallback for AI Studio.
 // If DATABASE_URL is not set or unreachable, an in-memory mock is used so the app boots and functions immediately.
@@ -1112,7 +1111,7 @@ if (hasValidDatabaseUrl) {
 
 let seedCheckTriggered = false;
 
-async function ensureDatabaseSeeded(p: PrismaClient) {
+export async function ensureDatabaseSeeded(p: PrismaClient) {
   if (seedCheckTriggered || prismaConnectionFailed || !hasValidDatabaseUrl) return;
   seedCheckTriggered = true;
 

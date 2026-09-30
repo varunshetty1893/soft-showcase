@@ -2,6 +2,7 @@
 // Handles creating and listing solutions for the authenticated partner.
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
@@ -9,18 +10,13 @@ import { slugify } from "@/lib/utils/slug";
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -50,18 +46,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Request size limit: reject payloads > 512KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 524288) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   try {
     let partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+      where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
@@ -74,13 +71,14 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Compute unique slug before validation
+    // Compute unique slug with race condition protection (Issue 53)
     const baseSlug = slugify(body.title || "solution");
     let finalSlug = baseSlug;
     let count = 1;
     while (await db.project.findUnique({ where: { slug: finalSlug } })) {
-      finalSlug = `${baseSlug}-${count}`;
+      finalSlug = `${baseSlug}-${count}-${Math.random().toString(36).substring(2, 6)}`;
       count++;
+      if (count > 5) break;
     }
 
     // Normalize price: if CONTACT or FREE, must be null
@@ -133,24 +131,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const features: { feature: string; sortOrder?: number }[] = Array.isArray(body.features)
-      ? body.features
-      : [];
-    const specifications: { key: string; value: string; sortOrder?: number }[] = Array.isArray(
-      body.specifications
+    // Bounded metadata arrays (Issue 48)
+    const features: { feature: string; sortOrder?: number }[] = (
+      Array.isArray(body.features) ? body.features : []
     )
-      ? body.specifications
-      : [];
-    const faqs: { question: string; answer: string; sortOrder?: number }[] = Array.isArray(
-      body.faqs
+      .filter((f) => f && typeof f.feature === "string" && f.feature.trim())
+      .slice(0, 25);
+
+    const specifications: { key: string; value: string; sortOrder?: number }[] = (
+      Array.isArray(body.specifications) ? body.specifications : []
     )
-      ? body.faqs
-      : [];
-    const rawTechList: string[] = Array.isArray(body.technologyIds)
-      ? body.technologyIds
-      : Array.isArray(body.technologies)
-      ? body.technologies
-      : [];
+      .filter((s) => s && typeof s.key === "string" && typeof s.value === "string" && s.key.trim())
+      .slice(0, 25);
+
+    const faqs: { question: string; answer: string; sortOrder?: number }[] = (
+      Array.isArray(body.faqs) ? body.faqs : []
+    )
+      .filter((f) => f && typeof f.question === "string" && typeof f.answer === "string" && f.question.trim())
+      .slice(0, 20);
+
+    const rawTechList: string[] = (
+      Array.isArray(body.technologyIds)
+        ? body.technologyIds
+        : Array.isArray(body.technologies)
+        ? body.technologies
+        : []
+    ).slice(0, 20);
 
     const resolvedTechIds: string[] = [];
     for (const item of rawTechList) {
@@ -169,37 +175,24 @@ export async function POST(req: NextRequest) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-      const existingByName = await db.technology.findFirst({
-        where: {
-          OR: [
-            { name: { equals: trimmed, mode: "insensitive" } },
-            { slug: slug },
-          ],
+      const tech = await db.technology.upsert({
+        where: { slug: slug || `tech-${trimmed.toLowerCase()}` },
+        update: {},
+        create: {
+          name: trimmed,
+          slug: slug || `tech-${Date.now()}`,
+          isActive: true,
         },
       }).catch(() => null);
 
-      if (existingByName) {
-        resolvedTechIds.push(existingByName.id);
-      } else {
-        const newTech = await db.technology.create({
-          data: {
-            name: trimmed,
-            slug: slug || `tech-${Date.now()}`,
-            isActive: true,
-          },
-        }).catch(() => null);
-
-        if (newTech) {
-          resolvedTechIds.push(newTech.id);
-        }
+      if (tech) {
+        resolvedTechIds.push(tech.id);
       }
     }
 
-    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = Array.isArray(
-      body.images
-    )
-      ? body.images
-      : [];
+    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = (
+      Array.isArray(body.images) ? body.images : []
+    ).slice(0, 15);
 
     const sanitizedImages = rawImages.filter((img) => img && typeof img.url === "string" && img.url.trim().length > 0);
     const hasPrimary = sanitizedImages.some((img) => img.isPrimary);
@@ -207,60 +200,82 @@ export async function POST(req: NextRequest) {
       sanitizedImages[0].isPrimary = true;
     }
 
-    const primaryImg = sanitizedImages.find((img) => img.isPrimary) || sanitizedImages[0];
-    const primaryImageUrl = primaryImg ? primaryImg.url.trim() : null;
+    // Atomically create solution and audit log (Issue 45)
+    const newProject = await db.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          title: data.title,
+          slug: finalSlug,
+          shortDescription: data.shortDescription,
+          fullDescription: data.fullDescription,
+          status: data.status || "DRAFT",
+          featured: false,
+          priceMode: data.priceMode,
+          price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
+          demoUrl: data.demoUrl || null,
+          projectType: data.projectType || "Web Application",
+          whatsIncluded: data.whatsIncluded || [],
+          categoryId: data.categoryId,
+          providerId: partner.id,
+          features: {
+            create: features.map((f, i) => ({
+              feature: f.feature,
+              sortOrder: f.sortOrder ?? i + 1,
+            })),
+          },
+          specifications: {
+            create: specifications.map((s, i) => ({
+              key: s.key,
+              value: s.value,
+              sortOrder: s.sortOrder ?? i + 1,
+            })),
+          },
+          faqs: {
+            create: faqs.map((faq, i) => ({
+              question: faq.question,
+              answer: faq.answer,
+              sortOrder: faq.sortOrder ?? i + 1,
+            })),
+          },
+          technologies: {
+            create: resolvedTechIds.map((techId) => ({
+              technologyId: techId,
+            })),
+          },
+          images: {
+            create: sanitizedImages.map((img, i) => ({
+              url: img.url.trim(),
+              storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+              altText: img.altText || data.title,
+              isPrimary: img.isPrimary ?? (i === 0),
+              sortOrder: img.sortOrder ?? i + 1,
+            })),
+          },
+        },
+      });
 
-    const newProject = await db.project.create({
-      data: {
-        title: data.title,
-        slug: finalSlug,
-        shortDescription: data.shortDescription,
-        fullDescription: data.fullDescription,
-        status: data.status || "DRAFT",
-        featured: false,
-        priceMode: data.priceMode,
-        price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
-        demoUrl: data.demoUrl || null,
-        projectType: data.projectType || "Web Application",
-        whatsIncluded: data.whatsIncluded || [],
-        categoryId: data.categoryId,
-        providerId: partner.id,
-        features: {
-          create: features.map((f, i) => ({
-            feature: f.feature,
-            sortOrder: f.sortOrder ?? i + 1,
-          })),
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "PARTNER_SOLUTION_CREATED",
+          entityType: "Project",
+          entityId: created.id,
+          details: {
+            title: created.title,
+            status: created.status,
+            partnerId: partner.id,
+          },
         },
-        specifications: {
-          create: specifications.map((s, i) => ({
-            key: s.key,
-            value: s.value,
-            sortOrder: s.sortOrder ?? i + 1,
-          })),
-        },
-        faqs: {
-          create: faqs.map((faq, i) => ({
-            question: faq.question,
-            answer: faq.answer,
-            sortOrder: faq.sortOrder ?? i + 1,
-          })),
-        },
-        technologies: {
-          create: resolvedTechIds.map((techId) => ({
-            technologyId: techId,
-          })),
-        },
-        images: {
-          create: sanitizedImages.map((img, i) => ({
-            url: img.url.trim(),
-            storageKey: img.storageKey || `img-${Date.now()}-${i}`,
-            altText: img.altText || data.title,
-            isPrimary: img.isPrimary ?? (i === 0),
-            sortOrder: img.sortOrder ?? i + 1,
-          })),
-        },
-      },
+      }).catch(() => null);
+
+      return created;
     });
+
+    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    revalidatePath("/");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${newProject.slug}`);
+    revalidatePath("/sitemap.xml");
 
     return NextResponse.json({ project: newProject }, { status: 201 });
   } catch (err: unknown) {

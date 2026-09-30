@@ -3,7 +3,6 @@
 // Stores state in shared memory + persisted disk state to reliably share limits across instances/workers.
 
 import fs from "fs";
-import path from "path";
 
 interface RateLimitOptions {
   /** Maximum number of requests per window */

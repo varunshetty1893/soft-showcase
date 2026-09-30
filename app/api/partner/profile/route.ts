@@ -4,22 +4,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
+import { PartnerProfileUpdateSchema } from "@/lib/validation/partner.schema";
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+    let partner = await db.projectProvider.findFirst({
+      where: { userId: session.user.id },
     });
+
+    // One-time fallback: if legacy unlinked record exists with user email, associate it to userId
+    if (!partner && session.user.email) {
+      const unlinked = await db.projectProvider.findFirst({
+        where: { email: session.user.email, userId: null },
+      });
+      if (unlinked) {
+        partner = await db.projectProvider.update({
+          where: { id: unlinked.id },
+          data: { userId: session.user.id },
+        });
+      }
+    }
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -34,25 +43,47 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Request size limit: reject payloads > 256KB (Issue 46)
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 262144) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+
   try {
-    const partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { email: session.user.email || "" },
-        ],
-      },
+    let partner = await db.projectProvider.findFirst({
+      where: { userId: session.user.id },
     });
+
+    if (!partner && session.user.email) {
+      const unlinked = await db.projectProvider.findFirst({
+        where: { email: session.user.email, userId: null },
+      });
+      if (unlinked) {
+        partner = await db.projectProvider.update({
+          where: { id: unlinked.id },
+          data: { userId: session.user.id },
+        });
+      }
+    }
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
     }
 
     const body = await req.json();
+    const parsed = PartnerProfileUpdateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const {
       displayName,
       bio,
@@ -67,7 +98,7 @@ export async function PATCH(req: NextRequest) {
       location,
       showEmail,
       showWhatsapp,
-    } = body;
+    } = parsed.data;
 
     const updated = await db.projectProvider.update({
       where: { id: partner.id },
@@ -76,15 +107,15 @@ export async function PATCH(req: NextRequest) {
         ...(bio !== undefined ? { bio } : {}),
         ...(whatsappNumber !== undefined ? { whatsappNumber } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-        ...(skills !== undefined ? { skills: Array.isArray(skills) ? skills : skills.split(",").map((s: string) => s.trim()).filter(Boolean) } : {}),
-        ...(technologies !== undefined ? { technologies: Array.isArray(technologies) ? technologies : technologies.split(",").map((s: string) => s.trim()).filter(Boolean) } : {}),
+        ...(skills !== undefined ? { skills } : {}),
+        ...(technologies !== undefined ? { technologies } : {}),
         ...(experience !== undefined ? { experience } : {}),
         ...(portfolioUrl !== undefined ? { portfolioUrl } : {}),
         ...(githubUrl !== undefined ? { githubUrl } : {}),
         ...(linkedinUrl !== undefined ? { linkedinUrl } : {}),
         ...(location !== undefined ? { location } : {}),
-        ...(showEmail !== undefined ? { showEmail: Boolean(showEmail) } : {}),
-        ...(showWhatsapp !== undefined ? { showWhatsapp: Boolean(showWhatsapp) } : {}),
+        ...(showEmail !== undefined ? { showEmail } : {}),
+        ...(showWhatsapp !== undefined ? { showWhatsapp } : {}),
       },
     });
 
