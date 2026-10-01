@@ -232,7 +232,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // ─── DELETE /api/admin/projects/[id] ─────────────────────────────────────────
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const session = await requireAdmin();
     const { id } = await params;
@@ -242,32 +242,76 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Soft-delete: archive instead of hard delete (preserves inquiry history)
-    const project = await db.project.update({
-      where: { id },
-      data: { status: "ARCHIVED" },
+    const searchParams = req.nextUrl?.searchParams;
+    const action = searchParams?.get("action");
+
+    // Soft-delete if explicit archive action requested
+    if (action === "archive") {
+      const project = await db.project.update({
+        where: { id },
+        data: { status: "ARCHIVED" },
+      });
+
+      await db.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "PROJECT_ARCHIVED",
+          entityType: "Project",
+          entityId: project.id,
+          details: { title: project.title },
+        },
+      });
+
+      revalidatePath("/");
+      revalidatePath("/projects");
+      revalidatePath(`/projects/${existing.slug}`);
+      revalidatePath("/sitemap.xml");
+
+      return NextResponse.json({ success: true, message: "Project archived successfully" });
+    }
+
+    // Permanent delete: atomically remove child records and the project
+    await db.$transaction(async (tx) => {
+      // 1. Disassociate from transactions so transaction receipts are preserved
+      await tx.transaction.updateMany({
+        where: { solutionId: id },
+        data: { solutionId: null },
+      });
+
+      // 2. Delete any inquiries associated with this project
+      await tx.inquiry.deleteMany({
+        where: { projectId: id },
+      });
+
+      // 3. Delete the project (cascade removes images, features, specs, faqs, technologies)
+      await tx.project.delete({
+        where: { id },
+      });
+
+      // 4. Record audit log
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "PROJECT_DELETED",
+          entityType: "Project",
+          entityId: id,
+          details: { title: existing.title, slug: existing.slug },
+        },
+      });
     });
 
-    await db.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "PROJECT_ARCHIVED",
-        entityType: "Project",
-        entityId: project.id,
-        details: { title: project.title },
-      },
-    });
-
-    // Revalidate public catalog, homepage, and detail caches (Issue 54)
+    // Revalidate public catalog, homepage, and detail caches
     revalidatePath("/");
     revalidatePath("/projects");
     revalidatePath(`/projects/${existing.slug}`);
     revalidatePath("/sitemap.xml");
+    revalidatePath("/admin/projects");
+    revalidatePath("/partner/solutions");
 
-    return NextResponse.json({ success: true, message: "Project archived successfully" });
+    return NextResponse.json({ success: true, message: "Project deleted successfully" });
   } catch (error) {
     if (error instanceof AuthError) return authErrorResponse(error);
     console.error("DELETE /api/admin/projects/[id] error:", error);
-    return NextResponse.json({ error: "Failed to archive project" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   }
 }

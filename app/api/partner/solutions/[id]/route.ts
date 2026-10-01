@@ -413,6 +413,18 @@ export async function DELETE(
     }
 
     await db.$transaction(async (tx) => {
+      // 1. Disassociate from transactions so transaction receipts remain intact
+      await tx.transaction.updateMany({
+        where: { solutionId: id },
+        data: { solutionId: null },
+      });
+
+      // 2. Delete child inquiries
+      await tx.inquiry.deleteMany({
+        where: { projectId: id },
+      });
+
+      // 3. Delete the project (cascade removes images, features, specs, faqs, technologies)
       await tx.project.delete({ where: { id } });
 
       await tx.auditLog.create({
@@ -429,13 +441,15 @@ export async function DELETE(
       }).catch(() => null);
     });
 
-    // Revalidate public catalog, homepage, and sitemap (Issue 54)
+    // Revalidate public catalog, homepage, sitemap, and dashboards
     revalidatePath("/");
     revalidatePath("/projects");
     revalidatePath(`/projects/${existing.slug}`);
     revalidatePath("/sitemap.xml");
+    revalidatePath("/partner/solutions");
+    revalidatePath("/admin/projects");
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Solution deleted successfully" });
   } catch (err) {
     console.error("Failed to delete partner project:", err);
     return NextResponse.json({ error: "Failed to delete solution" }, { status: 500 });

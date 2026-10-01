@@ -557,6 +557,29 @@ export function PartnerSolutionForm({
     }
   };
 
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const handleDeleteSolution = async () => {
+    if (!initialData.id) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/partner/solutions/${initialData.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to delete solution");
+      }
+      router.push("/partner/solutions");
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete solution. Please try again.");
+      setShowDeleteModal(false);
+      setDeleting(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
       {error && (
@@ -1323,13 +1346,26 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── Submit / Cancel Footer ────────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-4 border-t border-[#D9E2E4]">
-        <Link
-          href="/partner/solutions"
-          className="text-xs font-semibold text-[#526267] hover:text-[#102124] transition-colors"
-        >
-          Cancel and return to Solutions
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[#D9E2E4]">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/partner/solutions"
+            className="text-xs font-semibold text-[#526267] hover:text-[#102124] transition-colors"
+          >
+            Cancel and return to Solutions
+          </Link>
+
+          {isEditing && initialData.id && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="px-3.5 py-2 text-xs font-medium text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 hover:bg-rose-600 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete Solution
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           <Button
@@ -1341,6 +1377,39 @@ export function PartnerSolutionForm({
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#D9E2E4] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-base font-bold text-rose-700 mb-2 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Delete Solution
+            </h3>
+            <p className="text-xs text-[#526267] mb-6 leading-relaxed">
+              Are you sure you want to permanently delete this solution? This will remove all associated screenshots, specifications, features, and inquiries. This action cannot be undone.
+            </p>
+            <div className="flex gap-2.5 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-3.5 py-1.5 rounded-xl border border-[#D9E2E4] text-xs font-medium text-[#526267] hover:bg-[#F3F7F7] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSolution}
+                disabled={deleting}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                {deleting ? "Deleting…" : "Permanently Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

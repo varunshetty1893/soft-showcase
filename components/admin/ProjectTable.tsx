@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, ExternalLink, Edit3, Archive, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Search, ExternalLink, Edit3, Archive, Trash2, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +66,11 @@ export default function ProjectTable() {
   // Archive confirmation
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [archivingTitle, setArchivingTitle] = useState<string>("");
+
+  // Delete confirmation
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingTitle, setDeletingTitle] = useState<string>("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Quick toggle featured status
   const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
@@ -158,7 +163,7 @@ export default function ProjectTable() {
   async function confirmArchive() {
     if (!archivingId) return;
     try {
-      const res = await fetch(`/api/admin/projects/${archivingId}`, {
+      const res = await fetch(`/api/admin/projects/${archivingId}?action=archive`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to archive");
@@ -168,6 +173,34 @@ export default function ProjectTable() {
     } catch {
       setError("Failed to archive project. Please try again.");
       setArchivingId(null);
+    }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
+  async function confirmDelete() {
+    if (!deletingId) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${deletingId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to delete project");
+      }
+      setDeletingId(null);
+      fetchProjects();
+      router.refresh();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to delete project. Please try again."
+      );
+      setDeletingId(null);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -357,12 +390,23 @@ export default function ProjectTable() {
                             setArchivingId(project.id);
                             setArchivingTitle(project.title);
                           }}
-                          className="inline-flex items-center gap-1 text-[11px] text-rose-700 hover:text-rose-900 border border-rose-200 hover:bg-rose-50 px-2 py-1 rounded-lg transition cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] text-amber-800 hover:text-amber-900 border border-amber-200 hover:bg-amber-50 px-2 py-1 rounded-lg transition cursor-pointer"
                         >
                           <Archive className="w-3 h-3" />
                           Archive
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeletingId(project.id);
+                          setDeletingTitle(project.title);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] text-rose-700 hover:text-white border border-rose-200 hover:border-rose-600 hover:bg-rose-600 px-2 py-1 rounded-lg transition cursor-pointer font-medium"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -427,6 +471,42 @@ export default function ProjectTable() {
                 className="text-xs"
               >
                 Archive Project
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#D9E2E4] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-base font-bold text-rose-700 mb-2 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Delete Project
+            </h3>
+            <p className="text-xs text-[#526267] mb-6 leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-[#102124] font-semibold">{deletingTitle}</strong>?{" "}
+              This action cannot be undone. All project screenshots, specifications, features, and inquiries will be permanently removed.
+            </p>
+            <div className="flex gap-2.5 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeletingId(null)}
+                disabled={isDeleting}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="text-xs"
+              >
+                {isDeleting ? "Deleting…" : "Permanently Delete"}
               </Button>
             </div>
           </div>

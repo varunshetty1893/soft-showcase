@@ -14,8 +14,9 @@ import {
   FileCode,
   Plus,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 
 export interface PartnerSolutionItem {
@@ -45,9 +46,37 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
   const [togglingId, setTogglingId] = React.useState<string | null>(null);
   const [errorNotice, setErrorNotice] = React.useState<string | null>(null);
 
+  // Delete solution state
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [deletingTitle, setDeletingTitle] = React.useState<string>("");
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
   React.useEffect(() => {
     setProjects(initialProjects);
   }, [initialProjects]);
+
+  const handleDeleteSolution = async () => {
+    if (!deletingId) return;
+    setIsDeleting(true);
+    setErrorNotice(null);
+    try {
+      const res = await fetch(`/api/partner/solutions/${deletingId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to delete solution");
+      }
+      setProjects((prev) => prev.filter((p) => p.id !== deletingId));
+      setDeletingId(null);
+      router.refresh();
+    } catch (err: any) {
+      setErrorNotice(err?.message || "Failed to delete solution. Please try again.");
+      setDeletingId(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleToggleFeatured = async (project: PartnerSolutionItem) => {
     const nextFeatured = !project.featured;
@@ -280,12 +309,59 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
                     <Edit2 className="w-3 h-3" />
                     <span>Edit</span>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletingId(proj.id);
+                      setDeletingTitle(proj.title);
+                    }}
+                    className="h-7 px-2.5 text-xs gap-1 font-semibold inline-flex items-center text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 hover:bg-rose-600 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete</span>
+                  </button>
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#D9E2E4] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-base font-bold text-rose-700 mb-2 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Delete Solution
+            </h3>
+            <p className="text-xs text-[#526267] mb-6 leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-[#102124] font-semibold">{deletingTitle}</strong>?{" "}
+              This will remove the solution from your dashboard and the public catalog. This action cannot be undone.
+            </p>
+            <div className="flex gap-2.5 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeletingId(null)}
+                disabled={isDeleting}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteSolution}
+                disabled={isDeleting}
+                className="text-xs"
+              >
+                {isDeleting ? "Deleting…" : "Permanently Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { ImageUploader, type ProjectImageItem } from "@/components/admin/ImageUploader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -169,6 +170,28 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteProject() {
+    if (!projectId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to delete project");
+      }
+      router.push("/admin/projects");
+      router.refresh();
+    } catch (err: any) {
+      setGlobalError(err?.message || "Failed to delete project. Please try again.");
+      setShowDeleteModal(false);
+      setDeleting(false);
+    }
+  }
 
   // ── Load selectors ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -735,14 +758,27 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
       </div>
 
       {/* ── Submit Bar ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 pt-2">
-        <button
-          type="button"
-          onClick={() => router.push("/admin/projects")}
-          className="px-4 py-2 text-sm text-[#526267] hover:text-[#102124] border border-[#D9E2E4] hover:bg-[#F3F7F7] rounded-xl transition cursor-pointer"
-        >
-          Cancel
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[#D9E2E4]">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => router.push("/admin/projects")}
+            className="px-4 py-2 text-sm text-[#526267] hover:text-[#102124] border border-[#D9E2E4] hover:bg-[#F3F7F7] rounded-xl transition cursor-pointer"
+          >
+            Cancel
+          </button>
+
+          {isEditing && projectId && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="px-4 py-2 text-sm text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 hover:bg-rose-600 rounded-xl transition cursor-pointer font-medium flex items-center gap-1.5 shadow-2xs"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Project
+            </button>
+          )}
+        </div>
 
         <div className="flex gap-3">
           {/* Save as Draft shortcut */}
@@ -776,6 +812,39 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#D9E2E4] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-base font-bold text-rose-700 mb-2 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Delete Project
+            </h3>
+            <p className="text-xs text-[#526267] mb-6 leading-relaxed">
+              Are you sure you want to permanently delete this project? This will remove all associated media, specifications, features, and inquiries. This action cannot be undone.
+            </p>
+            <div className="flex gap-2.5 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-3.5 py-1.5 rounded-xl border border-[#D9E2E4] text-xs font-medium text-[#526267] hover:bg-[#F3F7F7] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProject}
+                disabled={deleting}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                {deleting ? "Deleting…" : "Permanently Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
