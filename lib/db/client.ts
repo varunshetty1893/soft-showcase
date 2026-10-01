@@ -1390,9 +1390,9 @@ export const db = new Proxy(
   {
     get(_target, prop: string) {
       if (prop === "$transaction") {
-        return async (callbackOrArray: any) => {
+        return async (callbackOrArray: any, options?: any) => {
           if (realPrisma && !prismaConnectionFailed) {
-            return (realPrisma as any).$transaction(callbackOrArray);
+            return (realPrisma as any).$transaction(callbackOrArray, options);
           }
 
           // In-memory mock atomic transaction with rollback snapshot
