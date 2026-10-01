@@ -4,8 +4,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, ExternalLink, Edit3, Archive, AlertCircle, Sparkles } from "lucide-react";
+import { Search, ExternalLink, Edit3, Archive, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -65,6 +66,54 @@ export default function ProjectTable() {
   // Archive confirmation
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [archivingTitle, setArchivingTitle] = useState<string>("");
+
+  // Quick toggle featured status
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
+
+  async function handleToggleFeatured(project: ProjectRow) {
+    const nextFeatured = !project.featured;
+    setTogglingFeaturedId(project.id);
+
+    // Optimistic update
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        projects: prev.projects.map((p) =>
+          p.id === project.id ? { ...p, featured: nextFeatured } : p
+        ),
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/admin/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured: nextFeatured }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to update featured status");
+      }
+    } catch (err: unknown) {
+      // Revert optimistic update on failure
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          projects: prev.projects.map((p) =>
+            p.id === project.id ? { ...p, featured: project.featured } : p
+          ),
+        };
+      });
+      setError(
+        err instanceof Error ? err.message : "Failed to toggle featured status"
+      );
+    } finally {
+      setTogglingFeaturedId(null);
+    }
+  }
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -199,12 +248,17 @@ export default function ProjectTable() {
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
                       {project.images[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={project.images[0].url}
-                          alt={project.title}
-                          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-[#D9E2E4]"
-                        />
+                        <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-[#D9E2E4]">
+                          <Image
+                            src={project.images[0].url}
+                            alt={project.title}
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                            referrerPolicy="no-referrer"
+                            unoptimized={project.images[0].url.startsWith("data:")}
+                          />
+                        </div>
                       ) : (
                         <div className="w-10 h-10 rounded-xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center shrink-0 font-semibold text-xs">
                           App
@@ -243,16 +297,37 @@ export default function ProjectTable() {
                     <StatusBadge status={project.status} />
                   </td>
 
-                  {/* Featured */}
+                  {/* Featured Toggle Button */}
                   <td className="px-4 py-3.5 text-center">
-                    {project.featured ? (
-                      <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-xs" title="Featured">
-                        <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                        Yes
-                      </span>
-                    ) : (
-                      <span className="text-[#526267]">—</span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeatured(project)}
+                      disabled={togglingFeaturedId === project.id}
+                      title={
+                        project.featured
+                          ? "Featured on homepage & catalog. Click to unfeature."
+                          : "Not featured. Click to mark as featured."
+                      }
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer select-none active:scale-95 ${
+                        project.featured
+                          ? "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs"
+                          : "bg-gray-50 hover:bg-emerald-50 text-gray-400 hover:text-emerald-700 border border-dashed border-gray-300 hover:border-emerald-300"
+                      }`}
+                    >
+                      {togglingFeaturedId === project.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                      ) : project.featured ? (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 fill-amber-500 text-amber-500 shrink-0" />
+                          <span>Featured</span>
+                        </>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[11px]">
+                          <span className="text-gray-400 group-hover:text-emerald-500">+</span>
+                          <span>Feature</span>
+                        </span>
+                      )}
+                    </button>
                   </td>
 
                   {/* Actions */}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/lib/cart/cart-context";
 import { buttonVariants } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils/format";
@@ -105,12 +106,17 @@ export function CartPageContent() {
                 {/* Image */}
                 <div className="w-full sm:w-28 h-28 sm:h-20 rounded-xl bg-[#F3F7F7] overflow-hidden shrink-0 border border-[#D9E2E4]">
                   {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt={`${item.title} project preview`}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={item.imageUrl}
+                        alt={`${item.title} project preview`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, 112px"
+                        className="object-cover"
+                        referrerPolicy="no-referrer"
+                        unoptimized={item.imageUrl.startsWith("data:")}
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#155761]">
                       Soft Showcase

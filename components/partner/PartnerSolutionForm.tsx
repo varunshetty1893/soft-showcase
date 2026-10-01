@@ -17,6 +17,9 @@ import {
   Upload,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Loader2,
   Info,
   X,
   ExternalLink,
@@ -77,6 +80,9 @@ export function PartnerSolutionForm({
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
     initialData?.status || "PUBLISHED"
+  );
+  const [featured, setFeatured] = React.useState<boolean>(
+    Boolean(initialData?.featured)
   );
 
   // Deliverables (what's included - starts empty, no automatic pre-filling)
@@ -167,6 +173,8 @@ export function PartnerSolutionForm({
   const [newPhotoUrl, setNewPhotoUrl] = React.useState("");
   const [newPhotoCaption, setNewPhotoCaption] = React.useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState<string | null>(null);
+  const [dragActive, setDragActive] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = React.useState(false);
@@ -229,17 +237,21 @@ export function PartnerSolutionForm({
     setError(null);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processFilesUpload = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     setIsUploadingPhoto(true);
+    setUploadProgress(`Preparing ${files.length} photo(s)...`);
     setError(null);
 
     try {
       const addedPhotos: PhotoItem[] = [];
-      for (let i = 0; i < files.length; i++) {
+      const total = files.length;
+
+      for (let i = 0; i < total; i++) {
         const file = files[i];
+        setUploadProgress(`Uploading photo ${i + 1} of ${total} (${file.name})...`);
+
         const formData = new FormData();
         formData.append("file", file);
 
@@ -279,13 +291,40 @@ export function PartnerSolutionForm({
       }
 
       setPhotos((prev) => [...prev, ...addedPhotos]);
+      setUploadProgress(null);
     } catch (err: any) {
       setError(err?.message || "Failed to upload image file");
     } finally {
       setIsUploadingPhoto(false);
+      setUploadProgress(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      await processFilesUpload(e.target.files);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFilesUpload(e.dataTransfer.files);
     }
   };
 
@@ -314,14 +353,23 @@ export function PartnerSolutionForm({
     );
   };
 
-  const handleMovePhoto = (index: number, direction: "up" | "down") => {
-    const newIdx = direction === "up" ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= photos.length) return;
+  const handleMovePhoto = (index: number, direction: "left" | "right" | "up" | "down") => {
+    let newIdx = index;
+    if (direction === "left") {
+      newIdx = index - 1;
+    } else if (direction === "right") {
+      newIdx = index + 1;
+    } else if (direction === "up") {
+      newIdx = index >= 3 ? index - 3 : index - 1;
+    } else if (direction === "down") {
+      newIdx = index + 3 < photos.length ? index + 3 : index + 1;
+    }
+
+    if (newIdx < 0 || newIdx >= photos.length || newIdx === index) return;
     setPhotos((prev) => {
       const copy = [...prev];
-      const temp = copy[index];
-      copy[index] = copy[newIdx];
-      copy[newIdx] = temp;
+      const [moved] = copy.splice(index, 1);
+      copy.splice(newIdx, 0, moved);
       return copy;
     });
   };
@@ -447,6 +495,7 @@ export function PartnerSolutionForm({
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
         status,
+        featured: Boolean(featured),
         whatsIncluded: whatsIncluded.filter((w) => w && w.trim()),
         features: cleanedFeatures,
         specifications: specifications
@@ -651,6 +700,23 @@ export function PartnerSolutionForm({
               className="mt-1"
             />
           </div>
+
+          {/* Featured Solution Toggle */}
+          <div className="sm:col-span-6 pt-1">
+            <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-[#D9E2E4] bg-[#F8FAFA] hover:bg-white transition-colors">
+              <input
+                id="solution-featured"
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+                className="w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761] cursor-pointer"
+              />
+              <label htmlFor="solution-featured" className="text-xs font-semibold text-[#102124] flex items-center gap-2 cursor-pointer select-none">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                <span>Mark as Featured Solution (highlighted in catalog top recommendations and homepage)</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -679,18 +745,60 @@ export function PartnerSolutionForm({
               </p>
             </div>
           </div>
+
+          {/* Sizing Guide Banner */}
+          <div className="mt-3 p-3.5 rounded-2xl bg-[#DDF4EC]/80 border border-[#2F7D78]/25 text-xs text-[#155761] flex items-start gap-2.5">
+            <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#2F7D78]" />
+            <div>
+              <p className="font-bold">Recommended Image Dimensions:</p>
+              <p className="mt-0.5 text-[#10474F] leading-relaxed">
+                <strong>1200 × 675 px</strong> (exact 16:9 aspect ratio) or <strong>1600 × 900 px</strong> (HiDPI / Retina).
+                All catalog listing cards and project detail showcases are designed around 16:9. Using 16:9 ensures your screenshots display edge-to-edge without any cropping or black letterboxing. Max 5MB per file (PNG, JPG, WebP).
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Adding New Photos: File Upload or Image URL */}
+        {/* Active Uploading Banner */}
+        {isUploadingPhoto && (
+          <div className="flex items-center gap-3 p-4 bg-[#DDF4EC] border border-[#2F7D78]/40 rounded-2xl text-xs text-[#155761] font-semibold animate-pulse shadow-xs">
+            <Loader2 className="w-5 h-5 animate-spin shrink-0 text-[#2F7D78]" />
+            <div className="space-y-0.5">
+              <p className="font-bold">{uploadProgress || "Uploading & Optimizing Photo(s)..."}</p>
+              <p className="text-[11px] text-[#2D5B60] font-normal">
+                Transferring screenshots to secure storage and generating gallery thumbnails. Please wait a moment.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Adding New Photos: File Upload, Drag & Drop, or Image URL */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4]">
-          {/* Method A: Upload Image Files */}
-          <div className="space-y-3">
-            <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5">
-              <Upload className="w-3.5 h-3.5 text-[#155761]" />
-              Upload Photos from Device
-            </Label>
+          {/* Method A: Upload Image Files & Drag/Drop */}
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={`space-y-3 p-4 rounded-xl border-2 border-dashed transition-all ${
+              dragActive
+                ? "border-[#155761] bg-[#F3F7F7]"
+                : "border-[#D9E2E4] bg-white hover:border-[#BEDEE1]"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5">
+                <Upload className="w-3.5 h-3.5 text-[#155761]" />
+                Upload Photos from Device
+              </Label>
+              {isUploadingPhoto && (
+                <span className="text-[11px] font-bold text-[#155761] flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Uploading...
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-[#526267]">
-              Select one or multiple screenshots (PNG, JPG, WebP up to 5MB each).
+              Drag &amp; drop screenshots here or click to browse (PNG, JPG, WebP up to 5MB each). Recommended 1200×675 px (16:9).
             </p>
             <input
               type="file"
@@ -704,52 +812,67 @@ export function PartnerSolutionForm({
               type="button"
               variant="outline"
               disabled={isUploadingPhoto}
+              isLoading={isUploadingPhoto}
               onClick={() => fileInputRef.current?.click()}
-              className="w-full rounded-xl border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#102124] h-10 gap-2 cursor-pointer"
+              className="w-full rounded-xl border border-[#D9E2E4] bg-[#F8FAFA] hover:bg-[#F3F7F7] text-xs font-semibold text-[#102124] h-11 gap-2 cursor-pointer shadow-xs transition-all"
             >
-              <Upload className="w-4 h-4 text-[#155761]" />
-              {isUploadingPhoto ? "Uploading Photos..." : "Choose Photo Files to Upload"}
+              {isUploadingPhoto ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#155761]" />
+                  <span>{uploadProgress || "Uploading Photo(s)... Please wait"}</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 text-[#155761]" />
+                  <span>Choose Photo Files to Upload</span>
+                </>
+              )}
             </Button>
           </div>
 
           {/* Method B: Paste Image URL */}
-          <div className="space-y-3 border-t md:border-t-0 md:border-l border-[#D9E2E4] pt-4 md:pt-0 md:pl-4">
-            <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5">
-              <ExternalLink className="w-3.5 h-3.5 text-[#155761]" />
-              Add via Image URL
-            </Label>
-            <div className="space-y-2">
-              <Input
-                type="url"
-                value={newPhotoUrl}
-                onChange={(e) => setNewPhotoUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/... or GitHub raw URL"
-                className="text-xs"
-              />
-              <div className="flex gap-2">
+          <div className="space-y-3 p-4 rounded-xl border border-[#D9E2E4] bg-white flex flex-col justify-between">
+            <div>
+              <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5 text-[#155761]" />
+                Add via Image URL
+              </Label>
+              <p className="text-[11px] text-[#526267] mt-1 mb-2">
+                Paste an image link from GitHub, Unsplash, or your hosted web CDN.
+              </p>
+              <div className="space-y-2">
                 <Input
-                  type="text"
-                  value={newPhotoCaption}
-                  onChange={(e) => setNewPhotoCaption(e.target.value)}
-                  placeholder="Caption (e.g. Analytics Dashboard)"
-                  className="text-xs flex-1"
+                  type="url"
+                  value={newPhotoUrl}
+                  onChange={(e) => setNewPhotoUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/... or GitHub raw URL"
+                  className="text-xs"
                 />
-                <Button
-                  type="button"
-                  onClick={handleAddPhotoByUrl}
-                  disabled={!newPhotoUrl.trim()}
-                  className="rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs px-3.5 h-9 shrink-0 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add Photo
-                </Button>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={newPhotoCaption}
+                    onChange={(e) => setNewPhotoCaption(e.target.value)}
+                    placeholder="Caption (e.g. Analytics Dashboard)"
+                    className="text-xs flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddPhotoByUrl}
+                    disabled={!newPhotoUrl.trim() || isUploadingPhoto}
+                    className="rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs px-3.5 h-9 shrink-0 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Add Photo
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Photos Grid */}
-        {photos.length === 0 ? (
+        {/* Photos Grid & Uploading Skeleton Cards */}
+        {photos.length === 0 && !isUploadingPhoto ? (
           <div className="text-center py-8 px-4 rounded-2xl border-2 border-dashed border-[#D9E2E4] bg-[#F8FAFA]">
             <ImageIcon className="w-8 h-8 text-[#526267] mx-auto mb-2 opacity-50" />
             <p className="text-sm font-semibold text-[#102124]">No photos added yet</p>
@@ -759,6 +882,17 @@ export function PartnerSolutionForm({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isUploadingPhoto && (
+              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2 p-4 text-center shadow-xs">
+                <Loader2 className="w-7 h-7 animate-spin text-[#155761]" />
+                <span className="text-xs font-bold text-[#155761]">
+                  {uploadProgress || "Uploading screenshot..."}
+                </span>
+                <span className="text-[11px] text-[#526267]">
+                  Optimizing and linking image to gallery
+                </span>
+              </div>
+            )}
             {photos.map((photo, idx) => (
               <div
                 key={photo.id}
@@ -794,26 +928,50 @@ export function PartnerSolutionForm({
                     </button>
                   )}
 
-                  {/* Reorder Buttons */}
-                  <div className="absolute top-2 right-2 flex gap-1">
+                  {/* 4-Way Reorder Controls */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl shadow-xs">
+                    {/* Move 1 step left */}
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "left")}
+                        title="Move 1 step left (←)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Move earlier / Up */}
                     {idx > 0 && (
                       <button
                         type="button"
                         onClick={() => handleMovePhoto(idx, "up")}
-                        title="Move photo earlier in gallery"
-                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        title="Move earlier / Up (↑)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                       >
                         <ArrowUp className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    {/* Move later / Down */}
                     {idx < photos.length - 1 && (
                       <button
                         type="button"
                         onClick={() => handleMovePhoto(idx, "down")}
-                        title="Move photo later in gallery"
-                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        title="Move later / Down (↓)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                       >
                         <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Move 1 step right */}
+                    {idx < photos.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "right")}
+                        title="Move 1 step right (→)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>

@@ -211,11 +211,16 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
               <div className="space-y-3">
                 <div className="flex items-center gap-3 px-3 py-2">
                   {user.image ? (
-                    <img
-                      src={user.image}
-                      alt={user.name || "User"}
-                      className="w-9 h-9 rounded-full border border-[#D9E2E4]"
-                    />
+                    <div className="relative w-9 h-9 rounded-full overflow-hidden border border-[#D9E2E4] shrink-0">
+                      <Image
+                        src={user.image}
+                        alt={user.name || "User"}
+                        fill
+                        sizes="36px"
+                        className="object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-sm font-semibold">
                       {user.name?.[0]?.toUpperCase() || "U"}

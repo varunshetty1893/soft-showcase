@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { MessageSquare, FileText, UserCheck, Shield, ShoppingCart, Receipt, Headphones } from "lucide-react";
 import { useCart } from "@/lib/cart/cart-context";
@@ -74,11 +75,16 @@ export function CustomerHeader({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {user.image ? (
-              <img
-                src={user.image}
-                alt={user.name || "User Avatar"}
-                className="w-16 h-16 rounded-full border-2 border-[#D9E2E4] object-cover shadow-xs"
-              />
+              <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#D9E2E4] shadow-xs shrink-0">
+                <Image
+                  src={user.image}
+                  alt={user.name || "User Avatar"}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
             ) : (
               <div className="w-16 h-16 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center text-xl font-bold shadow-xs">
                 {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}

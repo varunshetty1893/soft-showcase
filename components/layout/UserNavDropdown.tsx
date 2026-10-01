@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   User,
   ShieldCheck,
@@ -60,11 +61,16 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
         aria-expanded={open}
       >
         {user.image ? (
-          <img
-            src={user.image}
-            alt={user.name || "User"}
-            className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
-          />
+          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#D9E2E4] shrink-0">
+            <Image
+              src={user.image}
+              alt={user.name || "User"}
+              fill
+              sizes="32px"
+              className="object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         ) : (
           <div className="w-8 h-8 rounded-full bg-[#155761] text-white flex items-center justify-center text-xs font-bold shadow-xs">
             {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}

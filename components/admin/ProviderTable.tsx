@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   UserX,
@@ -344,11 +345,17 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       {provider.avatarUrl ? (
-                        <img
-                          src={provider.avatarUrl}
-                          alt={provider.displayName}
-                          className="w-9 h-9 rounded-full border border-gray-200 object-cover"
-                        />
+                        <div className="relative w-9 h-9 rounded-full overflow-hidden border border-gray-200 shrink-0">
+                          <Image
+                            src={provider.avatarUrl}
+                            alt={provider.displayName}
+                            fill
+                            sizes="36px"
+                            className="object-cover"
+                            referrerPolicy="no-referrer"
+                            unoptimized={provider.avatarUrl.startsWith("data:")}
+                          />
+                        </div>
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] font-bold flex items-center justify-center text-xs">
                           {provider.displayName[0]?.toUpperCase() || "P"}

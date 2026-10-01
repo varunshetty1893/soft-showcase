@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
@@ -175,11 +176,17 @@ export default async function PartnerTransactionDetailPage({
           </div>
 
           <div className="rounded-2xl border border-[#D9E2E4] overflow-hidden max-h-96 bg-[#102124]/5 flex items-center justify-center p-4">
-            <img
-              src={transaction.paymentEvidenceUrl}
-              alt="Payment Proof"
-              className="max-h-80 object-contain rounded-xl"
-            />
+            <div className="relative w-full h-80">
+              <Image
+                src={transaction.paymentEvidenceUrl}
+                alt="Payment Proof"
+                fill
+                sizes="(max-width: 768px) 100vw, 800px"
+                className="object-contain rounded-xl"
+                referrerPolicy="no-referrer"
+                unoptimized={transaction.paymentEvidenceUrl.startsWith("data:")}
+              />
+            </div>
           </div>
         </div>
       )}

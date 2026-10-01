@@ -5,12 +5,16 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import {
   UploadCloud,
   Star,
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Info,
   AlertCircle,
   Check,
   Edit2,
@@ -226,10 +230,22 @@ export function ImageUploader({
     }
   }
 
-  // Reorder images
-  async function handleMove(index: number, direction: "left" | "right") {
-    const targetIndex = direction === "left" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= images.length) return;
+  // Reorder images (left/right by 1, up/down by row or step)
+  async function handleMove(index: number, direction: "left" | "right" | "up" | "down") {
+    let targetIndex = index;
+    if (direction === "left") {
+      targetIndex = index - 1;
+    } else if (direction === "right") {
+      targetIndex = index + 1;
+    } else if (direction === "up") {
+      // If in row 2 or beyond (index >= 3), jump 1 row up (index - 3), else move 1 step earlier
+      targetIndex = index >= 3 ? index - 3 : index - 1;
+    } else if (direction === "down") {
+      // If an item exists 1 row below (index + 3 < length), jump 1 row down, else move 1 step later
+      targetIndex = index + 3 < images.length ? index + 3 : index + 1;
+    }
+
+    if (targetIndex < 0 || targetIndex >= images.length || targetIndex === index) return;
 
     const reordered = [...images];
     const [moved] = reordered.splice(index, 1);
@@ -273,6 +289,17 @@ export function ImageUploader({
           <span>{errorMessage}</span>
         </div>
       )}
+
+      {/* Recommended Sizing Notice */}
+      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#DDF4EC]/60 border border-[#2F7D78]/25 text-xs text-[#155761]">
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#2F7D78]" />
+        <div>
+          <span className="font-bold">Recommended Image Dimensions:</span>{" "}
+          <span>
+            <strong>1200 × 675 px</strong> (exact 16:9 aspect ratio) or <strong>1600 × 900 px</strong> (Retina). Standard 16:9 ratio ensures 100% of your interface fits perfectly in the showcase cards and lightbox without cropping. Max 5MB each (PNG, JPG, WebP).
+          </span>
+        </div>
+      </div>
 
       {/* Drag & Drop Upload Zone */}
       {images.length < MAX_IMAGES_PER_PROJECT && (
@@ -321,10 +348,14 @@ export function ImageUploader({
             >
               {/* Thumbnail */}
               <div className="relative aspect-video bg-[#F3F7F7] overflow-hidden">
-                <img
+                <Image
                   src={img.url}
                   alt={img.altText || "Project screenshot"}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                  unoptimized={img.url.startsWith("data:")}
                 />
 
                 {/* Primary Badge */}
@@ -335,16 +366,28 @@ export function ImageUploader({
                 )}
 
                 {/* Action Overlay */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2 flex-wrap">
                   {/* Reorder Left */}
                   {idx > 0 && (
                     <button
                       type="button"
-                      title="Move earlier"
+                      title="Move 1 step left"
                       onClick={() => handleMove(idx, "left")}
-                      className="p-1.5 bg-white/90 hover:bg-white text-gray-800 rounded-lg shadow-sm transition"
+                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
                     >
                       <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Reorder Up */}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      title="Move earlier / Up (↑)"
+                      onClick={() => handleMove(idx, "up")}
+                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                    >
+                      <ChevronUp className="w-4 h-4" />
                     </button>
                   )}
 
@@ -354,9 +397,21 @@ export function ImageUploader({
                       type="button"
                       title="Set as Primary Cover"
                       onClick={() => handleSetPrimary(img.id)}
-                      className="p-1.5 bg-white/90 hover:bg-white text-amber-600 rounded-lg shadow-sm transition"
+                      className="p-1.5 bg-white/95 hover:bg-white text-amber-600 rounded-lg shadow-sm transition hover:scale-105"
                     >
                       <Star className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Reorder Down */}
+                  {idx < images.length - 1 && (
+                    <button
+                      type="button"
+                      title="Move later / Down (↓)"
+                      onClick={() => handleMove(idx, "down")}
+                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                    >
+                      <ChevronDown className="w-4 h-4" />
                     </button>
                   )}
 
@@ -364,9 +419,9 @@ export function ImageUploader({
                   {idx < images.length - 1 && (
                     <button
                       type="button"
-                      title="Move later"
+                      title="Move 1 step right"
                       onClick={() => handleMove(idx, "right")}
-                      className="p-1.5 bg-white/90 hover:bg-white text-gray-800 rounded-lg shadow-sm transition"
+                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -377,7 +432,7 @@ export function ImageUploader({
                     type="button"
                     title="Delete image"
                     onClick={() => handleDelete(img.id)}
-                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition"
+                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition hover:scale-105"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

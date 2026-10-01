@@ -112,6 +112,88 @@ export const ProjectImportSchema = z
 
 export type ProjectImportInput = z.infer<typeof ProjectImportSchema>;
 
+export const PartnerSolutionImportSchema = z
+  .object({
+    title: z.string().min(3, "Title must be at least 3 characters").max(200).trim(),
+    shortDescription: z
+      .string()
+      .min(10, "Short description must be at least 10 characters")
+      .max(500)
+      .trim(),
+    fullDescription: z
+      .string()
+      .min(20, "Full description must be at least 20 characters")
+      .trim(),
+
+    category: z.string().min(1).max(100).trim().optional(),
+    categorySlug: z.string().min(1).trim().optional(),
+
+    projectType: z.string().max(100).trim().optional().nullable(),
+
+    technologies: z.array(z.string().min(1).max(50).trim()).optional().default([]),
+    technologySlugs: z.array(z.string().min(1).trim()).optional().default([]),
+
+    features: z
+      .union([
+        z.array(z.string().min(1).max(200).trim()),
+        z.array(ImportFeatureItemSchema),
+      ])
+      .optional()
+      .default([]),
+
+    specifications: z
+      .union([
+        z.record(z.string(), z.string()),
+        z.array(ImportSpecItemSchema),
+      ])
+      .optional()
+      .default({}),
+
+    whatsIncluded: z
+      .array(z.string().min(1).max(200).trim())
+      .optional()
+      .default([]),
+
+    faq: z.array(ImportFaqItemSchema).optional().default([]),
+    faqs: z.array(ImportFaqItemSchema).optional().default([]),
+
+    priceMode: z
+      .enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"])
+      .default("CONTACT"),
+    price: z.number().positive("Price must be a positive number").nullable().optional(),
+
+    demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
+
+    status: z.enum(["DRAFT", "PUBLISHED"]).optional().default("PUBLISHED"),
+    featured: z.boolean().optional().default(false),
+
+    // Optional provider field (if imported from admin template, it's safely ignored or used for contact details)
+    provider: ImportProviderSchema.optional(),
+    providerEmail: z.string().email().optional(),
+  })
+  .refine(
+    (data) => Boolean(data.category || data.categorySlug),
+    {
+      message: "Category (name or slug) is required",
+      path: ["category"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.priceMode === "FIXED" || data.priceMode === "STARTING_FROM") {
+        return typeof data.price === "number" && data.price > 0;
+      }
+      return data.price === null || data.price === undefined;
+    },
+    {
+      message:
+        "Price is required and must be positive when priceMode is FIXED or STARTING_FROM; price must be empty or null for CONTACT and FREE",
+      path: ["price"],
+    }
+  );
+
+export type PartnerSolutionImportInput = z.infer<typeof PartnerSolutionImportSchema>;
+
 /**
  * Normalized representation of the import ready for preview and database insertion.
  */

@@ -4,6 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   CheckCircle2,
   XCircle,
@@ -203,11 +204,17 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
           </div>
 
           <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50 p-4 flex items-center justify-center">
-            <img
-              src={transaction.paymentEvidenceUrl}
-              alt="Payment Proof"
-              className="max-h-80 object-contain rounded-lg"
-            />
+            <div className="relative w-full h-80">
+              <Image
+                src={transaction.paymentEvidenceUrl}
+                alt="Payment Proof"
+                fill
+                sizes="(max-width: 768px) 100vw, 800px"
+                className="object-contain rounded-lg"
+                referrerPolicy="no-referrer"
+                unoptimized={transaction.paymentEvidenceUrl.startsWith("data:")}
+              />
+            </div>
           </div>
         </div>
       )}

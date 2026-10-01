@@ -39,6 +39,13 @@ export default async function NewPartnerSolutionPage() {
             </p>
           </div>
         </div>
+
+        <Link
+          href="/partner/solutions/import"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#BEDEE1] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#155761] transition-colors shadow-2xs"
+        >
+          <span>Import via JSON</span>
+        </Link>
       </div>
 
       <PartnerSolutionForm

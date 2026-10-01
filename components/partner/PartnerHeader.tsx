@@ -104,11 +104,17 @@ export function PartnerHeader({ user, partner, isDemoGuest }: PartnerHeaderProps
           {/* User Profile Pill */}
           <div className="flex items-center gap-2 pl-2 border-l border-[#D9E2E4]">
             {partner?.avatarUrl || user.image ? (
-              <img
-                src={partner?.avatarUrl || user.image || ""}
-                alt={partner?.displayName || user.name || "Partner"}
-                className="w-8 h-8 rounded-full border border-[#D9E2E4] object-cover"
-              />
+              <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#D9E2E4] shrink-0">
+                <Image
+                  src={partner?.avatarUrl || user.image || ""}
+                  alt={partner?.displayName || user.name || "Partner"}
+                  fill
+                  sizes="32px"
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                  unoptimized={Boolean(partner?.avatarUrl?.startsWith("data:") || user.image?.startsWith("data:"))}
+                />
+              </div>
             ) : (
               <div className="w-8 h-8 rounded-full bg-[#155761] text-white flex items-center justify-center text-xs font-bold">
                 {(partner?.displayName || user.name || "P")[0].toUpperCase()}

@@ -267,6 +267,7 @@ export async function PUT(
           projectType: data.projectType,
           whatsIncluded: data.whatsIncluded,
           categoryId: data.categoryId,
+          featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
         },
       });
 
@@ -438,5 +439,71 @@ export async function DELETE(
   } catch (err) {
     console.error("Failed to delete partner project:", err);
     return NextResponse.json({ error: "Failed to delete solution" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    let partner = await db.projectProvider.findFirst({
+      where: { userId: session.user.id },
+    });
+
+    if (!partner && session.user.isAdmin) {
+      partner = await db.projectProvider.findFirst();
+    }
+
+    if (!partner) {
+      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
+    }
+
+    const existing = await db.project.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Solution not found" }, { status: 404 });
+    }
+
+    if (existing.providerId !== partner.id && !session.user.isAdmin) {
+      return NextResponse.json({ error: "Forbidden: Not your solution" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const updateData: { featured?: boolean; status?: "DRAFT" | "PUBLISHED" | "ARCHIVED" } = {};
+
+    if (typeof body.featured === "boolean") {
+      updateData.featured = body.featured;
+    }
+
+    if (body.status && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(body.status)) {
+      updateData.status = body.status;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No valid fields provided to update" }, { status: 400 });
+    }
+
+    const updated = await db.project.update({
+      where: { id },
+      data: updateData,
+    });
+
+    // Revalidate public catalog and homepage
+    revalidatePath("/");
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${updated.slug}`);
+    revalidatePath("/partner/solutions");
+
+    return NextResponse.json({ project: updated, success: true });
+  } catch (err) {
+    console.error("Failed to patch partner project:", err);
+    return NextResponse.json({ error: "Failed to update solution" }, { status: 500 });
   }
 }

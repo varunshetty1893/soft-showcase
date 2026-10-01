@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { ShieldCheck, Mail, Lock } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -41,11 +42,17 @@ export function ProviderCard({
       <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex items-center gap-4">
           {provider.avatarUrl ? (
-            <img
-              src={provider.avatarUrl}
-              alt={provider.displayName}
-              className="w-14 h-14 rounded-full border border-[#D9E2E4] object-cover"
-            />
+            <div className="relative w-14 h-14 rounded-full overflow-hidden border border-[#D9E2E4] shrink-0">
+              <Image
+                src={provider.avatarUrl}
+                alt={provider.displayName}
+                fill
+                sizes="56px"
+                className="object-cover"
+                referrerPolicy="no-referrer"
+                unoptimized={provider.avatarUrl.startsWith("data:")}
+              />
+            </div>
           ) : (
             <div className="w-14 h-14 rounded-full bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center font-bold text-lg">
               {provider.displayName[0]?.toUpperCase() || "P"}
