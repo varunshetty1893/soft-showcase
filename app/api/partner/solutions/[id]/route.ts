@@ -305,112 +305,93 @@ export async function PUT(
       sanitizedImages[0].isPrimary = true;
     }
 
-    // Atomically execute updates and audit log (Issue 45)
-    const updated = await db.$transaction(async (tx) => {
-      const proj = await tx.project.update({
-        where: { id },
-        data: {
-          title: data.title,
-          shortDescription: data.shortDescription,
-          fullDescription: data.fullDescription,
-          status: data.status,
-          priceMode: data.priceMode,
-          price: data.price,
-          demoUrl: data.demoUrl || null,
-          projectType: data.projectType,
-          whatsIncluded: data.whatsIncluded,
-          categoryId: data.categoryId,
-          featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
-        },
-      });
-
-      // Update relational collections if provided
-      if (Array.isArray(body.features)) {
-        await tx.projectFeature.deleteMany({ where: { projectId: id } });
-        for (let i = 0; i < features.length; i++) {
-          await tx.projectFeature.create({
-            data: {
-              projectId: id,
-              feature: features[i].feature,
-              sortOrder: features[i].sortOrder ?? i + 1,
-            },
-          });
-        }
-      }
-
-      if (Array.isArray(body.specifications)) {
-        await tx.projectSpecification.deleteMany({ where: { projectId: id } });
-        for (let i = 0; i < specifications.length; i++) {
-          await tx.projectSpecification.create({
-            data: {
-              projectId: id,
-              key: specifications[i].key,
-              value: specifications[i].value,
-              sortOrder: specifications[i].sortOrder ?? i + 1,
-            },
-          });
-        }
-      }
-
-      if (Array.isArray(body.faqs)) {
-        await tx.projectFaq.deleteMany({ where: { projectId: id } });
-        for (let i = 0; i < faqs.length; i++) {
-          await tx.projectFaq.create({
-            data: {
-              projectId: id,
-              question: faqs[i].question,
-              answer: faqs[i].answer,
-              sortOrder: faqs[i].sortOrder ?? i + 1,
-            },
-          });
-        }
-      }
-
-      if (Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) {
-        await tx.projectTechnology.deleteMany({ where: { projectId: id } });
-        for (const techId of resolvedTechIds) {
-          await tx.projectTechnology.create({
-            data: {
-              projectId: id,
-              technologyId: techId,
-            },
-          });
-        }
-      }
-
-      if (sanitizedImages.length > 0) {
-        await tx.projectImage.deleteMany({ where: { projectId: id } });
-        for (let i = 0; i < sanitizedImages.length; i++) {
-          const img = sanitizedImages[i];
-          await tx.projectImage.create({
-            data: {
-              projectId: id,
-              url: img.url.trim(),
-              storageKey: img.storageKey || `img-${Date.now()}-${i}`,
-              altText: img.altText || data.title,
-              isPrimary: img.isPrimary ?? (i === 0),
-              sortOrder: img.sortOrder ?? i + 1,
-            },
-          });
-        }
-      }
-
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "PARTNER_SOLUTION_UPDATED",
-          entityType: "Project",
-          entityId: id,
-          details: {
-            title: proj.title,
-            status: proj.status,
-            partnerId: partner.id,
+    // Atomically execute updates and audit log with nested writes and extended timeout to prevent P2028
+    const updated = await db.$transaction(
+      async (tx) => {
+        const proj = await tx.project.update({
+          where: { id },
+          data: {
+            title: data.title,
+            shortDescription: data.shortDescription,
+            fullDescription: data.fullDescription,
+            status: data.status,
+            priceMode: data.priceMode,
+            price: data.price,
+            demoUrl: data.demoUrl || null,
+            projectType: data.projectType,
+            whatsIncluded: data.whatsIncluded,
+            categoryId: data.categoryId,
+            featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
+            ...(Array.isArray(body.features) && {
+              features: {
+                deleteMany: {},
+                create: features.map((f, i) => ({
+                  feature: f.feature,
+                  sortOrder: f.sortOrder ?? i + 1,
+                })),
+              },
+            }),
+            ...(Array.isArray(body.specifications) && {
+              specifications: {
+                deleteMany: {},
+                create: specifications.map((s, i) => ({
+                  key: s.key,
+                  value: s.value,
+                  sortOrder: s.sortOrder ?? i + 1,
+                })),
+              },
+            }),
+            ...(Array.isArray(body.faqs) && {
+              faqs: {
+                deleteMany: {},
+                create: faqs.map((faq, i) => ({
+                  question: faq.question,
+                  answer: faq.answer,
+                  sortOrder: faq.sortOrder ?? i + 1,
+                })),
+              },
+            }),
+            ...((Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) && {
+              technologies: {
+                deleteMany: {},
+                create: resolvedTechIds.map((techId) => ({
+                  technologyId: techId,
+                })),
+              },
+            }),
+            ...(sanitizedImages.length > 0 && {
+              images: {
+                deleteMany: {},
+                create: sanitizedImages.map((img, i) => ({
+                  url: img.url.trim(),
+                  storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+                  altText: img.altText || data.title,
+                  isPrimary: img.isPrimary ?? (i === 0),
+                  sortOrder: img.sortOrder ?? i + 1,
+                })),
+              },
+            }),
           },
-        },
-      }).catch(() => null);
+        });
 
-      return proj;
-    });
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: "PARTNER_SOLUTION_UPDATED",
+            entityType: "Project",
+            entityId: id,
+            details: {
+              title: proj.title,
+              status: proj.status,
+              partnerId: partner.id,
+            },
+          },
+        }).catch(() => null);
+
+        return proj;
+      },
+      { timeout: 20000, maxWait: 10000 }
+    );
 
     // Revalidate public catalog, homepage, and sitemap (Issue 54)
     revalidatePath("/");

@@ -276,76 +276,79 @@ export async function POST(req: NextRequest) {
       sanitizedImages[0].isPrimary = true;
     }
 
-    // Atomically create solution and audit log (Issue 45)
-    const newProject = await db.$transaction(async (tx) => {
-      const created = await tx.project.create({
-        data: {
-          title: data.title,
-          slug: finalSlug,
-          shortDescription: data.shortDescription,
-          fullDescription: data.fullDescription,
-          status: data.status || "DRAFT",
-          featured: false,
-          priceMode: data.priceMode,
-          price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
-          demoUrl: data.demoUrl || null,
-          projectType: data.projectType || null,
-          whatsIncluded: data.whatsIncluded || [],
-          categoryId: data.categoryId,
-          providerId: partner.id,
-          features: {
-            create: features.map((f, i) => ({
-              feature: f.feature,
-              sortOrder: f.sortOrder ?? i + 1,
-            })),
+    // Atomically create solution and audit log with extended timeout
+    const newProject = await db.$transaction(
+      async (tx) => {
+        const created = await tx.project.create({
+          data: {
+            title: data.title,
+            slug: finalSlug,
+            shortDescription: data.shortDescription,
+            fullDescription: data.fullDescription,
+            status: data.status || "DRAFT",
+            featured: false,
+            priceMode: data.priceMode,
+            price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
+            demoUrl: data.demoUrl || null,
+            projectType: data.projectType || null,
+            whatsIncluded: data.whatsIncluded || [],
+            categoryId: data.categoryId,
+            providerId: partner.id,
+            features: {
+              create: features.map((f, i) => ({
+                feature: f.feature,
+                sortOrder: f.sortOrder ?? i + 1,
+              })),
+            },
+            specifications: {
+              create: specifications.map((s, i) => ({
+                key: s.key,
+                value: s.value,
+                sortOrder: s.sortOrder ?? i + 1,
+              })),
+            },
+            faqs: {
+              create: faqs.map((faq, i) => ({
+                question: faq.question,
+                answer: faq.answer,
+                sortOrder: faq.sortOrder ?? i + 1,
+              })),
+            },
+            technologies: {
+              create: resolvedTechIds.map((techId) => ({
+                technologyId: techId,
+              })),
+            },
+            images: {
+              create: sanitizedImages.map((img, i) => ({
+                url: img.url.trim(),
+                storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+                altText: img.altText || data.title,
+                isPrimary: img.isPrimary ?? (i === 0),
+                sortOrder: img.sortOrder ?? i + 1,
+              })),
+            },
           },
-          specifications: {
-            create: specifications.map((s, i) => ({
-              key: s.key,
-              value: s.value,
-              sortOrder: s.sortOrder ?? i + 1,
-            })),
-          },
-          faqs: {
-            create: faqs.map((faq, i) => ({
-              question: faq.question,
-              answer: faq.answer,
-              sortOrder: faq.sortOrder ?? i + 1,
-            })),
-          },
-          technologies: {
-            create: resolvedTechIds.map((techId) => ({
-              technologyId: techId,
-            })),
-          },
-          images: {
-            create: sanitizedImages.map((img, i) => ({
-              url: img.url.trim(),
-              storageKey: img.storageKey || `img-${Date.now()}-${i}`,
-              altText: img.altText || data.title,
-              isPrimary: img.isPrimary ?? (i === 0),
-              sortOrder: img.sortOrder ?? i + 1,
-            })),
-          },
-        },
-      });
+        });
 
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "PARTNER_SOLUTION_CREATED",
-          entityType: "Project",
-          entityId: created.id,
-          details: {
-            title: created.title,
-            status: created.status,
-            partnerId: partner.id,
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: "PARTNER_SOLUTION_CREATED",
+            entityType: "Project",
+            entityId: created.id,
+            details: {
+              title: created.title,
+              status: created.status,
+              partnerId: partner.id,
+            },
           },
-        },
-      }).catch(() => null);
+        }).catch(() => null);
 
-      return created;
-    });
+        return created;
+      },
+      { timeout: 20000, maxWait: 10000 }
+    );
 
     // Revalidate public catalog, homepage, and sitemap (Issue 54)
     revalidatePath("/");
