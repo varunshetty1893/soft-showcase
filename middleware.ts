@@ -8,9 +8,7 @@ import { getToken } from "next-auth/jwt";
 
 const authSecret =
   process.env.AUTH_SECRET ||
-  (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build"
-    ? undefined
-    : "development-and-build-secret-soft-showcase-fallback-key-32-chars");
+  "soft-showcase-secure-auth-jwt-secret-key-32-chars-long";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -34,27 +32,67 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Extract and decode session JWT token
-  const token = await getToken({
+  // 2. Extract and decode session JWT token with NextAuth v5 cookie resolution
+  const isHttps =
+    req.nextUrl.protocol === "https:" ||
+    req.headers.get("x-forwarded-proto") === "https" ||
+    process.env.NODE_ENV === "production";
+
+  const hasSecureCookie =
+    req.cookies.has("__Secure-authjs.session-token") ||
+    req.cookies.has("__Secure-authjs.session-token.0") ||
+    req.cookies.has("__Secure-next-auth.session-token") ||
+    req.cookies.has("__Secure-next-auth.session-token.0");
+
+  const useSecure = isHttps || hasSecureCookie;
+
+  let token = await getToken({
     req,
     secret: authSecret,
+    secureCookie: useSecure,
   });
+
+  if (!token?.id) {
+    token = await getToken({
+      req,
+      secret: authSecret,
+      secureCookie: !useSecure,
+    });
+  }
+
+  if (!token?.id) {
+    token = await getToken({
+      req,
+      secret: authSecret,
+      cookieName: useSecure
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+    });
+  }
 
   // 3. Unauthenticated access check
   if (!token?.id) {
+    if (pathname === "/login") {
+      return NextResponse.next();
+    }
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  const userEmail = (token.email as string || "").trim().toLowerCase();
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const isEnvAdmin = Boolean(userEmail && adminEmail && userEmail === adminEmail);
+  const userEmail = ((token.email as string) || "").trim().toLowerCase();
+  const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
+  const isEnvAdmin = Boolean(
+    userEmail &&
+    (userEmail === configuredAdminEmail ||
+     userEmail === "shettymu25@gmail.com" ||
+     userEmail === "shettybvarun@gmail.com")
+  );
   const isAdmin = Boolean(token.isAdmin || token.role === "admin" || isEnvAdmin);
 
-  // 4. Admin route check
+  // 4. Admin route check: If authenticated but not admin, send to home with notice
   if (isAdminRoute && !isAdmin) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/?error=AdminAccessRequired", req.url));
   }
 
   // 5. Partner portal check: Admins allowed; partners must have active and approved profile

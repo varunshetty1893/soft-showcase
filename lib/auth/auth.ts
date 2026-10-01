@@ -187,9 +187,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.lastChecked = Date.now();
       }
 
-      // Check against ADMIN_EMAIL env var or database
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      if (token.email && adminEmail && (token.email as string).toLowerCase() === adminEmail) {
+      // Check against ADMIN_EMAIL env var or default owner emails
+      const adminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
+      const tokenEmail = ((token.email as string) || "").trim().toLowerCase();
+      const isOwnerAdmin =
+        tokenEmail === adminEmail ||
+        tokenEmail === "shettymu25@gmail.com" ||
+        tokenEmail === "shettybvarun@gmail.com";
+
+      if (token.email && isOwnerAdmin) {
         token.isAdmin = true;
         token.role = "admin";
       }
@@ -217,7 +223,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return {};
           }
 
-          const isEnvAdmin = adminEmail && dbUser.email.toLowerCase() === adminEmail;
+          const dbUserEmail = dbUser.email.toLowerCase();
+          const isEnvAdmin =
+            dbUserEmail === adminEmail ||
+            dbUserEmail === "shettymu25@gmail.com" ||
+            dbUserEmail === "shettybvarun@gmail.com";
           token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
           token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
 

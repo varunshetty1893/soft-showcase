@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   title: "Dashboard — Admin | Soft Showcase",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminDashboardPage() {
   const stats = await getAdminDashboardStats();
   const { counts, alerts, recent } = stats;

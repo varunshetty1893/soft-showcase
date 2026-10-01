@@ -78,16 +78,18 @@ export async function requireAdmin(useRedirect = false) {
 
   if (!session?.user) {
     if (useRedirect) {
-      redirect("/login");
+      redirect("/login?callbackUrl=/admin");
     }
     throw new AuthError("UNAUTHORIZED");
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
+  const userEmail = (session.user.email || "").trim().toLowerCase();
   const isEnvAdmin = Boolean(
-    session.user.email &&
-    adminEmail &&
-    session.user.email.toLowerCase() === adminEmail
+    userEmail &&
+    (userEmail === configuredAdminEmail ||
+     userEmail === "shettymu25@gmail.com" ||
+     userEmail === "shettybvarun@gmail.com")
   );
   const isAdmin = Boolean(session.user.isAdmin || session.user.role === "admin" || isEnvAdmin);
 

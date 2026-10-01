@@ -343,7 +343,7 @@ class InMemoryStore {
     {
       id: "user-admin",
       name: "Administrator",
-      email: process.env.ADMIN_EMAIL || "admin@softshowcase.com",
+      email: process.env.ADMIN_EMAIL || "shettymu25@gmail.com",
       emailVerified: new Date(),
       image: null,
       isAdmin: true,
@@ -815,8 +815,18 @@ function createModelDelegate(modelName: string) {
         if (args?.where?.slug) return memoryStore.technologies.find((t) => t.slug === args.where.slug) || null;
       }
       if (modelName === "user") {
-        if (args?.where?.id) return memoryStore.users.find((u) => u.id === args.where.id) || null;
-        if (args?.where?.email) return memoryStore.users.find((u) => u.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+        let foundUser: any = null;
+        if (args?.where?.id) foundUser = memoryStore.users.find((u) => u.id === args.where.id) || null;
+        else if (args?.where?.email) foundUser = memoryStore.users.find((u) => u.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+
+        if (foundUser) {
+          const uEmail = (foundUser.email || "").toLowerCase();
+          const configuredAdmin = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").toLowerCase();
+          if (uEmail === configuredAdmin || uEmail === "shettymu25@gmail.com" || uEmail === "shettybvarun@gmail.com") {
+            return { ...foundUser, isAdmin: true, role: "admin" };
+          }
+        }
+        return foundUser;
       }
       if (modelName === "siteSetting") {
         if (args?.where?.key) return memoryStore.siteSettings.find((s) => s.key === args.where.key) || null;

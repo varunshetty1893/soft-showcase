@@ -8,7 +8,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthBackground } from "@/components/auth/AuthBackground";
-import { ScrollFade } from "@/components/ui/ScrollFade";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -25,9 +24,30 @@ interface LoginPageProps {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const params = await searchParams;
-  const callbackUrl = params.callbackUrl || "/";
+  let callbackUrl = params.callbackUrl || "/";
 
-  if (session?.user) redirect(callbackUrl);
+  // Prevent recursive redirect loops
+  if (callbackUrl.startsWith("/login") || callbackUrl.startsWith("/api/auth")) {
+    callbackUrl = "/";
+  }
+
+  if (session?.user) {
+    const userEmail = ((session.user.email as string) || "").trim().toLowerCase();
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
+    const isEnvAdmin = Boolean(
+      userEmail &&
+      (userEmail === configuredAdminEmail ||
+       userEmail === "shettymu25@gmail.com" ||
+       userEmail === "shettybvarun@gmail.com")
+    );
+    const isAdmin = Boolean(session.user.isAdmin || session.user.role === "admin" || isEnvAdmin);
+
+    if (callbackUrl.startsWith("/admin") && !isAdmin) {
+      redirect("/?error=AdminAccessRequired");
+    }
+
+    redirect(callbackUrl);
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col antialiased selection:bg-[#DDF4EC] selection:text-[#102124]">
@@ -61,7 +81,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       {/* Main */}
       <main className="relative z-10 flex-1 flex items-center justify-center w-full px-6 py-10">
-        <ScrollFade direction="up" duration={0.6} className="w-full max-w-md mx-auto">
+        <div className="w-full max-w-md mx-auto">
           {/* Auth Card */}
           <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-[#D9E2E4] shadow-xl overflow-hidden">
             <div className="px-7 pt-8 pb-0 sm:px-9 sm:pt-10">
@@ -137,7 +157,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <span>Verified maker identity</span>
             </div>
           </div>
-        </ScrollFade>
+        </div>
       </main>
 
       {/* Footer */}
