@@ -10,7 +10,7 @@ const DEV_ONLY_AUTH_SECRET = "dev-secret-do-not-use-in-production-min-32-chars-l
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   AUTH_SECRET: z
-    .string()
+    .string({ required_error: "AUTH_SECRET is required" })
     .min(32, "AUTH_SECRET must be at least 32 characters long")
     .refine(
       (val) => val !== FORBIDDEN_DEFAULT_SECRET,
@@ -40,7 +40,10 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
 
   const source = overrideEnv || process.env;
   const isProd = (source.NODE_ENV || process.env.NODE_ENV) === "production";
-  const isBuildPhase = source.NEXT_PHASE === "phase-production-build" || process.env.NEXT_PHASE === "phase-production-build";
+  const isBuildPhase =
+    source.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build";
 
   let authSecret = source.AUTH_SECRET || source.NEXTAUTH_SECRET;
 

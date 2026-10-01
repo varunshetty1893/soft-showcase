@@ -27,20 +27,23 @@ export async function POST(req: Request) {
     const ipAttemptCheck = await otpVerifyLimiter.check(`ip:${ip}`);
 
     if (!emailAttemptCheck.success || !ipAttemptCheck.success) {
-      // Invalidate pending registrations and tokens on abuse
-      await db.pendingRegistration.deleteMany({
-        where: { email: normalizedEmail },
-      }).catch(() => null);
-      await db.verificationToken.deleteMany({
-        where: { identifier: normalizedEmail },
-      }).catch(() => null);
+      if (emailAttemptCheck.error || ipAttemptCheck.error) {
+        return Response.json(
+          { error: "Verification service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+
+      // Do NOT delete tokens on rate limiting (M5) - prevents attacker lockout abuse
+      const resetTime = Math.max(emailAttemptCheck.reset, ipAttemptCheck.reset);
+      const retryAfter = Math.max(1, Math.ceil((resetTime - Date.now()) / 1000));
 
       return Response.json(
         {
           error:
-            "Maximum verification attempts exceeded. Your previous code has been invalidated for security. Please request a new code.",
+            "Too many verification attempts. Please wait before trying again.",
         },
-        { status: 429 }
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 
@@ -138,28 +141,39 @@ export async function POST(req: Request) {
       where: { identifier: normalizedEmail },
     });
 
-    const validRecord = tokenRecords.find((rec) =>
-      verifySecretToken(otp, rec.token)
-    );
-
-    if (!validRecord) {
-      const remaining = emailAttemptCheck.remaining;
+    const activeRecord = tokenRecords.find((rec) => new Date() <= rec.expires);
+    if (!activeRecord) {
       return Response.json(
-        {
-          error: `Invalid verification code. ${remaining} attempt${
-            remaining === 1 ? "" : "s"
-          } remaining before the code expires.`,
-        },
+        { error: "Verification code has expired or was not found. Please request a new code." },
         { status: 400 }
       );
     }
 
-    if (new Date() > validRecord.expires) {
+    if (activeRecord.attempts >= 5) {
       await db.verificationToken.deleteMany({
         where: { identifier: normalizedEmail },
       }).catch(() => null);
       return Response.json(
-        { error: "Verification code has expired. Please request a new code." },
+        { error: "Too many failed attempts. Code has been invalidated. Please request a new code." },
+        { status: 400 }
+      );
+    }
+
+    const isValidRecord = verifySecretToken(otp, activeRecord.token);
+
+    if (!isValidRecord) {
+      await db.verificationToken.updateMany({
+        where: { identifier: normalizedEmail },
+        data: { attempts: { increment: 1 } },
+      }).catch(() => null);
+
+      const remaining = Math.max(0, 4 - activeRecord.attempts);
+      return Response.json(
+        {
+          error: `Invalid verification code. ${remaining} attempt${
+            remaining === 1 ? "" : "s"
+          } remaining.`,
+        },
         { status: 400 }
       );
     }

@@ -15,6 +15,7 @@ declare module "next-auth" {
       role: "customer" | "solution_partner" | "admin";
       partnerStatus?: "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null;
       partnerId?: string | null;
+      tokenVersion?: number;
     };
   }
 
@@ -23,6 +24,13 @@ declare module "next-auth" {
     role?: "customer" | "solution_partner" | "admin";
     partnerStatus?: "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null;
     partnerId?: string | null;
+    tokenVersion?: number;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    tokenVersion?: number;
   }
 }
 

@@ -20,9 +20,16 @@ export async function POST(req: Request) {
     const ip = await getRequestIp(req);
     const rateCheck = await authRegisterLimiter.check(ip);
     if (!rateCheck.success) {
+      if (rateCheck.error) {
+        return Response.json(
+          { error: "Authentication service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+      const retryAfter = Math.max(1, Math.ceil((rateCheck.reset - Date.now()) / 1000));
       return Response.json(
         { error: "Too many registration attempts. Please try again later." },
-        { status: 429 }
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 

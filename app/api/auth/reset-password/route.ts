@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
           identifier: `reset:${email}`,
           token: hashSecretToken(resetCode),
           expires,
+          attempts: 0,
         },
       });
 
@@ -185,13 +186,12 @@ export async function POST(req: NextRequest) {
       const verifyCheck = await passwordResetVerifyLimiter.check(`verify:${email}`);
       const ipCheck = await passwordResetVerifyLimiter.check(`ip:${ip}`);
       if (!verifyCheck.success || !ipCheck.success) {
-        // Invalidate token on too many attempts
-        await db.verificationToken.deleteMany({
-          where: { identifier: `reset:${email}` },
-        });
+        // Do NOT delete tokens on rate limit hit (M5) - prevents attacker lockout abuse
+        const resetTime = Math.max(verifyCheck.reset, ipCheck.reset);
+        const retryAfter = Math.max(1, Math.ceil((resetTime - Date.now()) / 1000));
         return NextResponse.json(
-          { error: "Too many failed reset attempts. Please request a new password reset code." },
-          { status: 429 }
+          { error: "Too many failed reset attempts. Please wait before trying again." },
+          { status: 429, headers: { "Retry-After": String(retryAfter) } }
         );
       }
 
@@ -201,23 +201,36 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      const validRecord = tokenRecords.find((rec) =>
-        verifySecretToken(code, rec.token)
-      );
+      const activeRecord = tokenRecords.find((rec) => new Date() <= rec.expires);
 
-      if (!validRecord) {
+      if (!activeRecord) {
         return NextResponse.json(
-          { error: "Invalid reset code. Please check the code and try again." },
+          { error: "Reset code has expired or was not found. Please request a new code." },
           { status: 400 }
         );
       }
 
-      if (new Date() > validRecord.expires) {
+      if (activeRecord.attempts >= 5) {
         await db.verificationToken.deleteMany({
           where: { identifier: `reset:${email}` },
         });
         return NextResponse.json(
-          { error: "This reset code has expired. Please request a new one." },
+          { error: "Too many failed attempts. This reset code has been invalidated. Please request a new code." },
+          { status: 400 }
+        );
+      }
+
+      const isValid = verifySecretToken(code, activeRecord.token);
+
+      if (!isValid) {
+        await db.verificationToken.updateMany({
+          where: { identifier: `reset:${email}` },
+          data: { attempts: { increment: 1 } },
+        }).catch(() => null);
+
+        const remaining = Math.max(0, 4 - activeRecord.attempts);
+        return NextResponse.json(
+          { error: `Invalid reset code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
           { status: 400 }
         );
       }
@@ -237,16 +250,17 @@ export async function POST(req: NextRequest) {
           where: { email },
           data: {
             passwordHash,
+            tokenVersion: { increment: 1 },
             emailVerified: user.emailVerified || new Date(),
           },
         });
 
-        // Revoke all active sessions (Issue 58)
+        // Revoke all active sessions (Issue 58 / M6)
         await tx.session.deleteMany({
           where: { userId: user.id },
         });
 
-        // Clear tokens and reset attempts
+        // Clear tokens
         await tx.verificationToken.deleteMany({
           where: { identifier: `reset:${email}` },
         });

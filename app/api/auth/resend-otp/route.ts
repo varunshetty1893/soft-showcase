@@ -34,9 +34,17 @@ export async function POST(req: Request) {
     const rateCheck = await otpResendLimiter.check(`resend:${normalizedEmail}`);
     const ipCheck = await otpResendLimiter.check(`ip:${ip}`);
     if (!rateCheck.success || !ipCheck.success) {
+      if (rateCheck.error || ipCheck.error) {
+        return Response.json(
+          { error: "Verification service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+      const resetTime = Math.max(rateCheck.reset, ipCheck.reset);
+      const retryAfter = Math.max(1, Math.ceil((resetTime - Date.now()) / 1000));
       return Response.json(
         { error: "Too many resend requests. Please wait a few minutes before trying again." },
-        { status: 429 }
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 

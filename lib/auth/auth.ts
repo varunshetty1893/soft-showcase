@@ -118,7 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           image: user.image,
           isAdmin: user.isAdmin,
           role: userRole || (user.isAdmin ? "admin" : "customer"),
-          passwordHash: user.passwordHash,
+          tokenVersion: (user as { tokenVersion?: number }).tokenVersion ?? 0,
         };
       },
     }),
@@ -190,9 +190,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.email = user.email;
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
         token.role = (user as { role?: string }).role || (token.isAdmin ? "admin" : "customer");
-        token.pwdHash = (user as { passwordHash?: string | null }).passwordHash
-          ? (user as { passwordHash?: string | null }).passwordHash!.substring(0, 12)
-          : "";
+        token.tokenVersion = (user as { tokenVersion?: number }).tokenVersion ?? 0;
         token.lastChecked = Date.now();
       }
 
@@ -206,16 +204,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           const dbUser = await db.user.findUnique({
             where: { id: token.id as string },
-            select: { id: true, isAdmin: true, email: true, role: true, passwordHash: true },
+            select: { id: true, isAdmin: true, email: true, role: true, tokenVersion: true },
           });
 
           if (!dbUser) {
             return {};
           }
 
-          // Invalidate session if password was changed (Issue 58)
-          const currentPwdHash = dbUser.passwordHash ? dbUser.passwordHash.substring(0, 12) : "";
-          if (token.pwdHash && currentPwdHash && token.pwdHash !== currentPwdHash) {
+          // Session invalidation on tokenVersion mismatch (M6)
+          const currentTokenVersion = dbUser.tokenVersion ?? 0;
+          const sessionTokenVersion = (token.tokenVersion as number) ?? 0;
+          if (currentTokenVersion !== sessionTokenVersion) {
+            console.warn(
+              `[Auth] Session invalidated for user ${token.id}: version mismatch (session: ${sessionTokenVersion}, db: ${currentTokenVersion})`
+            );
             return {};
           }
 
@@ -272,6 +274,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role as "customer" | "solution_partner" | "admin") || (token.isAdmin ? "admin" : "customer");
         session.user.partnerStatus = (token.partnerStatus as "pending" | "approved" | "rejected" | "suspended" | "deactivated" | null) ?? null;
         session.user.partnerId = (token.partnerId as string | null) ?? null;
+        session.user.tokenVersion = (token.tokenVersion as number) ?? 0;
       }
       return session;
     },

@@ -512,21 +512,71 @@ export function createMockPrismaClient(): any {
           async update(args?: any) {
             const targetId = args?.where?.id;
             const targetEmail = args?.where?.email?.toLowerCase();
+            const targetIdentifier = args?.where?.identifier?.toLowerCase();
             let coll: any[] | null = null;
             if (modelName === "user") coll = memoryStore.users;
             if (modelName === "pendingRegistration") coll = memoryStore.pendingRegistrations;
+            if (modelName === "verificationToken") coll = memoryStore.verificationTokens;
             if (modelName === "project") coll = memoryStore.projects;
             if (modelName === "projectProvider") coll = memoryStore.providers;
 
             if (coll) {
-              const idx = coll.findIndex((item) => (targetId && item.id === targetId) || (targetEmail && item.email?.toLowerCase() === targetEmail));
+              const idx = coll.findIndex(
+                (item) =>
+                  (targetId && item.id === targetId) ||
+                  (targetEmail && item.email?.toLowerCase() === targetEmail) ||
+                  (targetIdentifier && item.identifier?.toLowerCase() === targetIdentifier)
+              );
               if (idx !== -1) {
-                coll[idx] = { ...coll[idx], ...(args?.data || {}), updatedAt: new Date() };
+                const patch = { ...(args?.data || {}) };
+                if (patch.tokenVersion && typeof patch.tokenVersion === "object" && "increment" in patch.tokenVersion) {
+                  patch.tokenVersion = (coll[idx].tokenVersion || 0) + (patch.tokenVersion.increment || 1);
+                }
+                if (patch.attempts && typeof patch.attempts === "object" && "increment" in patch.attempts) {
+                  patch.attempts = (coll[idx].attempts || 0) + (patch.attempts.increment || 1);
+                }
+                coll[idx] = { ...coll[idx], ...patch, updatedAt: new Date() };
                 memoryStore.saveToDisk();
                 return coll[idx];
               }
             }
             return { ...(args?.data || {}), id: targetId || "mock-id" };
+          },
+
+          async updateMany(args?: any) {
+            let coll: any[] | null = null;
+            if (modelName === "user") coll = memoryStore.users;
+            if (modelName === "pendingRegistration") coll = memoryStore.pendingRegistrations;
+            if (modelName === "verificationToken") coll = memoryStore.verificationTokens;
+
+            let updatedCount = 0;
+            if (coll) {
+              const targetIdentifier = args?.where?.identifier?.toLowerCase();
+              const targetEmail = args?.where?.email?.toLowerCase();
+
+              for (let i = 0; i < coll.length; i++) {
+                const match =
+                  (!targetIdentifier && !targetEmail) ||
+                  (targetIdentifier && coll[i].identifier?.toLowerCase() === targetIdentifier) ||
+                  (targetEmail && coll[i].email?.toLowerCase() === targetEmail);
+
+                if (match) {
+                  const patch = { ...(args?.data || {}) };
+                  if (patch.tokenVersion && typeof patch.tokenVersion === "object" && "increment" in patch.tokenVersion) {
+                    patch.tokenVersion = (coll[i].tokenVersion || 0) + (patch.tokenVersion.increment || 1);
+                  }
+                  if (patch.attempts && typeof patch.attempts === "object" && "increment" in patch.attempts) {
+                    patch.attempts = (coll[i].attempts || 0) + (patch.attempts.increment || 1);
+                  }
+                  coll[i] = { ...coll[i], ...patch, updatedAt: new Date() };
+                  updatedCount++;
+                }
+              }
+              if (updatedCount > 0) {
+                memoryStore.saveToDisk();
+              }
+            }
+            return { count: updatedCount };
           },
 
           async delete(args?: any) {
@@ -545,6 +595,17 @@ export function createMockPrismaClient(): any {
 
           async deleteMany(args?: any) {
             let count = 0;
+            if (modelName === "user") {
+              const targetEmail = args?.where?.email?.toLowerCase();
+              const targetId = args?.where?.id;
+              const initial = memoryStore.users.length;
+              memoryStore.users = memoryStore.users.filter(
+                (u) =>
+                  (!targetEmail || u.email?.toLowerCase() !== targetEmail) &&
+                  (!targetId || u.id !== targetId)
+              );
+              count = initial - memoryStore.users.length;
+            }
             if (modelName === "pendingRegistration" && args?.where?.email) {
               const initial = memoryStore.pendingRegistrations.length;
               memoryStore.pendingRegistrations = memoryStore.pendingRegistrations.filter((p) => p.email.toLowerCase() !== args.where.email.toLowerCase());

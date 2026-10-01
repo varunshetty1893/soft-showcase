@@ -28,6 +28,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Fetch user from DB with passwordHash and tokenVersion
+    const dbUser = await db.user.findUnique({
+      where: { id: sessionUser.id },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Sensitive route check: verify tokenVersion against DB on every call (M6)
+    const sessionTokenVersion = (sessionUser as { tokenVersion?: number }).tokenVersion ?? 0;
+    if (sessionTokenVersion !== (dbUser.tokenVersion ?? 0)) {
+      return NextResponse.json(
+        { error: "Session expired or invalidated. Please sign in again." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const result = ChangePasswordSchema.safeParse(body);
 
@@ -39,15 +57,6 @@ export async function POST(req: NextRequest) {
     }
 
     const { currentPassword, newPassword } = result.data;
-
-    // Fetch user from DB with passwordHash
-    const dbUser = await db.user.findUnique({
-      where: { id: sessionUser.id },
-    });
-
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
 
     // If user already has a password set, verify current password
     if (dbUser.passwordHash) {
@@ -75,11 +84,12 @@ export async function POST(req: NextRequest) {
         where: { id: sessionUser.id },
         data: {
           passwordHash: newPasswordHash,
+          tokenVersion: { increment: 1 },
           emailVerified: dbUser.emailVerified || new Date(),
         },
       });
 
-      // Clear any persisted active sessions (Issue 58)
+      // Clear any persisted active sessions (M6)
       await tx.session.deleteMany({
         where: { userId: sessionUser.id },
       });
@@ -97,7 +107,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Password updated successfully! You can now sign in using your email and password.",
+      message: "Password updated successfully! Please sign in again with your new password.",
+      requiresSignIn: true,
     });
   } catch (error) {
     console.error("[API] Change password error:", error);

@@ -49,31 +49,60 @@ const nextConfig: NextConfig = {
 
   // ─── Security headers ───────────────────────────────────────────────────────
   async headers() {
+    const isProduction = process.env.NODE_ENV === "production";
+    const isAIStudioPreview = Boolean(
+      process.env.VERCEL !== "1" ||
+      process.env.NEXT_PUBLIC_APP_URL?.includes("run.app") ||
+      process.env.NEXT_PUBLIC_APP_URL?.includes("google")
+    );
+
+    const scriptSrc = isProduction
+      ? "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com"
+      : "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com";
+
+    const frameAncestors = isAIStudioPreview
+      ? "frame-ancestors 'self' https://*.run.app https://*.google.com https://*.google.dev *"
+      : "frame-ancestors 'none'";
+
+    const headersList: { key: string; value: string }[] = [
+      { key: "X-DNS-Prefetch-Control", value: "on" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=()",
+      },
+      {
+        key: "Content-Security-Policy",
+        value: [
+          "default-src 'self'",
+          scriptSrc,
+          "frame-src 'self' https://challenges.cloudflare.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "font-src 'self' https://fonts.gstatic.com data:",
+          "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://picsum.photos https://raw.githubusercontent.com https://avatars.githubusercontent.com",
+          "connect-src 'self' https://challenges.cloudflare.com",
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          frameAncestors,
+        ].join("; "),
+      },
+    ];
+
+    if (!isAIStudioPreview) {
+      headersList.push({ key: "X-Frame-Options", value: "DENY" });
+      headersList.push({
+        key: "Strict-Transport-Security",
+        value: "max-age=63072000; includeSubDomains; preload",
+      });
+    }
+
     return [
       {
         source: "/(.*)",
-        headers: [
-          { key: "X-DNS-Prefetch-Control", value: "on" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com data:",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://picsum.photos https://raw.githubusercontent.com https://avatars.githubusercontent.com",
-              "connect-src 'self' https://*.run.app https://*.google.com https://*.neon.tech https://api.cloudinary.com https://*.upstash.io wss:",
-              "frame-ancestors 'self' https://*.run.app https://*.google.com",
-            ].join("; "),
-          },
-        ],
+        headers: headersList,
       },
     ];
   },

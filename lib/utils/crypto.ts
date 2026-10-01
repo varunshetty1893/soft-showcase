@@ -21,24 +21,31 @@ export function hashSecretToken(token: string): string {
 }
 
 /**
- * Safely compare a user-supplied code against stored plain or hashed token.
- * Supports legacy plain token during transition.
+ * Safely compare a user-supplied code against stored hashed token in constant time.
+ * Uses crypto.timingSafeEqual on equal-length SHA-256 buffers to prevent timing side-channels.
+ * Plaintext comparison has been removed for strict security.
  */
 export function verifySecretToken(inputCode: string, storedToken: string): boolean {
+  if (!inputCode || !storedToken) {
+    return false;
+  }
+
   const trimmed = inputCode.trim();
-  const hashedInput = hashSecretToken(trimmed);
+  const inputHashBuffer = crypto.createHash("sha256").update(trimmed).digest();
 
-  // Check against SHA-256 hash first
-  if (hashedInput === storedToken) {
-    return true;
+  // Stored token must be a 64-character hex string representing a SHA-256 hash
+  const normalizedStored = storedToken.trim();
+  if (normalizedStored.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(normalizedStored)) {
+    return false;
   }
 
-  // Fallback check against plaintext for legacy tokens
-  if (trimmed === storedToken) {
-    return true;
+  const storedHashBuffer = Buffer.from(normalizedStored, "hex");
+
+  if (inputHashBuffer.length !== storedHashBuffer.length) {
+    return false;
   }
 
-  return false;
+  return crypto.timingSafeEqual(inputHashBuffer, storedHashBuffer);
 }
 
 /**

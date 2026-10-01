@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     template: `%s | ${APP_NAME}`,
   },
   description:
-    "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+    "Curated software project discovery platform connecting buyers directly with verified builders.",
   keywords: [
     "software projects",
     "web applications",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     siteName: APP_NAME,
     title: "Soft Showcase - Discover Software Projects",
     description:
-      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+      "Curated software project discovery platform connecting buyers directly with verified builders.",
     images: [
       {
         url: `${APP_URL}/logo.png`,
@@ -86,7 +86,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Soft Showcase - Discover Software Projects",
     description:
-      "Explore curated software projects, developer tools, and web applications built by verified creators. Connect directly with builders via WhatsApp and email.",
+      "Curated software project discovery platform connecting buyers directly with verified builders.",
     images: [`${APP_URL}/logo.png`],
   },
   robots: {

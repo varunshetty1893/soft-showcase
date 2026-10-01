@@ -23,6 +23,7 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
+  tokenVersion  Int       @default(0)
   isAdmin       Boolean   @default(false)
   role          String    @default("customer") // "customer" | "solution_partner" | "admin"
 
@@ -72,6 +73,7 @@ model VerificationToken {
   identifier String
   token      String
   expires    DateTime
+  attempts   Int      @default(0)
 
   @@id([identifier, token])
   @@map("verification_tokens")
