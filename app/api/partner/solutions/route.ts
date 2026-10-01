@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       demoUrl = trimmed;
     }
 
-    // Sanitize features array
+    // Sanitize features array (safe max 25)
     const sanitizedFeatures = Array.isArray(body.features)
       ? body.features
           .map((f: any) => {
@@ -106,6 +106,39 @@ export async function POST(req: NextRequest) {
             return typeof text === "string" && text.trim().length >= 2 ? { feature: text.trim() } : null;
           })
           .filter(Boolean)
+          .slice(0, 25)
+      : undefined;
+
+    // Sanitize whatsIncluded array (safe max 20)
+    const sanitizedWhatsIncluded = Array.isArray(body.whatsIncluded)
+      ? body.whatsIncluded
+          .map((w: any) => (typeof w === "string" ? w.trim() : ""))
+          .filter(Boolean)
+          .slice(0, 20)
+      : undefined;
+
+    // Sanitize specifications array (safe max 25)
+    const sanitizedSpecs = Array.isArray(body.specifications)
+      ? body.specifications
+          .filter((s: any) => s && s.key && String(s.key).trim() && s.value && String(s.value).trim())
+          .map((s: any, idx: number) => ({
+            key: String(s.key).trim(),
+            value: String(s.value).trim(),
+            sortOrder: idx + 1,
+          }))
+          .slice(0, 25)
+      : undefined;
+
+    // Sanitize faqs array (safe max 20)
+    const sanitizedFaqs = Array.isArray(body.faqs)
+      ? body.faqs
+          .filter((f: any) => f && f.question && String(f.question).trim() && f.answer && String(f.answer).trim())
+          .map((f: any, idx: number) => ({
+            question: String(f.question).trim(),
+            answer: String(f.answer).trim(),
+            sortOrder: idx + 1,
+          }))
+          .slice(0, 20)
       : undefined;
 
     // Sanitize technologies array (ensure only non-empty strings, eliminate nulls/objects)
@@ -117,11 +150,15 @@ export async function POST(req: NextRequest) {
             return null;
           })
           .filter((t: any): t is string => Boolean(t))
+          .slice(0, 20)
       : undefined;
 
     const parsed = ProjectSchema.safeParse({
       ...body,
       ...(sanitizedFeatures !== undefined && { features: sanitizedFeatures }),
+      ...(sanitizedWhatsIncluded !== undefined && { whatsIncluded: sanitizedWhatsIncluded }),
+      ...(sanitizedSpecs !== undefined && { specifications: sanitizedSpecs }),
+      ...(sanitizedFaqs !== undefined && { faqs: sanitizedFaqs }),
       ...(sanitizedTechnologies !== undefined && { technologies: sanitizedTechnologies }),
       slug: finalSlug,
       price,
@@ -131,9 +168,25 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
+      const friendlyFieldNames: Record<string, string> = {
+        whatsIncluded: "What's Included",
+        features: "Key Features",
+        specifications: "Technical Specifications",
+        faqs: "FAQs",
+        technologies: "Technologies",
+        title: "Solution Title",
+        shortDescription: "Short Description",
+        fullDescription: "Overview Description",
+        categoryId: "Category",
+        price: "Price",
+        demoUrl: "Demo URL",
+      };
       const errorSummary =
         Object.entries(fieldErrors)
-          .map(([k, msgs]) => `${k}: ${msgs?.join(", ")}`)
+          .map(([k, msgs]) => {
+            const label = friendlyFieldNames[k] || k;
+            return `${label}: ${msgs?.join(", ")}`;
+          })
           .join("; ") || "Validation failed";
 
       return NextResponse.json(

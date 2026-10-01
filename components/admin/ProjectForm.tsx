@@ -345,6 +345,9 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
         } else {
           setGlobalError(data.error ?? "An error occurred. Please try again.");
         }
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
         return;
       }
 

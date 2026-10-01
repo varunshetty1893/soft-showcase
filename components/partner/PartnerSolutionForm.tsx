@@ -23,6 +23,8 @@ import {
   Info,
   X,
   ExternalLink,
+  FileCode,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +47,159 @@ export interface PhotoItem {
   altText: string;
   isPrimary: boolean;
   storageKey?: string;
+}
+
+export interface SolutionErrorItem {
+  field: string;
+  title: string;
+  message: string;
+  currentCount?: number;
+  maxLimit?: number;
+  canTrim?: boolean;
+}
+
+function parseSolutionErrors(
+  errorData: any,
+  counts: {
+    whatsIncluded: number;
+    features: number;
+    specifications: number;
+    faqs: number;
+    technologies: number;
+  }
+): SolutionErrorItem[] {
+  const items: SolutionErrorItem[] = [];
+  const rawFieldErrors = errorData?.details?.fieldErrors || {};
+  const processed = new Set<string>();
+
+  const fieldDefinitions: Record<
+    string,
+    { title: string; maxLimit?: number; canTrim?: boolean; getSimpleMsg: (count?: number) => string }
+  > = {
+    whatsIncluded: {
+      title: "What's Included",
+      maxLimit: 20,
+      canTrim: counts.whatsIncluded > 20,
+      getSimpleMsg: (c = counts.whatsIncluded) =>
+        `Too many items in What's Included. Please limit to 20 items (you currently have ${c} items).`,
+    },
+    features: {
+      title: "Key Features",
+      maxLimit: 25,
+      canTrim: counts.features > 25,
+      getSimpleMsg: (c = counts.features) =>
+        `Too many features listed. Please limit to 25 features (you currently have ${c} features).`,
+    },
+    specifications: {
+      title: "Technical Specifications",
+      maxLimit: 25,
+      canTrim: counts.specifications > 25,
+      getSimpleMsg: (c = counts.specifications) =>
+        `Too many specifications. Please limit to 25 items (you currently have ${c}).`,
+    },
+    faqs: {
+      title: "Frequently Asked Questions",
+      maxLimit: 20,
+      canTrim: counts.faqs > 20,
+      getSimpleMsg: (c = counts.faqs) =>
+        `Too many FAQs. Please limit to 20 questions (you currently have ${c}).`,
+    },
+    technologies: {
+      title: "Technologies",
+      maxLimit: 20,
+      getSimpleMsg: () => "Please select no more than 20 technologies.",
+    },
+    images: {
+      title: "Screenshots & Images",
+      maxLimit: 15,
+      getSimpleMsg: () => "Please upload at most 15 screenshots.",
+    },
+    title: {
+      title: "Solution Title",
+      getSimpleMsg: () => "Please enter a valid title (between 3 and 150 characters).",
+    },
+    shortDescription: {
+      title: "Short Description",
+      getSimpleMsg: () => "Please enter a short description between 10 and 300 characters.",
+    },
+    fullDescription: {
+      title: "Comprehensive Overview",
+      getSimpleMsg: () => "Please enter a detailed overview description of at least 50 characters.",
+    },
+    categoryId: {
+      title: "Architecture Category",
+      getSimpleMsg: () => "Please select a category for this solution.",
+    },
+    price: {
+      title: "Pricing",
+      getSimpleMsg: () => "Please provide a valid price amount.",
+    },
+    demoUrl: {
+      title: "Demo URL",
+      getSimpleMsg: () => "Please provide a valid URL for the live demo.",
+    },
+  };
+
+  for (const [key, errs] of Object.entries(rawFieldErrors)) {
+    processed.add(key);
+    const def = fieldDefinitions[key];
+    if (def) {
+      items.push({
+        field: key,
+        title: def.title,
+        message: def.getSimpleMsg(),
+        currentCount:
+          key === "whatsIncluded"
+            ? counts.whatsIncluded
+            : key === "features"
+            ? counts.features
+            : undefined,
+        maxLimit: def.maxLimit,
+        canTrim: def.canTrim,
+      });
+    } else {
+      const errText = Array.isArray(errs) ? errs.join(", ") : String(errs);
+      items.push({
+        field: key,
+        title: key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()),
+        message: errText,
+      });
+    }
+  }
+
+  // Fallback if no structured field errors
+  if (items.length === 0 && errorData?.error) {
+    const rawError = String(errorData.error);
+    if (rawError.includes("whatsIncluded") || rawError.toLowerCase().includes("what's included")) {
+      items.push({
+        field: "whatsIncluded",
+        title: "What's Included",
+        message: `Too many items in What's Included. Please limit to 20 items (you currently have ${counts.whatsIncluded} items).`,
+        currentCount: counts.whatsIncluded,
+        maxLimit: 20,
+        canTrim: counts.whatsIncluded > 20,
+      });
+    }
+    if (rawError.includes("features") || rawError.toLowerCase().includes("feature")) {
+      items.push({
+        field: "features",
+        title: "Key Features",
+        message: `Too many features listed. Please limit to 25 features (you currently have ${counts.features} features).`,
+        currentCount: counts.features,
+        maxLimit: 25,
+        canTrim: counts.features > 25,
+      });
+    }
+    if (items.length === 0) {
+      items.push({
+        field: "general",
+        title: "Submission Issue",
+        message: rawError.replace(/\(.*?\)/g, "").trim(),
+      });
+    }
+  }
+
+  return items;
 }
 
 interface PartnerSolutionFormProps {
@@ -179,6 +334,80 @@ export function PartnerSolutionForm({
 
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [errorItems, setErrorItems] = React.useState<SolutionErrorItem[]>([]);
+  const [showErrorModal, setShowErrorModal] = React.useState(false);
+  const [successNotice, setSuccessNotice] = React.useState<string | null>(null);
+
+  // ── Trimming & Auto-Fix Helpers ───────────────────────────────────────────
+  const handleTrimField = (field: string) => {
+    if (field === "whatsIncluded") {
+      setWhatsIncluded((prev) => prev.slice(0, 20));
+      setSuccessNotice("What's Included has been trimmed to 20 items.");
+    } else if (field === "features") {
+      setFeatures((prev) => prev.slice(0, 25));
+      setSuccessNotice("Key Features has been trimmed to 25 features.");
+    } else if (field === "specifications") {
+      setSpecifications((prev) => prev.slice(0, 25));
+      setSuccessNotice("Technical specifications trimmed to 25 items.");
+    } else if (field === "faqs") {
+      setFaqs((prev) => prev.slice(0, 20));
+      setSuccessNotice("FAQs trimmed to 20 questions.");
+    }
+
+    setErrorItems((prev) => {
+      const remaining = prev.filter((item) => item.field !== field);
+      if (remaining.length === 0) {
+        setShowErrorModal(false);
+        setError(null);
+      }
+      return remaining;
+    });
+  };
+
+  const handleAutoTrimAll = () => {
+    if (whatsIncluded.length > 20) {
+      setWhatsIncluded((prev) => prev.slice(0, 20));
+    }
+    if (features.length > 25) {
+      setFeatures((prev) => prev.slice(0, 25));
+    }
+    if (specifications.length > 25) {
+      setSpecifications((prev) => prev.slice(0, 25));
+    }
+    if (faqs.length > 20) {
+      setFaqs((prev) => prev.slice(0, 20));
+    }
+
+    setErrorItems([]);
+    setError(null);
+    setShowErrorModal(false);
+    setSuccessNotice("All items have been trimmed to platform limits. You can now save your solution!");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleAutoTrimAndSave = async () => {
+    const trimmedWhatsIncluded = whatsIncluded.length > 20 ? whatsIncluded.slice(0, 20) : whatsIncluded;
+    const trimmedFeatures = features.length > 25 ? features.slice(0, 25) : features;
+    const trimmedSpecs = specifications.length > 25 ? specifications.slice(0, 25) : specifications;
+    const trimmedFaqs = faqs.length > 20 ? faqs.slice(0, 20) : faqs;
+
+    setWhatsIncluded(trimmedWhatsIncluded);
+    setFeatures(trimmedFeatures);
+    setSpecifications(trimmedSpecs);
+    setFaqs(trimmedFaqs);
+    setErrorItems([]);
+    setError(null);
+    setShowErrorModal(false);
+
+    await executeSavePayload({
+      whatsIncluded: trimmedWhatsIncluded,
+      features: trimmedFeatures,
+      specifications: trimmedSpecs,
+      faqs: trimmedFaqs,
+    });
+  };
 
   // ── Tech Tag Handlers ──────────────────────────────────────────────────────
   const handleToggleTech = (id: string) => {
@@ -417,39 +646,128 @@ export function PartnerSolutionForm({
     setFaqs((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // ── Submit Handler ─────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ── Save & Submit Logic ───────────────────────────────────────────────────
+  const executeSavePayload = async (overrides?: {
+    whatsIncluded?: string[];
+    features?: { feature: string }[];
+    specifications?: { key: string; value: string }[];
+    faqs?: { question: string; answer: string }[];
+  }) => {
     setError(null);
+    setLoading(true);
 
-    // Client-side validations
+    const activeWhatsIncluded = (overrides?.whatsIncluded ?? whatsIncluded).filter((w) => w && w.trim());
+    const activeFeatures = (overrides?.features ?? features)
+      .map((f) => (typeof f === "string" ? f : f?.feature || ""))
+      .filter((feat) => typeof feat === "string" && feat.trim().length >= 2)
+      .map((feat, i) => ({ feature: feat.trim(), sortOrder: i + 1 }));
+    const activeSpecs = (overrides?.specifications ?? specifications)
+      .filter((s) => s.key && s.key.trim() && s.value && s.value.trim())
+      .map((s, i) => ({ key: s.key.trim(), value: s.value.trim(), sortOrder: i + 1 }));
+    const activeFaqs = (overrides?.faqs ?? faqs)
+      .filter((faq) => faq.question && faq.question.trim() && faq.answer && faq.answer.trim())
+      .map((faq, i) => ({ question: faq.question.trim(), answer: faq.answer.trim(), sortOrder: i + 1 }));
+
+    // ── Client-side Validations with instant Scroll-to-Top and Friendly Modal ──
+    const clientErrors: SolutionErrorItem[] = [];
+
     if (!title.trim() || title.trim().length < 3) {
-      setError("Solution title must be at least 3 characters long.");
-      return;
+      clientErrors.push({
+        field: "title",
+        title: "Solution Title Too Short",
+        message: "Please enter a solution title with at least 3 characters.",
+      });
     }
+
     if (!shortDescription.trim() || shortDescription.trim().length < 10) {
-      setError("Short teaser description must be at least 10 characters long.");
-      return;
+      clientErrors.push({
+        field: "shortDescription",
+        title: "Short Description Needed",
+        message: "Please enter a short description of at least 10 characters.",
+      });
     }
+
     if (!fullDescription.trim() || fullDescription.trim().length < 50) {
-      setError(
-        `Detailed architecture description must be at least 50 characters long (currently ${fullDescription.trim().length} chars).`
-      );
-      return;
+      clientErrors.push({
+        field: "fullDescription",
+        title: "Overview Description Too Short",
+        message: `Please enter an overview description of at least 50 characters (currently ${fullDescription.trim().length} characters).`,
+      });
     }
+
     if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice <= 0) {
-        setError("Please enter a valid positive price for Fixed or Starting From price mode.");
-        return;
+        clientErrors.push({
+          field: "price",
+          title: "Valid Price Required",
+          message: "Please enter a valid price amount greater than zero.",
+        });
       }
     }
+
     if (photos.length === 0) {
-      setError("Please add at least one photo or screenshot for your solution.");
-      return;
+      clientErrors.push({
+        field: "photos",
+        title: "Cover Photo Required",
+        message: "Please add or upload at least one image or screenshot of your solution.",
+      });
     }
 
-    setLoading(true);
+    if (activeWhatsIncluded.length > 20) {
+      clientErrors.push({
+        field: "whatsIncluded",
+        title: "Too Many Items in What's Included",
+        message: `You currently have ${activeWhatsIncluded.length} items. The system limit is 20. Please keep your top 20 main deliverables.`,
+        currentCount: activeWhatsIncluded.length,
+        maxLimit: 20,
+        canTrim: true,
+      });
+    }
+
+    if (activeFeatures.length > 25) {
+      clientErrors.push({
+        field: "features",
+        title: "Too Many Key Features",
+        message: `You currently have ${activeFeatures.length} features. The system limit is 25. Please keep your top 25 most important features.`,
+        currentCount: activeFeatures.length,
+        maxLimit: 25,
+        canTrim: true,
+      });
+    }
+
+    if (activeSpecs.length > 25) {
+      clientErrors.push({
+        field: "specifications",
+        title: "Too Many Technical Specifications",
+        message: `You have ${activeSpecs.length} specifications. The system limit is 25 items.`,
+        currentCount: activeSpecs.length,
+        maxLimit: 25,
+        canTrim: true,
+      });
+    }
+
+    if (activeFaqs.length > 20) {
+      clientErrors.push({
+        field: "faqs",
+        title: "Too Many FAQs",
+        message: `You have ${activeFaqs.length} FAQs. The system limit is 20 questions.`,
+        currentCount: activeFaqs.length,
+        maxLimit: 20,
+        canTrim: true,
+      });
+    }
+
+    if (clientErrors.length > 0) {
+      setErrorItems(clientErrors);
+      setError("Please review and adjust the highlighted items below before saving.");
+      setShowErrorModal(true);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      setLoading(false);
+      return;
+    }
 
     try {
       const computedPrice =
@@ -468,13 +786,6 @@ export function PartnerSolutionForm({
             : `https://${trimmed}`;
       }
 
-      // Clean and sanitize features so empty/malformed values are never sent
-      const cleanedFeatures = features
-        .map((f) => (typeof f === "string" ? f : f?.feature || ""))
-        .filter((feat) => typeof feat === "string" && feat.trim().length >= 2)
-        .map((feat, i) => ({ feature: feat.trim(), sortOrder: i + 1 }));
-
-      // Clean and sanitize technologies so null/undefined are never sent
       const validTechIds = selectedTechs.filter((id): id is string => Boolean(id && typeof id === "string" && id.trim()));
       const cleanedTechNames = validTechIds
         .map((id) => {
@@ -496,22 +807,10 @@ export function PartnerSolutionForm({
         projectType: projectType.trim() ? projectType.trim() : null,
         status,
         featured: Boolean(featured),
-        whatsIncluded: whatsIncluded.filter((w) => w && w.trim()),
-        features: cleanedFeatures,
-        specifications: specifications
-          .filter((s) => s.key && s.key.trim() && s.value && s.value.trim())
-          .map((s, i) => ({
-            key: s.key.trim(),
-            value: s.value.trim(),
-            sortOrder: i + 1,
-          })),
-        faqs: faqs
-          .filter((faq) => faq.question && faq.question.trim() && faq.answer && faq.answer.trim())
-          .map((faq, i) => ({
-            question: faq.question.trim(),
-            answer: faq.answer.trim(),
-            sortOrder: i + 1,
-          })),
+        whatsIncluded: activeWhatsIncluded,
+        features: activeFeatures,
+        specifications: activeSpecs,
+        faqs: activeFaqs,
         technologyIds: validTechIds,
         technologies: cleanedTechNames,
         images: photos.map((p, i) => ({
@@ -534,27 +833,49 @@ export function PartnerSolutionForm({
         body: JSON.stringify(payload),
       });
 
-      const resData = await res.json();
+      const resData = await res.json().catch(() => ({}));
       if (!res.ok) {
-        let msg = resData.error || "Failed to save solution";
-        if (resData.details?.fieldErrors) {
-          const detailList = Object.entries(resData.details.fieldErrors)
-            .map(([field, errs]) => `${field}: ${(errs as string[]).join(", ")}`)
-            .join(" • ");
-          if (detailList) {
-            msg = `${msg} (${detailList})`;
-          }
+        const parsed = parseSolutionErrors(resData, {
+          whatsIncluded: activeWhatsIncluded.length,
+          features: activeFeatures.length,
+          specifications: activeSpecs.length,
+          faqs: activeFaqs.length,
+          technologies: validTechIds.length,
+        });
+
+        setErrorItems(parsed);
+        setError("Please review and adjust the highlighted items below before saving.");
+        setShowErrorModal(true);
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
-        throw new Error(msg);
+        return;
       }
 
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred while saving.";
+      setError(msg);
+      setErrorItems([
+        {
+          field: "general",
+          title: "Submission Error",
+          message: msg,
+        },
+      ]);
+      setShowErrorModal(true);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeSavePayload();
   };
 
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
@@ -582,13 +903,112 @@ export function PartnerSolutionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
-      {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 shadow-xs">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold">Unable to submit solution</p>
-            <p>{error}</p>
+      {/* ── Success Notice Banner ────────────────────────────────────── */}
+      {successNotice && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{successNotice}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotice(null)}
+            className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 rounded-lg hover:bg-emerald-100 transition cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* ── Error Banner ─────────────────────────────────────────────── */}
+      {error && (
+        <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs space-y-3 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-rose-200/60">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+              <div>
+                <p className="font-bold text-sm text-rose-900">Please review solution details</p>
+                <p className="text-xs text-rose-700">
+                  {errorItems.length === 1
+                    ? "1 item needs your attention before saving:"
+                    : `${errorItems.length} items need your attention before saving:`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowErrorModal(true)}
+                className="px-3 py-1.5 bg-white border border-rose-200 hover:bg-rose-100/50 text-rose-900 rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer"
+              >
+                View Popup Guide
+              </button>
+              {errorItems.some((e) => e.canTrim) && (
+                <button
+                  type="button"
+                  onClick={handleAutoTrimAll}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+                >
+                  Auto-Trim to Limits
+                </button>
+              )}
+            </div>
+          </div>
+
+          {errorItems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {errorItems.map((item, idx) => (
+                <div key={idx} className="p-3.5 bg-white rounded-xl border border-rose-200 space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-rose-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      {item.title}
+                    </span>
+                    {item.canTrim && item.maxLimit && (
+                      <button
+                        type="button"
+                        onClick={() => handleTrimField(item.field)}
+                        className="text-[11px] font-bold text-[#155761] hover:text-[#0E3E45] underline cursor-pointer"
+                      >
+                        Trim to {item.maxLimit}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#526267] leading-relaxed">{item.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-rose-700">{error}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Quick JSON Import Bar ──────────────────────────────────────── */}
+      {!isEditing && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#F0F9F8] to-[#E6F4F1] border border-[#BEDEE1] shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#155761] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <FileCode className="w-5 h-5 text-emerald-300" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-[#102124]">
+                Want to pre-fill all fields in 1 click?
+              </p>
+              <p className="text-[11px] text-[#526267]">
+                Import from an AI-generated or exported project JSON file instead of typing manually.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/partner/solutions/import"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs font-bold shadow-xs transition shrink-0 active:scale-95"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>Import via JSON</span>
+            <ArrowRight className="w-3.5 h-3.5 opacity-80" />
+          </Link>
         </div>
       )}
 
@@ -1145,10 +1565,38 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
-        <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
-          5. Deliverables (&quot;What&apos;s Included&quot;)
-        </h2>
+      {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-whats-included">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F7F7] pb-3">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-[#102124]">
+              5. Deliverables (&quot;What&apos;s Included&quot;)
+            </h2>
+            <span
+              className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-colors ${
+                whatsIncluded.length > 20
+                  ? "bg-rose-100 text-rose-700 border border-rose-300"
+                  : "bg-[#F3F7F7] text-[#526267] border border-[#D9E2E4]"
+              }`}
+            >
+              {whatsIncluded.length} / 20 max
+            </span>
+          </div>
+
+          {whatsIncluded.length > 20 && (
+            <button
+              type="button"
+              onClick={() => {
+                setWhatsIncluded((prev) => prev.slice(0, 20));
+                setSuccessNotice("What's Included has been trimmed to 20 items.");
+                setErrorItems((prev) => prev.filter((item) => item.field !== "whatsIncluded"));
+              }}
+              className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"
+            >
+              Trim to 20 items
+            </button>
+          )}
+        </div>
 
         <div className="space-y-2">
           {whatsIncluded.map((item, idx) => (
@@ -1196,10 +1644,37 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 6. Key Features ───────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
-        <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
-          6. Key Architectural Features
-        </h2>
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-features">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F7F7] pb-3">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-[#102124]">
+              6. Key Architectural Features
+            </h2>
+            <span
+              className={`text-xs px-2.5 py-0.5 rounded-full font-bold transition-colors ${
+                features.length > 25
+                  ? "bg-rose-100 text-rose-700 border border-rose-300"
+                  : "bg-[#F3F7F7] text-[#526267] border border-[#D9E2E4]"
+              }`}
+            >
+              {features.length} / 25 max
+            </span>
+          </div>
+
+          {features.length > 25 && (
+            <button
+              type="button"
+              onClick={() => {
+                setFeatures((prev) => prev.slice(0, 25));
+                setSuccessNotice("Key Features has been trimmed to 25 features.");
+                setErrorItems((prev) => prev.filter((item) => item.field !== "features"));
+              }}
+              className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"
+            >
+              Trim to 25 features
+            </button>
+          )}
+        </div>
 
         <div className="space-y-2">
           {features.map((f, idx) => (
@@ -1406,6 +1881,120 @@ export function PartnerSolutionForm({
               >
                 {deleting ? "Deleting…" : "Permanently Delete"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Error Popup Modal ─────────────────────────────────────────── */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-[#D9E2E4] rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-[#102124]">
+                    Please Review Solution Details
+                  </h3>
+                  <p className="text-xs text-[#526267] mt-0.5">
+                    {errorItems.length === 1
+                      ? "1 item needs your attention before saving:"
+                      : `${errorItems.length} items need your attention before saving:`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowErrorModal(false)}
+                className="text-[#526267] hover:text-[#102124] p-1.5 rounded-xl hover:bg-[#F3F7F7] transition cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List of Simple Friendly Errors */}
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+              {errorItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs sm:text-sm text-[#102124] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      {item.title}
+                    </span>
+                    {item.maxLimit && (
+                      <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                        Max Allowed: {item.maxLimit}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-[#526267] leading-relaxed">
+                    {item.message}
+                  </p>
+
+                  {item.canTrim && item.maxLimit && (
+                    <div className="pt-1 flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleTrimField(item.field)}
+                        className="px-3 py-1.5 bg-[#155761] hover:bg-[#0E3E45] text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Trim to {item.maxLimit}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#D9E2E4]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowErrorModal(false);
+                  const firstField = errorItems[0]?.field;
+                  if (firstField === "whatsIncluded") {
+                    document.getElementById("section-whats-included")?.scrollIntoView({ behavior: "smooth" });
+                  } else if (firstField === "features") {
+                    document.getElementById("section-features")?.scrollIntoView({ behavior: "smooth" });
+                  } else {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#D9E2E4] text-xs font-semibold text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124] transition cursor-pointer text-center"
+              >
+                Close & Review Manually
+              </button>
+
+              {errorItems.some((e) => e.canTrim) && (
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleAutoTrimAll}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-rose-300 hover:bg-rose-50 text-rose-700 text-xs font-semibold shadow-2xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span>Trim to Limits</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAutoTrimAndSave}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                    <span>Auto-Fix & Save Now</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

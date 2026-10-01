@@ -223,6 +223,33 @@ export async function POST(request: NextRequest) {
       allTechIds.push(createdTech.id);
     }
 
+    // Normalize images (mainImage + images)
+    const normalizedImages: Array<{ url: string; storageKey: string; altText: string; isPrimary: boolean; sortOrder: number }> = [];
+    if (data.mainImage && data.mainImage.trim()) {
+      normalizedImages.push({
+        url: data.mainImage.trim(),
+        storageKey: `admin-import-cover-${Date.now()}`,
+        altText: `${data.title} Cover`,
+        isPrimary: true,
+        sortOrder: 1,
+      });
+    }
+    if (Array.isArray(data.images)) {
+      data.images.forEach((img, idx) => {
+        const url = typeof img === "string" ? img.trim() : (img as any)?.url?.trim();
+        const alt = typeof img === "object" && (img as any)?.altText ? (img as any).altText.trim() : `${data.title} Screenshot ${idx + 1}`;
+        if (url && url !== data.mainImage?.trim()) {
+          normalizedImages.push({
+            url,
+            storageKey: `admin-import-img-${Date.now()}-${idx + 1}`,
+            altText: alt,
+            isPrimary: normalizedImages.length === 0,
+            sortOrder: normalizedImages.length + 1,
+          });
+        }
+      });
+    }
+
     // Create project as DRAFT
     const project = await db.project.create({
       data: {
@@ -249,6 +276,9 @@ export async function POST(request: NextRequest) {
         },
         technologies: {
           create: allTechIds.map((tId) => ({ technologyId: tId })),
+        },
+        images: {
+          create: normalizedImages,
         },
       },
     });

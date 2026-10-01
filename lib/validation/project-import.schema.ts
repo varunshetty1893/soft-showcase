@@ -79,6 +79,15 @@ export const ProjectImportSchema = z
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
 
+    mainImage: z.string().url("Must be a valid image URL").optional().or(z.literal("")).nullable(),
+    images: z
+      .union([
+        z.array(z.string().url("Must be a valid image URL")),
+        z.array(z.object({ url: z.string().url(), altText: z.string().optional() })),
+      ])
+      .optional()
+      .default([]),
+
     provider: ImportProviderSchema.optional(),
     providerEmail: z.string().email().optional(),
   })
@@ -163,6 +172,15 @@ export const PartnerSolutionImportSchema = z
     price: z.number().positive("Price must be a positive number").nullable().optional(),
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
+
+    mainImage: z.string().url("Must be a valid image URL").optional().or(z.literal("")).nullable(),
+    images: z
+      .union([
+        z.array(z.string().url("Must be a valid image URL")),
+        z.array(z.object({ url: z.string().url(), altText: z.string().optional() })),
+      ])
+      .optional()
+      .default([]),
 
     status: z.enum(["DRAFT", "PUBLISHED"]).optional().default("PUBLISHED"),
     featured: z.boolean().optional().default(false),

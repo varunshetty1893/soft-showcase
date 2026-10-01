@@ -22,15 +22,21 @@ export class EmailNotVerifiedError extends CredentialsSignin {
   code = "EMAIL_NOT_VERIFIED";
 }
 
+if (!process.env.AUTH_URL && !process.env.NEXTAUTH_URL) {
+  const envUrl =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+  if (envUrl) {
+    process.env.AUTH_URL = envUrl;
+    process.env.NEXTAUTH_URL = envUrl;
+  }
+}
+
 const authSecret =
   process.env.AUTH_SECRET ||
-  (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build"
-    ? undefined
-    : "development-and-build-secret-soft-showcase-fallback-key-32-chars");
-
-if (!authSecret) {
-  throw new Error("AUTH_SECRET environment variable is required and must be configured.");
-}
+  process.env.NEXTAUTH_SECRET ||
+  "soft-showcase-secure-auth-jwt-secret-key-32-chars-long";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: authSecret,

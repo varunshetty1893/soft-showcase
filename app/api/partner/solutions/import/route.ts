@@ -104,7 +104,32 @@ export async function POST(request: NextRequest) {
       sortOrder: f.sortOrder ?? idx + 1,
     }));
 
-    // 7. Generate prospective slug
+    // 7. Normalize images (mainImage + images)
+    const normalizedImages: Array<{ url: string; altText: string; isPrimary: boolean; sortOrder: number }> = [];
+    if (data.mainImage && data.mainImage.trim()) {
+      normalizedImages.push({
+        url: data.mainImage.trim(),
+        altText: `${data.title} Cover`,
+        isPrimary: true,
+        sortOrder: 1,
+      });
+    }
+    if (Array.isArray(data.images)) {
+      data.images.forEach((img, idx) => {
+        const url = typeof img === "string" ? img.trim() : (img as any)?.url?.trim();
+        const alt = typeof img === "object" && (img as any)?.altText ? (img as any).altText.trim() : `${data.title} Screenshot ${idx + 1}`;
+        if (url && url !== data.mainImage?.trim()) {
+          normalizedImages.push({
+            url,
+            altText: alt,
+            isPrimary: normalizedImages.length === 0,
+            sortOrder: normalizedImages.length + 1,
+          });
+        }
+      });
+    }
+
+    // 8. Generate prospective slug
     const targetSlug = slugify(data.title);
 
     // 8. Check existing database entities
@@ -270,7 +295,21 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 8. Log audit trail
+      // 8. Create Images
+      if (normalizedImages.length > 0) {
+        await tx.projectImage.createMany({
+          data: normalizedImages.map((img) => ({
+            projectId: project.id,
+            url: img.url,
+            storageKey: `import-img-${Date.now()}-${img.sortOrder}`,
+            altText: img.altText,
+            isPrimary: img.isPrimary,
+            sortOrder: img.sortOrder,
+          })),
+        });
+      }
+
+      // 9. Log audit trail
       await tx.auditLog.create({
         data: {
           userId: session.user.id,
