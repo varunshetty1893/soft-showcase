@@ -160,13 +160,18 @@ export const getProjectBySlug = cache(async (slug: string) => {
 
   if (!project) return null;
 
+  const safeProvider = {
+    ...project.provider,
+    hasEmail: Boolean(project.provider?.showEmail),
+    hasWhatsapp: Boolean(project.provider?.showWhatsapp),
+  };
+
+  delete (safeProvider as any).email;
+  delete (safeProvider as any).whatsappNumber;
+
   return {
     ...project,
-    provider: {
-      ...project.provider,
-      hasEmail: Boolean(project.provider?.showEmail),
-      hasWhatsapp: Boolean(project.provider?.showWhatsapp),
-    },
+    provider: safeProvider,
   };
 });
 

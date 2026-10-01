@@ -7,13 +7,14 @@
 export interface AdminSubject {
   isAdmin?: boolean | null;
   role?: string | null;
+  [key: string]: unknown;
 }
 
 /**
  * Trust ONLY the DB-backed flag carried in the session or JWT token.
  * Never performs string email comparisons for route access.
  */
-export function isAdminUser(subject?: AdminSubject | null): boolean {
+export function isAdminUser(subject?: AdminSubject | Record<string, unknown> | null): boolean {
   if (!subject) return false;
   return Boolean(subject.isAdmin === true || subject.role === "admin");
 }

@@ -21,9 +21,9 @@ export const RegisterSchema = z
       .max(100, "Password is too long")
       .regex(/[A-Za-z]/, "Password must contain at least one letter")
       .regex(/[0-9]/, "Password must contain at least one number"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+    confirmPassword: z.string().optional(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => !data.confirmPassword || data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });

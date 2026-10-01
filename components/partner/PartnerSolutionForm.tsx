@@ -58,6 +58,67 @@ export interface SolutionErrorItem {
   canTrim?: boolean;
 }
 
+const SAMPLE_PARTNER_JSON = JSON.stringify(
+  {
+    title: "AI Resume & Portfolio Analyzer",
+    shortDescription:
+      "An automated ATS compliance analyzer and developer portfolio scanner built with Next.js, FastAPI, and OpenAI.",
+    fullDescription:
+      "AI Resume & Portfolio Analyzer is a full-stack turnkey software application that helps engineering candidates optimize their applications for automated ATS recruiters.\n\nThe system evaluates resume formatting, extracts core skills, identifies technical qualification gaps, and calculates an ATS match score with actionable suggestions.\n\nIncludes candidate authentication, PDF parsing, exportable audit reports, and a responsive Tailwind CSS dashboard.",
+    category: "AI / Machine Learning",
+    projectType: "Full-Stack Web Application",
+    technologies: [
+      "Next.js 15",
+      "TypeScript",
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "Tailwind CSS",
+      "Docker",
+    ],
+    features: [
+      "PDF and DOCX document ingestion and extraction",
+      "ATS compatibility scoring and keyword density metrics",
+      "Automated skill gap and missing keyword recommendations",
+      "Interactive candidate dashboard with saved report histories",
+      "Exportable PDF candidate evaluation summaries",
+    ],
+    specifications: {
+      frontend: "Next.js 15 App Router, React 19, Tailwind CSS",
+      backend: "FastAPI, Python 3.11, Pydantic v2",
+      database: "PostgreSQL 16 with Prisma ORM",
+      authentication: "NextAuth / OAuth 2.0",
+      deployment: "Docker Compose, Vercel / Railway ready",
+    },
+    whatsIncluded: [
+      "Full frontend & backend source code repository",
+      "Database schema and sample seed data script",
+      "Complete REST API documentation (OpenAPI / Swagger)",
+      "Docker Compose environment setup guide",
+      "60 days of technical email support post-delivery",
+    ],
+    faq: [
+      {
+        question: "Can I customize the branding and ATS score criteria?",
+        answer:
+          "Yes. All scoring weights, branding assets, and prompt chains are fully customizable in the environment configuration.",
+      },
+      {
+        question: "Does this require an external OpenAI API key?",
+        answer:
+          "Yes. You can supply your own OpenAI API key or swap in any local LLM via Ollama.",
+      },
+    ],
+    priceMode: "FIXED",
+    price: 4999,
+    demoUrl: "https://demo.example.com",
+    status: "PUBLISHED",
+    featured: false,
+  },
+  null,
+  2
+);
+
 function parseSolutionErrors(
   errorData: any,
   counts: {
@@ -330,7 +391,158 @@ export function PartnerSolutionForm({
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState<string | null>(null);
   const [dragActive, setDragActive] = React.useState(false);
+  const [loadedImages, setLoadedImages] = React.useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // ── Import JSON State ─────────────────────────────────────────────────────
+  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
+  const [importJsonText, setImportJsonText] = React.useState("");
+  const [importError, setImportError] = React.useState<string | null>(null);
+
+  const handleApplyImportJson = () => {
+    setImportError(null);
+    const trimmed = importJsonText.trim();
+    if (!trimmed) {
+      setImportError("Please paste your project JSON first.");
+      return;
+    }
+
+    try {
+      const data = JSON.parse(trimmed);
+      if (!data || typeof data !== "object") {
+        setImportError("Invalid JSON structure. Root element must be an object.");
+        return;
+      }
+      if (!data.title || typeof data.title !== "string") {
+        setImportError("JSON must contain at least a 'title' field.");
+        return;
+      }
+
+      // Title & descriptions
+      setTitle(data.title.trim());
+      if (data.shortDescription && typeof data.shortDescription === "string") {
+        setShortDescription(data.shortDescription.trim());
+      }
+      if (data.fullDescription && typeof data.fullDescription === "string") {
+        setFullDescription(data.fullDescription.trim());
+      }
+
+      // Category matching
+      if (data.category && typeof data.category === "string") {
+        const found = categories.find(
+          (c) =>
+            c.name.toLowerCase() === data.category.toLowerCase() ||
+            c.name.toLowerCase().includes(data.category.toLowerCase())
+        );
+        if (found) setCategoryId(found.id);
+      }
+
+      // Price & pricing mode
+      if (data.priceMode && ["FIXED", "STARTING_FROM", "CONTACT"].includes(data.priceMode)) {
+        setPriceMode(data.priceMode);
+      }
+      if (data.price !== undefined && data.price !== null) {
+        setPrice(String(data.price));
+      }
+
+      // Project type & demo url
+      if (data.projectType && typeof data.projectType === "string") {
+        setProjectType(data.projectType.trim());
+      }
+      if (data.demoUrl && typeof data.demoUrl === "string") {
+        setDemoUrl(data.demoUrl.trim());
+      }
+
+      // Status & featured
+      if (data.status && ["DRAFT", "PUBLISHED"].includes(data.status)) {
+        setStatus(data.status);
+      }
+      if (typeof data.featured === "boolean") {
+        setFeatured(data.featured);
+      }
+
+      // Deliverables (whatsIncluded)
+      if (Array.isArray(data.whatsIncluded)) {
+        const inc = data.whatsIncluded
+          .filter((i: any) => typeof i === "string" && i.trim())
+          .map((i: string) => i.trim());
+        if (inc.length > 0) setWhatsIncluded(inc.slice(0, 20));
+      }
+
+      // Features
+      if (Array.isArray(data.features)) {
+        const feats = data.features
+          .map((f: any) => {
+            const txt = typeof f === "string" ? f : f?.feature || f?.title || f?.name || "";
+            return typeof txt === "string" ? txt.trim() : "";
+          })
+          .filter((t: string) => t.length >= 2)
+          .map((t: string) => ({ feature: t }));
+        if (feats.length > 0) setFeatures(feats.slice(0, 25));
+      }
+
+      // Specifications
+      if (data.specifications && !Array.isArray(data.specifications)) {
+        const specs = Object.entries(data.specifications).map(([k, v]) => ({
+          key: k.trim(),
+          value: String(v).trim(),
+        }));
+        if (specs.length > 0) setSpecifications(specs.slice(0, 25));
+      } else if (Array.isArray(data.specifications)) {
+        const specs = data.specifications
+          .filter((s: any) => s && s.key && s.value)
+          .map((s: any) => ({ key: String(s.key).trim(), value: String(s.value).trim() }));
+        if (specs.length > 0) setSpecifications(specs.slice(0, 25));
+      }
+
+      // FAQs
+      const rawFaqs = Array.isArray(data.faq)
+        ? data.faq
+        : Array.isArray(data.faqs)
+        ? data.faqs
+        : [];
+      if (rawFaqs.length > 0) {
+        const parsedFaqs = rawFaqs
+          .filter((f: any) => f && f.question && f.answer)
+          .map((f: any) => ({
+            question: String(f.question).trim(),
+            answer: String(f.answer).trim(),
+          }));
+        if (parsedFaqs.length > 0) setFaqs(parsedFaqs.slice(0, 20));
+      }
+
+      // Technologies
+      if (Array.isArray(data.technologies)) {
+        const importedTechNames = data.technologies
+          .filter((t: any) => typeof t === "string" && t.trim())
+          .map((t: string) => t.trim());
+
+        const matchedIds: string[] = [];
+        const newTechList = [...allTechs];
+
+        importedTechNames.forEach((tName: string) => {
+          const existing = newTechList.find(
+            (t) => t.name.toLowerCase() === tName.toLowerCase()
+          );
+          if (existing) {
+            matchedIds.push(existing.id);
+          } else {
+            const tempId = `tech-${tName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+            newTechList.push({ id: tempId, name: tName });
+            matchedIds.push(tempId);
+          }
+        });
+
+        setAllTechs(newTechList);
+        setSelectedTechs(Array.from(new Set(matchedIds)).slice(0, 20));
+      }
+
+      setIsImportModalOpen(false);
+      setSuccessNotice("Project details successfully populated from JSON!");
+    } catch (err: any) {
+      setImportError(err?.message || "Failed to parse JSON. Please check syntax.");
+    }
+  };
 
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -920,6 +1132,43 @@ export function PartnerSolutionForm({
         </div>
       )}
 
+      {/* ── Quick Tools Bar (Import JSON, Fast Actions) ──────────────── */}
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#F8FAFA] to-[#EDF4F5] border border-[#D9E2E4] shadow-xs flex-wrap gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#155761]/10 flex items-center justify-center text-[#155761] shrink-0">
+            <FileCode className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-[#102124]">Quick JSON Import Available</h3>
+            <p className="text-[11px] text-[#526267]">
+              Have project details or AI specification in JSON? Populate this entire form in 1 click.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setImportError(null);
+              setIsImportModalOpen(true);
+            }}
+            className="text-xs font-bold rounded-xl border-[#155761]/30 hover:border-[#155761] text-[#155761] bg-white gap-1.5 shadow-xs hover:bg-[#F3F7F7] cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span>Import via JSON</span>
+          </Button>
+          <Link
+            href="/partner/solutions/import"
+            className="text-xs text-[#526267] hover:text-[#155761] underline font-medium px-2 py-1"
+          >
+            Full Importer Page →
+          </Link>
+        </div>
+      </div>
+
       {/* ── Error Banner ─────────────────────────────────────────────── */}
       {error && (
         <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs space-y-3 animate-in fade-in duration-200">
@@ -1144,21 +1393,63 @@ export function PartnerSolutionForm({
             />
           </div>
 
-          {/* Featured Solution Toggle */}
+          {/* Featured Solution Toggle Card */}
           <div className="sm:col-span-6 pt-1">
-            <div className="flex items-center gap-3 p-3.5 rounded-2xl border border-[#D9E2E4] bg-[#F8FAFA] hover:bg-white transition-colors">
-              <input
-                id="solution-featured"
-                type="checkbox"
-                checked={featured}
-                onChange={(e) => setFeatured(e.target.checked)}
-                className="w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761] cursor-pointer"
-              />
-              <label htmlFor="solution-featured" className="text-xs font-semibold text-[#102124] flex items-center gap-2 cursor-pointer select-none">
-                <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-                <span>Mark as Featured Solution (highlighted in catalog top recommendations and homepage)</span>
-              </label>
-            </div>
+            <button
+              type="button"
+              onClick={() => setFeatured(!featured)}
+              className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 select-none ${
+                featured
+                  ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-300/40 shadow-xs"
+                  : "bg-[#F8FAFA] border-[#D9E2E4] hover:bg-white hover:border-[#BEDEE1]"
+              }`}
+            >
+              <div className="flex items-start gap-3.5">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    featured
+                      ? "bg-amber-400 text-amber-950 shadow-xs"
+                      : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  <Star className={`w-5 h-5 ${featured ? "fill-current" : ""}`} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-bold text-[#102124]">
+                      Featured Solution Status
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                        featured
+                          ? "bg-amber-400 text-amber-950"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {featured ? "Featured Active" : "Standard Listing"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#526267] mt-0.5 leading-relaxed">
+                    {featured
+                      ? "Featured badge active. This project is highlighted on the homepage hero, catalog top recommendations, and filter views."
+                      : "Standard catalog listing. Click anywhere on this card to enable the Featured badge."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Interactive toggle switch */}
+              <div
+                className={`w-12 h-6 rounded-full transition-colors relative shrink-0 p-0.5 ${
+                  featured ? "bg-[#155761]" : "bg-gray-300"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                    featured ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -1223,25 +1514,26 @@ export function PartnerSolutionForm({
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
-            className={`space-y-3 p-4 rounded-xl border-2 border-dashed transition-all ${
+            onClick={() => fileInputRef.current?.click()}
+            className={`space-y-3 p-4 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
               dragActive
                 ? "border-[#155761] bg-[#F3F7F7]"
-                : "border-[#D9E2E4] bg-white hover:border-[#BEDEE1]"
+                : "border-[#D9E2E4] bg-white hover:border-[#155761]/50 hover:bg-[#F8FAFA]"
             }`}
           >
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5">
+              <Label className="text-xs font-semibold text-[#102124] flex items-center gap-1.5 cursor-pointer">
                 <Upload className="w-3.5 h-3.5 text-[#155761]" />
                 Upload Photos from Device
               </Label>
               {isUploadingPhoto && (
                 <span className="text-[11px] font-bold text-[#155761] flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Uploading...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
                 </span>
               )}
             </div>
             <p className="text-[11px] text-[#526267]">
-              Drag &amp; drop screenshots here or click to browse (PNG, JPG, WebP up to 5MB each). Recommended 1200×675 px (16:9).
+              Drag &amp; drop screenshots here or click anywhere in this box to browse (PNG, JPG, WebP up to 5MB each). Recommended 1200×675 px (16:9).
             </p>
             <input
               type="file"
@@ -1251,12 +1543,29 @@ export function PartnerSolutionForm({
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
             />
+            {isUploadingPhoto && (
+              <div className="p-3 bg-[#EBF7F5] border border-[#2F7D78]/30 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-[#155761]">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2F7D78]" />
+                    {uploadProgress || "Uploading & processing photo(s)..."}
+                  </span>
+                  <span>Please wait</span>
+                </div>
+                <div className="w-full bg-[#D9E2E4] h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#155761] h-full w-2/3 animate-pulse rounded-full" />
+                </div>
+              </div>
+            )}
             <Button
               type="button"
               variant="outline"
               disabled={isUploadingPhoto}
               isLoading={isUploadingPhoto}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
               className="w-full rounded-xl border border-[#D9E2E4] bg-[#F8FAFA] hover:bg-[#F3F7F7] text-xs font-semibold text-[#102124] h-11 gap-2 cursor-pointer shadow-xs transition-all"
             >
               {isUploadingPhoto ? (
@@ -1326,14 +1635,18 @@ export function PartnerSolutionForm({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {isUploadingPhoto && (
-              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2 p-4 text-center shadow-xs">
-                <Loader2 className="w-7 h-7 animate-spin text-[#155761]" />
-                <span className="text-xs font-bold text-[#155761]">
-                  {uploadProgress || "Uploading screenshot..."}
-                </span>
-                <span className="text-[11px] text-[#526267]">
-                  Optimizing and linking image to gallery
-                </span>
+              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2.5 p-4 text-center shadow-md animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-[#155761]/10 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#155761]" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#155761] block">
+                    {uploadProgress || "Uploading screenshot..."}
+                  </span>
+                  <span className="text-[11px] text-[#526267] mt-0.5 block">
+                    Processing screenshot &amp; adding to gallery
+                  </span>
+                </div>
               </div>
             )}
             {photos.map((photo, idx) => (
@@ -1345,13 +1658,23 @@ export function PartnerSolutionForm({
                     : "border-[#D9E2E4] shadow-2xs hover:border-[#BEDEE1]"
                 }`}
               >
-                {/* Thumbnail Preview */}
+                {/* Thumbnail Preview with loading indicator */}
                 <div className="relative aspect-video w-full bg-slate-100 overflow-hidden group">
+                  {!loadedImages[photo.id] && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] z-5">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#155761] mb-1.5" />
+                      <span className="text-[10px] font-semibold text-[#526267]">Loading preview...</span>
+                    </div>
+                  )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url}
                     alt={photo.altText || "Project photo"}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                    onError={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                      loadedImages[photo.id] ? "opacity-100" : "opacity-0"
+                    }`}
                   />
 
                   {/* Primary Cover Badge */}
@@ -1995,6 +2318,110 @@ export function PartnerSolutionForm({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import via JSON Modal ────────────────────────────────────── */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-[#D9E2E4] shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-[#D9E2E4]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F3F7F7] text-[#155761] flex items-center justify-center shrink-0">
+                  <FileCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#102124]">Import Solution from JSON</h3>
+                  <p className="text-xs text-[#526267] mt-0.5">
+                    Paste AI-generated or exported software JSON to instantly populate this form.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-2 text-[#526267] hover:text-[#102124] rounded-xl hover:bg-[#F3F7F7] transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-semibold text-[#102124]">Project JSON Payload</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportJsonText(SAMPLE_PARTNER_JSON);
+                      setImportError(null);
+                    }}
+                    className="text-xs font-semibold text-[#155761] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    Load Sample JSON
+                  </button>
+                  {importJsonText && (
+                    <button
+                      type="button"
+                      onClick={() => setImportJsonText("")}
+                      className="text-xs text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {importError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2 font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              <Textarea
+                rows={12}
+                value={importJsonText}
+                onChange={(e) => setImportJsonText(e.target.value)}
+                placeholder='Paste project JSON here... e.g.&#10;{&#10;  "title": "My Software Solution",&#10;  "category": "AI / Machine Learning",&#10;  "shortDescription": "...",&#10;  "priceMode": "FIXED",&#10;  "price": 4999,&#10;  "features": ["Feature 1", "Feature 2"]&#10;}'
+                className="font-mono text-xs p-3.5 rounded-2xl border-[#D9E2E4] focus:ring-[#155761] bg-[#F8FAFA]"
+              />
+
+              <div className="p-3 rounded-xl bg-[#F3F7F7] border border-[#D9E2E4] text-[11px] text-[#526267] space-y-1">
+                <p className="font-semibold text-[#102124]">Supported fields in JSON:</p>
+                <p>
+                  <code>title</code>, <code>shortDescription</code>, <code>fullDescription</code>, <code>category</code>, <code>priceMode</code>, <code>price</code>, <code>projectType</code>, <code>demoUrl</code>, <code>whatsIncluded</code>, <code>features</code>, <code>specifications</code>, <code>faq</code>, <code>technologies</code>.
+                </p>
+                <p className="text-[#155761] font-medium">
+                  Note: The solution will remain assigned to your verified partner studio.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-[#D9E2E4] flex items-center justify-between gap-3 bg-[#F8FAFA]">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-[#D9E2E4] text-xs font-semibold text-[#526267] hover:bg-white hover:text-[#102124] transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleApplyImportJson}
+                disabled={!importJsonText.trim()}
+                className="text-xs font-bold gap-2 rounded-xl px-5 py-2.5 shadow-md cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Apply JSON to Form</span>
+              </Button>
             </div>
           </div>
         </div>

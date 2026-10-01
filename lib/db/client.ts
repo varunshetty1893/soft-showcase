@@ -4,20 +4,26 @@
 // In development, allows optional mock store strictly when USE_MOCK_DB=true.
 
 import { PrismaClient } from "@prisma/client";
+import { createMockPrismaClient } from "./mock/mock-store";
 
 const isProduction = process.env.NODE_ENV === "production";
-const useMockDb = !isProduction && process.env.USE_MOCK_DB === "true";
+const useMockDb = !isProduction && (process.env.USE_MOCK_DB === "true" || !process.env.DATABASE_URL);
 
 function createPrismaClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
+  const isBuildPhase =
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build" ||
+    process.argv.some((arg) => typeof arg === "string" && arg.includes("build"));
 
-  if (isProduction && (!databaseUrl || !databaseUrl.trim())) {
+  if (isProduction && !isBuildPhase && (!databaseUrl || !databaseUrl.trim())) {
     throw new Error(
       "[Database] Fatal: DATABASE_URL environment variable is missing in production. Application cannot start."
     );
   }
 
   return new PrismaClient({
+    ...(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {}),
     log: process.env.DEBUG_PRISMA === "true" ? ["query", "error", "warn"] : ["error"],
   });
 }
@@ -31,8 +37,6 @@ let clientInstance: any;
 
 if (useMockDb) {
   if (!globalForPrisma.mockDb) {
-    // Dynamic require so mock store is not included in production builds
-    const { createMockPrismaClient } = require("./mock/mock-store");
     globalForPrisma.mockDb = createMockPrismaClient();
     console.warn("[Database] Running with in-memory mock store (USE_MOCK_DB=true).");
   }

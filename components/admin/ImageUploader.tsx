@@ -10,10 +10,10 @@ import {
   UploadCloud,
   Star,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Info,
   AlertCircle,
   Check,
@@ -358,89 +358,77 @@ export function ImageUploader({
                   unoptimized={img.url.startsWith("data:")}
                 />
 
-                {/* Primary Badge */}
-                {img.isPrimary && (
-                  <div className="absolute top-2 left-2 bg-[#155761] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-current" /> Primary Cover
+                {/* Primary Badge or Make Primary Button */}
+                {img.isPrimary ? (
+                  <div className="absolute top-2 left-2 bg-[#155761] text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
+                    <Star className="w-3 h-3 fill-current text-amber-300" /> Primary Cover
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    title="Set as Primary Cover"
+                    onClick={() => handleSetPrimary(img.id)}
+                    className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 hover:bg-[#155761] text-white text-[10px] font-medium shadow-xs transition-colors flex items-center gap-1 backdrop-blur-xs cursor-pointer opacity-90 hover:opacity-100 z-10"
+                  >
+                    <Star className="w-3 h-3 text-amber-300" />
+                    Make Primary
+                  </button>
                 )}
 
-                {/* Action Overlay */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2 flex-wrap">
-                  {/* Reorder Left */}
+                {/* 4-Way Reorder Controls (Left, Up, Down, Right) */}
+                <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl shadow-xs z-10">
+                  {/* Move Left */}
                   {idx > 0 && (
                     <button
                       type="button"
-                      title="Move 1 step left"
+                      title="Move 1 step left (←)"
                       onClick={() => handleMove(idx, "left")}
-                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                      className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ArrowLeft className="w-3.5 h-3.5" />
                     </button>
                   )}
 
-                  {/* Reorder Up */}
+                  {/* Move Up */}
                   {idx > 0 && (
                     <button
                       type="button"
                       title="Move earlier / Up (↑)"
                       onClick={() => handleMove(idx, "up")}
-                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                      className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <ChevronUp className="w-4 h-4" />
+                      <ArrowUp className="w-3.5 h-3.5" />
                     </button>
                   )}
 
-                  {/* Make Primary */}
-                  {!img.isPrimary && (
-                    <button
-                      type="button"
-                      title="Set as Primary Cover"
-                      onClick={() => handleSetPrimary(img.id)}
-                      className="p-1.5 bg-white/95 hover:bg-white text-amber-600 rounded-lg shadow-sm transition hover:scale-105"
-                    >
-                      <Star className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {/* Reorder Down */}
+                  {/* Move Down */}
                   {idx < images.length - 1 && (
                     <button
                       type="button"
                       title="Move later / Down (↓)"
                       onClick={() => handleMove(idx, "down")}
-                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                      className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <ChevronDown className="w-4 h-4" />
+                      <ArrowDown className="w-3.5 h-3.5" />
                     </button>
                   )}
 
-                  {/* Reorder Right */}
+                  {/* Move Right */}
                   {idx < images.length - 1 && (
                     <button
                       type="button"
-                      title="Move 1 step right"
+                      title="Move 1 step right (→)"
                       onClick={() => handleMove(idx, "right")}
-                      className="p-1.5 bg-white/95 hover:bg-white text-gray-800 rounded-lg shadow-sm transition hover:scale-105"
+                      className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <ChevronRight className="w-4 h-4" />
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
-
-                  {/* Delete */}
-                  <button
-                    type="button"
-                    title="Delete image"
-                    onClick={() => handleDelete(img.id)}
-                    className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm transition hover:scale-105"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
-              {/* Alt Text Box */}
-              <div className="p-3 bg-white text-xs border-t border-gray-100">
+              {/* Alt Text Box & Actions */}
+              <div className="p-3 bg-white text-xs border-t border-gray-100 space-y-2">
                 {editingAltId === img.id ? (
                   <div className="flex items-center gap-1.5">
                     <Input
@@ -464,7 +452,7 @@ export function ImageUploader({
                 ) : (
                   <div className="flex items-center justify-between text-gray-600">
                     <span className="truncate pr-2 italic text-gray-500">
-                      {img.altText || "No alt text set"}
+                      {img.altText || "No caption set"}
                     </span>
                     <button
                       type="button"
@@ -479,6 +467,21 @@ export function ImageUploader({
                     </button>
                   </div>
                 )}
+
+                <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                  <span className="text-[11px] text-[#526267]">
+                    {img.isPrimary ? "Cover Thumbnail" : `Photo #${idx + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    title="Delete image"
+                    onClick={() => handleDelete(img.id)}
+                    className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 p-1 rounded-md hover:bg-rose-50 transition-colors cursor-pointer font-medium"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

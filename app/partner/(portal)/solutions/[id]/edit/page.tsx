@@ -76,6 +76,7 @@ export default async function EditPartnerSolutionPage({
           fullDescription: project.fullDescription || "",
           categoryId: project.categoryId,
           status: project.status,
+          featured: Boolean(project.featured),
           priceMode: project.priceMode,
           price: project.price ? String(project.price) : "",
           projectType: project.projectType || "",

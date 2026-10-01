@@ -14,6 +14,7 @@ import {
   ChevronRight,
   PlusCircle,
   ShieldCheck,
+  FileCode,
 } from "lucide-react";
 
 interface PartnerSidebarProps {
@@ -27,6 +28,7 @@ interface PartnerSidebarProps {
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/partner/dashboard", icon: LayoutDashboard },
   { label: "My Solutions", href: "/partner/solutions", icon: Layers },
+  { label: "Import via JSON", href: "/partner/solutions/import", icon: FileCode },
   { label: "Customer Enquiries", href: "/partner/inquiries", icon: Users },
   { label: "Transactions & Evidence", href: "/partner/transactions", icon: Receipt },
   { label: "Support Desk", href: "/partner/support", icon: Headphones },
