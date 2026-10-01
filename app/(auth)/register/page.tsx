@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth/auth";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { ScrollFade } from "@/components/ui/ScrollFade";
+import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -25,7 +26,7 @@ interface RegisterPageProps {
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const session = await auth();
   const params = await searchParams;
-  const callbackUrl = params.callbackUrl || "/";
+  const callbackUrl = getSafeCallbackUrl(params.callbackUrl, "/");
 
   if (session?.user) redirect(callbackUrl);
 

@@ -324,8 +324,6 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                       price: project.price ? project.price.toString() : null,
                       imageUrl: project.images?.[0]?.url || null,
                       providerName: project.provider.displayName,
-                      providerWhatsapp: project.provider.whatsappNumber,
-                      providerEmail: project.provider.email,
                       categoryName: project.category.name,
                     }}
                   />

@@ -5,6 +5,7 @@
 import { auth } from "@/lib/auth/auth";
 export { auth };
 import { redirect } from "next/navigation";
+import { isAdminUser } from "@/lib/auth/admin";
 
 // ── Error classes ─────────────────────────────────────────────────────────────
 
@@ -70,6 +71,8 @@ export async function requireAuth(useRedirect = false) {
  *                        or to /login if not authenticated.
  * In an API ROUTE: throws AuthError("FORBIDDEN") or AuthError("UNAUTHORIZED").
  *
+ * Trusts ONLY DB-backed flag carried in session (zero email comparison).
+ *
  * @param useRedirect - Set to true in server components (layouts/pages).
  *                      Set to false in API routes.
  */
@@ -83,15 +86,7 @@ export async function requireAdmin(useRedirect = false) {
     throw new AuthError("UNAUTHORIZED");
   }
 
-  const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
-  const userEmail = (session.user.email || "").trim().toLowerCase();
-  const isEnvAdmin = Boolean(
-    userEmail &&
-    (userEmail === configuredAdminEmail ||
-     userEmail === "shettymu25@gmail.com" ||
-     userEmail === "shettybvarun@gmail.com")
-  );
-  const isAdmin = Boolean(session.user.isAdmin || session.user.role === "admin" || isEnvAdmin);
+  const isAdmin = isAdminUser(session.user);
 
   if (!isAdmin) {
     if (useRedirect) {

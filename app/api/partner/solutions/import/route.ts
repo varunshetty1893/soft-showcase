@@ -204,130 +204,101 @@ export async function POST(request: NextRequest) {
       return Boolean(found);
     });
 
-    const imported = await db.$transaction(async (tx) => {
-      // 1. Resolve Category
-      let categoryId = existingCategory?.id;
-      if (!categoryId) {
-        const newCat = await tx.category.create({
-          data: {
-            name: categoryName,
-            slug: categorySlug || `cat-${Date.now()}`,
-            isActive: true,
-          },
-        });
-        categoryId = newCat.id;
-      }
-
-      // 2. Resolve & create missing Technologies
-      const techIds: string[] = existingTechnologies.map((t) => t.id);
-      for (const newName of newTechNames) {
-        const createdTech = await tx.technology.create({
-          data: {
-            name: newName,
-            slug: slugify(newName) || `tech-${Date.now()}`,
-            isActive: true,
-          },
-        });
-        techIds.push(createdTech.id);
-      }
-
-      // 3. Create Project
-      const project = await tx.project.create({
+    // 1. Resolve Category
+    let categoryId = existingCategory?.id;
+    if (!categoryId) {
+      const newCat = await db.category.create({
         data: {
-          title: data.title,
-          slug: finalSlug,
-          shortDescription: data.shortDescription,
-          fullDescription: data.fullDescription,
-          projectType: data.projectType || null,
-          demoUrl: data.demoUrl || null,
-          priceMode: data.priceMode,
-          price: data.price ?? null,
-          status: data.status || "PUBLISHED",
-          featured: Boolean(data.featured),
-          whatsIncluded: data.whatsIncluded || [],
-          categoryId,
-          providerId: partner.id,
+          name: categoryName,
+          slug: categorySlug || `cat-${Date.now()}`,
+          isActive: true,
         },
       });
+      categoryId = newCat.id;
+    }
 
-      // 4. Create Features
-      if (normalizedFeatures.length > 0) {
-        await tx.projectFeature.createMany({
-          data: normalizedFeatures.map((f) => ({
-            projectId: project.id,
+    // 2. Resolve & create missing Technologies
+    const techIds: string[] = existingTechnologies.map((t) => t.id);
+    for (const newName of newTechNames) {
+      const createdTech = await db.technology.create({
+        data: {
+          name: newName,
+          slug: slugify(newName) || `tech-${Date.now()}`,
+          isActive: true,
+        },
+      });
+      techIds.push(createdTech.id);
+    }
+
+    // 3. Create Project with native Prisma nested writes
+    const imported = await db.project.create({
+      data: {
+        title: data.title,
+        slug: finalSlug,
+        shortDescription: data.shortDescription,
+        fullDescription: data.fullDescription,
+        projectType: data.projectType || null,
+        demoUrl: data.demoUrl || null,
+        priceMode: data.priceMode,
+        price: data.price ?? null,
+        status: data.status || "PUBLISHED",
+        featured: Boolean(data.featured),
+        whatsIncluded: data.whatsIncluded || [],
+        categoryId,
+        providerId: partner.id,
+        features: {
+          create: normalizedFeatures.map((f) => ({
             feature: f.feature,
             sortOrder: f.sortOrder,
           })),
-        });
-      }
-
-      // 5. Create Specifications
-      if (normalizedSpecs.length > 0) {
-        await tx.projectSpecification.createMany({
-          data: normalizedSpecs.map((s) => ({
-            projectId: project.id,
+        },
+        specifications: {
+          create: normalizedSpecs.map((s) => ({
             key: s.key,
             value: s.value,
             sortOrder: s.sortOrder,
           })),
-        });
-      }
-
-      // 6. Create FAQs
-      if (normalizedFaqs.length > 0) {
-        await tx.projectFaq.createMany({
-          data: normalizedFaqs.map((faq) => ({
-            projectId: project.id,
+        },
+        faqs: {
+          create: normalizedFaqs.map((faq) => ({
             question: faq.question,
             answer: faq.answer,
             sortOrder: faq.sortOrder,
           })),
-        });
-      }
-
-      // 7. Create Technologies links
-      if (techIds.length > 0) {
-        await tx.projectTechnology.createMany({
-          data: techIds.map((tId) => ({
-            projectId: project.id,
+        },
+        technologies: {
+          create: techIds.map((tId) => ({
             technologyId: tId,
           })),
-        });
-      }
-
-      // 8. Create Images
-      if (normalizedImages.length > 0) {
-        await tx.projectImage.createMany({
-          data: normalizedImages.map((img) => ({
-            projectId: project.id,
+        },
+        images: {
+          create: normalizedImages.map((img) => ({
             url: img.url,
             storageKey: `import-img-${Date.now()}-${img.sortOrder}`,
             altText: img.altText,
             isPrimary: img.isPrimary,
             sortOrder: img.sortOrder,
           })),
-        });
-      }
-
-      // 9. Log audit trail
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "PARTNER_SOLUTION_IMPORTED",
-          entityType: "Project",
-          entityId: project.id,
-          details: {
-            title: project.title,
-            slug: project.slug,
-            partnerId: partner.id,
-            status: project.status,
-            source: "AI_JSON_IMPORT",
-          },
         },
-      }).catch(() => null);
-
-      return project;
+      },
     });
+
+    // 4. Log audit trail
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "PARTNER_SOLUTION_IMPORTED",
+        entityType: "Project",
+        entityId: imported.id,
+        details: {
+          title: imported.title,
+          slug: imported.slug,
+          partnerId: partner.id,
+          status: imported.status,
+          source: "AI_JSON_IMPORT",
+        },
+      },
+    }).catch(() => null);
 
     // Revalidate paths
     revalidatePath("/");

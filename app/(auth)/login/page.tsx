@@ -6,8 +6,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
+import { isAdminUser } from "@/lib/auth/admin";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { AuthBackground } from "@/components/auth/AuthBackground";
+import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -24,23 +26,10 @@ interface LoginPageProps {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const params = await searchParams;
-  let callbackUrl = params.callbackUrl || "/";
-
-  // Prevent recursive redirect loops
-  if (callbackUrl.startsWith("/login") || callbackUrl.startsWith("/api/auth")) {
-    callbackUrl = "/";
-  }
+  const callbackUrl = getSafeCallbackUrl(params.callbackUrl, "/");
 
   if (session?.user) {
-    const userEmail = ((session.user.email as string) || "").trim().toLowerCase();
-    const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
-    const isEnvAdmin = Boolean(
-      userEmail &&
-      (userEmail === configuredAdminEmail ||
-       userEmail === "shettymu25@gmail.com" ||
-       userEmail === "shettybvarun@gmail.com")
-    );
-    const isAdmin = Boolean(session.user.isAdmin || session.user.role === "admin" || isEnvAdmin);
+    const isAdmin = isAdminUser(session.user);
 
     if (callbackUrl.startsWith("/admin") && !isAdmin) {
       redirect("/?error=AdminAccessRequired");

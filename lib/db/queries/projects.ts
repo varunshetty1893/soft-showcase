@@ -146,8 +146,6 @@ export const getProjectBySlug = cache(async (slug: string) => {
           linkedinUrl: true,
           showEmail: true,
           showWhatsapp: true,
-          email: true,
-          whatsappNumber: true,
         },
       },
       images: { orderBy: { sortOrder: "asc" } },
@@ -162,17 +160,14 @@ export const getProjectBySlug = cache(async (slug: string) => {
 
   if (!project) return null;
 
-  // Mask contact info if provider visibility is disabled
-  if (project.provider) {
-    if (!project.provider.showEmail) {
-      project.provider.email = "";
-    }
-    if (!project.provider.showWhatsapp) {
-      project.provider.whatsappNumber = null;
-    }
-  }
-
-  return project;
+  return {
+    ...project,
+    provider: {
+      ...project.provider,
+      hasEmail: Boolean(project.provider?.showEmail),
+      hasWhatsapp: Boolean(project.provider?.showWhatsapp),
+    },
+  };
 });
 
 /**

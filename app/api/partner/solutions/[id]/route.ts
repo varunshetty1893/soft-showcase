@@ -305,93 +305,86 @@ export async function PUT(
       sanitizedImages[0].isPrimary = true;
     }
 
-    // Atomically execute updates and audit log with nested writes and extended timeout to prevent P2028
-    const updated = await db.$transaction(
-      async (tx) => {
-        const proj = await tx.project.update({
-          where: { id },
-          data: {
-            title: data.title,
-            shortDescription: data.shortDescription,
-            fullDescription: data.fullDescription,
-            status: data.status,
-            priceMode: data.priceMode,
-            price: data.price,
-            demoUrl: data.demoUrl || null,
-            projectType: data.projectType,
-            whatsIncluded: data.whatsIncluded,
-            categoryId: data.categoryId,
-            featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
-            ...(Array.isArray(body.features) && {
-              features: {
-                deleteMany: {},
-                create: features.map((f, i) => ({
-                  feature: f.feature,
-                  sortOrder: f.sortOrder ?? i + 1,
-                })),
-              },
-            }),
-            ...(Array.isArray(body.specifications) && {
-              specifications: {
-                deleteMany: {},
-                create: specifications.map((s, i) => ({
-                  key: s.key,
-                  value: s.value,
-                  sortOrder: s.sortOrder ?? i + 1,
-                })),
-              },
-            }),
-            ...(Array.isArray(body.faqs) && {
-              faqs: {
-                deleteMany: {},
-                create: faqs.map((faq, i) => ({
-                  question: faq.question,
-                  answer: faq.answer,
-                  sortOrder: faq.sortOrder ?? i + 1,
-                })),
-              },
-            }),
-            ...((Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) && {
-              technologies: {
-                deleteMany: {},
-                create: resolvedTechIds.map((techId) => ({
-                  technologyId: techId,
-                })),
-              },
-            }),
-            ...(sanitizedImages.length > 0 && {
-              images: {
-                deleteMany: {},
-                create: sanitizedImages.map((img, i) => ({
-                  url: img.url.trim(),
-                  storageKey: img.storageKey || `img-${Date.now()}-${i}`,
-                  altText: img.altText || data.title,
-                  isPrimary: img.isPrimary ?? (i === 0),
-                  sortOrder: img.sortOrder ?? i + 1,
-                })),
-              },
-            }),
+    // Atomically execute updates and audit log with native Prisma nested writes (Issue 48 / P2028 fix)
+    const updated = await db.project.update({
+      where: { id },
+      data: {
+        title: data.title,
+        shortDescription: data.shortDescription,
+        fullDescription: data.fullDescription,
+        status: data.status,
+        priceMode: data.priceMode,
+        price: data.price,
+        demoUrl: data.demoUrl || null,
+        projectType: data.projectType,
+        whatsIncluded: data.whatsIncluded,
+        categoryId: data.categoryId,
+        featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
+        ...(Array.isArray(body.features) && {
+          features: {
+            deleteMany: {},
+            create: features.map((f, i) => ({
+              feature: f.feature,
+              sortOrder: f.sortOrder ?? i + 1,
+            })),
           },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            userId: session.user.id,
-            action: "PARTNER_SOLUTION_UPDATED",
-            entityType: "Project",
-            entityId: id,
-            details: {
-              title: proj.title,
-              status: proj.status,
-              partnerId: partner.id,
-            },
+        }),
+        ...(Array.isArray(body.specifications) && {
+          specifications: {
+            deleteMany: {},
+            create: specifications.map((s, i) => ({
+              key: s.key,
+              value: s.value,
+              sortOrder: s.sortOrder ?? i + 1,
+            })),
           },
-        }).catch(() => null);
-
-        return proj;
+        }),
+        ...(Array.isArray(body.faqs) && {
+          faqs: {
+            deleteMany: {},
+            create: faqs.map((faq, i) => ({
+              question: faq.question,
+              answer: faq.answer,
+              sortOrder: faq.sortOrder ?? i + 1,
+            })),
+          },
+        }),
+        ...((Array.isArray(body.technologyIds) || Array.isArray(body.technologies)) && {
+          technologies: {
+            deleteMany: {},
+            create: resolvedTechIds.map((techId) => ({
+              technologyId: techId,
+            })),
+          },
+        }),
+        ...(sanitizedImages.length > 0 && {
+          images: {
+            deleteMany: {},
+            create: sanitizedImages.map((img, i) => ({
+              url: img.url.trim(),
+              storageKey: img.storageKey || `img-${Date.now()}-${i}`,
+              altText: img.altText || data.title,
+              isPrimary: img.isPrimary ?? (i === 0),
+              sortOrder: img.sortOrder ?? i + 1,
+            })),
+          },
+        }),
       },
-      { timeout: 20000, maxWait: 10000 }
-    );
+    });
+
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "PARTNER_SOLUTION_UPDATED",
+        entityType: "Project",
+        entityId: id,
+        details: {
+          title: updated.title,
+          status: updated.status,
+          partnerId: partner.id,
+        },
+      },
+    }).catch(() => null);
 
     // Revalidate public catalog, homepage, and sitemap (Issue 54)
     revalidatePath("/");

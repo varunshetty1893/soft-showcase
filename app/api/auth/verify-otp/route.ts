@@ -1,10 +1,12 @@
 // app/api/auth/verify-otp/route.ts
-// Verify email using 6-digit OTP or token with attempt limiting and hashed secret verification.
+// Verifies OTP codes from PendingRegistration staging or legacy verification tokens.
+// Safely creates verified users, triggers H2 admin bootstrap hook, and removes staging rows.
 
 import { db } from "@/lib/db/client";
 import { VerifyOtpSchema } from "@/lib/validation/auth.schema";
 import { verifySecretToken } from "@/lib/utils/crypto";
 import { otpVerifyLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
 
 export async function POST(req: Request) {
   try {
@@ -20,15 +22,19 @@ export async function POST(req: Request) {
     const { email, otp } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check rate limit and maximum attempt limits per email and IP (Issue 17 & 22)
+    // Rate limiting per email and IP
     const emailAttemptCheck = await otpVerifyLimiter.check(`email:${normalizedEmail}`);
     const ipAttemptCheck = await otpVerifyLimiter.check(`ip:${ip}`);
 
     if (!emailAttemptCheck.success || !ipAttemptCheck.success) {
-      // Invalidate the token after too many failed attempts to prevent brute force
+      // Invalidate pending registrations and tokens on abuse
+      await db.pendingRegistration.deleteMany({
+        where: { email: normalizedEmail },
+      }).catch(() => null);
       await db.verificationToken.deleteMany({
         where: { identifier: normalizedEmail },
-      });
+      }).catch(() => null);
+
       return Response.json(
         {
           error:
@@ -38,11 +44,98 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find token matching either the SHA-256 hash or legacy plaintext token (Issue 19)
+    // ── Flow 1: Check PendingRegistration Staging ────────────────────────────
+    const pending = await db.pendingRegistration.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (pending) {
+      if (new Date() > pending.expiresAt) {
+        await db.pendingRegistration.delete({ where: { email: normalizedEmail } }).catch(() => null);
+        return Response.json(
+          { error: "Verification code has expired. Please request a new code." },
+          { status: 400 }
+        );
+      }
+
+      if (pending.attempts >= 5) {
+        await db.pendingRegistration.delete({ where: { email: normalizedEmail } }).catch(() => null);
+        return Response.json(
+          { error: "Too many failed attempts. Code has been invalidated. Please register again." },
+          { status: 400 }
+        );
+      }
+
+      const isValid = verifySecretToken(otp, pending.codeHash);
+      if (!isValid) {
+        await db.pendingRegistration.update({
+          where: { email: normalizedEmail },
+          data: { attempts: { increment: 1 } },
+        }).catch(() => null);
+
+        const remaining = Math.max(0, 4 - pending.attempts);
+        return Response.json(
+          {
+            error: `Invalid verification code. ${remaining} attempt${
+              remaining === 1 ? "" : "s"
+            } remaining.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Valid OTP: Atomically materialize User, delete pending row
+      const existingUser = await db.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      let finalUser;
+      if (existingUser) {
+        finalUser = await db.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: pending.name,
+            passwordHash: pending.passwordHash,
+            emailVerified: new Date(),
+          },
+        });
+      } else {
+        finalUser = await db.user.create({
+          data: {
+            name: pending.name,
+            email: normalizedEmail,
+            passwordHash: pending.passwordHash,
+            emailVerified: new Date(),
+            role: "customer",
+            isAdmin: false,
+          },
+        });
+      }
+
+      // Delete pending registration
+      await db.pendingRegistration.delete({
+        where: { email: normalizedEmail },
+      }).catch(() => null);
+
+      // Reset limiter on success
+      await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
+
+      // Run H2 bootstrap hook: check if verified email matches configured ADMIN_EMAILS
+      await bootstrapAdminOnVerification(finalUser.id, normalizedEmail);
+
+      const isPartner = finalUser?.role === "solution_partner";
+      return Response.json({
+        success: true,
+        isPartner,
+        message: isPartner
+          ? "Email verified successfully! Your Partner Application is now confirmed and under review."
+          : "Email verified successfully! You can now sign in.",
+      });
+    }
+
+    // ── Flow 2: Legacy VerificationToken Fallback ─────────────────────────────
     const tokenRecords = await db.verificationToken.findMany({
-      where: {
-        identifier: normalizedEmail,
-      },
+      where: { identifier: normalizedEmail },
     });
 
     const validRecord = tokenRecords.find((rec) =>
@@ -64,29 +157,27 @@ export async function POST(req: Request) {
     if (new Date() > validRecord.expires) {
       await db.verificationToken.deleteMany({
         where: { identifier: normalizedEmail },
-      });
+      }).catch(() => null);
       return Response.json(
         { error: "Verification code has expired. Please request a new code." },
         { status: 400 }
       );
     }
 
-    // Mark user email as verified
     const updatedUser = await db.user.update({
       where: { email: normalizedEmail },
       data: { emailVerified: new Date() },
     });
 
-    // Delete tokens and reset attempt limit on successful verification
     await db.verificationToken.deleteMany({
-      where: {
-        identifier: normalizedEmail,
-      },
-    });
+      where: { identifier: normalizedEmail },
+    }).catch(() => null);
     await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
 
-    const isPartner = updatedUser?.role === "solution_partner";
+    // Run H2 bootstrap hook
+    await bootstrapAdminOnVerification(updatedUser.id, normalizedEmail);
 
+    const isPartner = updatedUser?.role === "solution_partner";
     return Response.json({
       success: true,
       isPartner,

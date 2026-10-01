@@ -158,7 +158,7 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
             className="mt-1 font-mono text-xs"
           />
           <p className="text-[11px] text-[#526267] mt-1">
-            Country code followed by digits without spaces (e.g. 918123665363).
+            Country code followed by digits without spaces (e.g. 14155552671).
           </p>
         </div>
 

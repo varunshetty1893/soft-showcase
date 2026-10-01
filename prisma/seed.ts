@@ -35,48 +35,50 @@ async function main() {
   console.log(`  ✅ ${DEFAULT_TECHNOLOGIES.length} technologies seeded.`);
 
   // ── 3. Admin user ──────────────────────────────────────────────────────────
-  const adminEmail = process.env.ADMIN_EMAIL || "shettymu25@gmail.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
   if (adminEmail) {
     console.log(`  Creating admin user: ${adminEmail}`);
     await prisma.user.upsert({
       where: { email: adminEmail },
-      update: { isAdmin: true },
+      update: { isAdmin: true, role: "admin" },
       create: {
         email: adminEmail,
         name: "Admin",
         isAdmin: true,
+        role: "admin",
+        emailVerified: new Date(),
       },
     });
     console.log("  ✅ Admin user seeded.");
   }
 
-  // ── 4. Seed Provider: Varun Shetty ─────────────────────────────────────────
-  console.log("  Creating provider: Varun Shetty...");
+  // ── 4. Seed Provider: Verified Maker ─────────────────────────────────────────
+  console.log("  Creating provider: Devon Reed...");
   const varunProvider = await prisma.projectProvider.upsert({
-    where: { email: "shettybvarun@gmail.com" },
+    where: { email: "devon@reedcraft.dev" },
     update: {
-      displayName: "Varun Shetty",
-      whatsappNumber: "918123665363",
+      displayName: "Devon Reed",
+      whatsappNumber: "14155553920",
       bio: "Full-Stack & Python / ML Developer. Creator of Global Farmer direct agricultural commerce and Smart Fitness & Diet Planner.",
-      avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
+      avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&crop=faces",
       showEmail: true,
       showWhatsapp: true,
       providerConsentConfirmed: true,
       providerConsentConfirmedAt: new Date(),
     },
     create: {
-      displayName: "Varun Shetty",
-      email: "shettybvarun@gmail.com",
-      whatsappNumber: "918123665363",
+      displayName: "Devon Reed",
+      email: "devon@reedcraft.dev",
+      whatsappNumber: "14155553920",
       bio: "Full-Stack & Python / ML Developer. Creator of Global Farmer direct agricultural commerce and Smart Fitness & Diet Planner.",
-      avatarUrl: "https://avatars.githubusercontent.com/u/170342896?v=4",
+      avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&crop=faces",
       showEmail: true,
       showWhatsapp: true,
       providerConsentConfirmed: true,
       providerConsentConfirmedAt: new Date(),
     },
   });
-  console.log("  ✅ Varun Shetty provider seeded.");
+  console.log("  ✅ Demo provider seeded.");
 
   // Fetch Category references
   const ecommerceCat = await prisma.category.findUnique({ where: { slug: "e-commerce" } });

@@ -5,10 +5,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-
-const authSecret =
-  process.env.AUTH_SECRET ||
-  "soft-showcase-secure-auth-jwt-secret-key-32-chars-long";
+import { getEnv } from "@/lib/config/env";
+import { isAdminUser } from "@/lib/auth/admin";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -33,6 +31,9 @@ export async function middleware(req: NextRequest) {
   }
 
   // 2. Extract and decode session JWT token with NextAuth v5 cookie resolution
+  const env = getEnv();
+  const authSecret = env.AUTH_SECRET;
+
   const isHttps =
     req.nextUrl.protocol === "https:" ||
     req.headers.get("x-forwarded-proto") === "https" ||
@@ -80,17 +81,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const userEmail = ((token.email as string) || "").trim().toLowerCase();
-  const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
-  const isEnvAdmin = Boolean(
-    userEmail &&
-    (userEmail === configuredAdminEmail ||
-     userEmail === "shettymu25@gmail.com" ||
-     userEmail === "shettybvarun@gmail.com")
-  );
-  const isAdmin = Boolean(token.isAdmin || token.role === "admin" || isEnvAdmin);
+  // 4. Admin route check: trusts ONLY DB-backed flag carried in token, no email comparisons
+  const isAdmin = isAdminUser(token);
 
-  // 4. Admin route check: If authenticated but not admin, send to home with notice
   if (isAdminRoute && !isAdmin) {
     return NextResponse.redirect(new URL("/?error=AdminAccessRequired", req.url));
   }

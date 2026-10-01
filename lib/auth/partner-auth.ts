@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { redirect } from "next/navigation";
 import { AuthError } from "@/lib/auth/session";
+import { isAdminUser } from "@/lib/auth/admin";
 
 export interface EffectivePartnerContext {
   user: {
@@ -57,14 +58,7 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
 
   const user = session.user;
   const userEmail = (user.email || "").toLowerCase().trim();
-  const configuredAdminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
-  const isEnvAdmin = Boolean(
-    userEmail &&
-    (userEmail === configuredAdminEmail ||
-     userEmail === "shettymu25@gmail.com" ||
-     userEmail === "shettybvarun@gmail.com")
-  );
-  const isAdmin = Boolean(user.isAdmin || user.role === "admin" || isEnvAdmin);
+  const isAdmin = isAdminUser(user);
 
   // 2. Query partner profile for this user
   let partner = null;

@@ -17,8 +17,6 @@ interface AddToCartButtonProps {
     price?: number | string | null;
     imageUrl?: string | null;
     providerName?: string | null;
-    providerWhatsapp?: string | null;
-    providerEmail?: string | null;
     categoryName?: string | null;
   };
   variant?: "primary" | "outline" | "compact";
@@ -55,8 +53,6 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
         price: project.price,
         imageUrl: project.imageUrl,
         providerName: project.providerName,
-        providerWhatsapp: project.providerWhatsapp,
-        providerEmail: project.providerEmail,
         categoryName: project.categoryName,
       });
       setJustAdded(true);

@@ -77,6 +77,19 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
+model PendingRegistration {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  codeHash     String
+  attempts     Int      @default(0)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("pending_registrations")
+}
+
 // =============================================================================
 // PROVIDER
 // =============================================================================

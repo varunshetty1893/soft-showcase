@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db, memoryStore } from "@/lib/db/client";
+import { db } from "@/lib/db/client";
 import { PartnerRegisterSchema } from "@/lib/validation/partner.schema";
 import { recordAuditLog } from "@/lib/db/audit";
 import { sendVerificationEmail } from "@/lib/email/email-service";
@@ -179,11 +179,6 @@ export async function POST(req: NextRequest) {
     }).catch((err) => {
       console.error("[PartnerRegister] Background email delivery error:", err);
     });
-
-    // Persist memory store to disk
-    if (typeof (memoryStore as any)?.saveToDisk === "function") {
-      (memoryStore as any).saveToDisk();
-    }
 
     // Record audit log
     await recordAuditLog({

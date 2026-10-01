@@ -14,8 +14,8 @@ interface ProviderData {
   displayName: string;
   bio?: string | null;
   avatarUrl?: string | null;
-  whatsappNumber?: string | null;
-  email?: string | null;
+  hasWhatsapp?: boolean;
+  hasEmail?: boolean;
   showWhatsapp?: boolean;
 }
 
@@ -35,7 +35,7 @@ export function ProviderCard({
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const hasWhatsApp = Boolean(provider.whatsappNumber && provider.showWhatsapp !== false);
+  const hasWhatsApp = Boolean(provider.hasWhatsapp ?? (provider.showWhatsapp !== false));
 
   return (
     <>

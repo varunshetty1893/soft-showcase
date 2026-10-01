@@ -17,6 +17,10 @@ import {
   renderVerificationOtpEmail,
   type VerificationOtpTemplateData,
 } from "./templates/verification-otp";
+import {
+  renderAccountExistsEmail,
+  type AccountExistsEmailData,
+} from "./templates/account-exists";
 import { APP_URL } from "@/config/constants";
 
 export interface InquiryEmailData {
@@ -166,4 +170,21 @@ export async function sendVerificationEmail(
     text,
   });
 }
+
+/**
+ * Send notification to an existing verified user when a duplicate registration is attempted.
+ */
+export async function sendAccountExistsEmail(
+  email: string,
+  data: AccountExistsEmailData
+): Promise<EmailResult> {
+  const { subject, html, text } = renderAccountExistsEmail(data);
+  return sendEmail({
+    to: email,
+    subject,
+    html,
+    text,
+  });
+}
+
 

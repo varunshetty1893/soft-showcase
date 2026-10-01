@@ -1,0 +1,23 @@
+// tests/unit/db-client.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+describe("Database Client Lifecycle (H5)", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  it("throws in production when DATABASE_URL is missing", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.DATABASE_URL;
+
+    await expect(async () => {
+      // Re-import with clean modules
+      const mod = await import("@/lib/db/client");
+      // Accessing a property on db triggers client creation
+      return (mod.db as any).user;
+    }).rejects.toThrow(/DATABASE_URL environment variable is missing in production/);
+  });
+});

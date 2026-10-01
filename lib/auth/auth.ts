@@ -13,6 +13,9 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { LoginSchema } from "@/lib/validation/auth.schema";
 import { authLoginLimiter, getRequestIp } from "@/lib/utils/rate-limit";
+import { getEnv } from "@/lib/config/env";
+import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
+import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 
 export class LoginRateLimitError extends CredentialsSignin {
   code = "TOO_MANY_ATTEMPTS";
@@ -33,10 +36,7 @@ if (!process.env.AUTH_URL && !process.env.NEXTAUTH_URL) {
   }
 }
 
-const authSecret =
-  process.env.AUTH_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  "soft-showcase-secure-auth-jwt-secret-key-32-chars-long";
+const authSecret = getEnv().AUTH_SECRET;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: authSecret,
@@ -174,6 +174,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 data: { emailVerified: new Date() },
               });
             }
+
+            // Run verified-email admin bootstrap hook
+            await bootstrapAdminOnVerification(existingUser.id, normalizedEmail);
           }
         }
       }
@@ -191,19 +194,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ? (user as { passwordHash?: string | null }).passwordHash!.substring(0, 12)
           : "";
         token.lastChecked = Date.now();
-      }
-
-      // Check against ADMIN_EMAIL env var or default owner emails
-      const adminEmail = (process.env.ADMIN_EMAIL || "shettymu25@gmail.com").trim().toLowerCase();
-      const tokenEmail = ((token.email as string) || "").trim().toLowerCase();
-      const isOwnerAdmin =
-        tokenEmail === adminEmail ||
-        tokenEmail === "shettymu25@gmail.com" ||
-        tokenEmail === "shettybvarun@gmail.com";
-
-      if (token.email && isOwnerAdmin) {
-        token.isAdmin = true;
-        token.role = "admin";
       }
 
       // Keep user info, role and partner status up-to-date with 60-second caching to avoid DB lag on every click
@@ -229,12 +219,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return {};
           }
 
-          const dbUserEmail = dbUser.email.toLowerCase();
-          const isEnvAdmin =
-            dbUserEmail === adminEmail ||
-            dbUserEmail === "shettymu25@gmail.com" ||
-            dbUserEmail === "shettybvarun@gmail.com";
-          token.isAdmin = Boolean(dbUser.isAdmin || isEnvAdmin);
+          // Trusts ONLY DB-backed flag carried in database user record
+          token.isAdmin = Boolean(dbUser.isAdmin);
           token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
 
             // Look up partner profile strictly by stable user relationship (userId)
@@ -288,6 +274,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.partnerId = (token.partnerId as string | null) ?? null;
       }
       return session;
+    },
+
+    async redirect({ url, baseUrl }) {
+      const safe = getSafeCallbackUrl(url, "/");
+      if (safe.startsWith("/")) {
+        return `${baseUrl}${safe}`;
+      }
+      return safe;
     },
   },
 });

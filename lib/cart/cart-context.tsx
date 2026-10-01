@@ -17,8 +17,6 @@ export interface CartItem {
   price?: number | string | null;
   imageUrl?: string | null;
   providerName?: string | null;
-  providerWhatsapp?: string | null;
-  providerEmail?: string | null;
   categoryName?: string | null;
 }
 
@@ -96,7 +94,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            setItems(parsed);
+            // Strip legacy provider contact info (Issue H4 migration)
+            const sanitized = parsed.map((item: any) => {
+              const copy = { ...item };
+              delete copy.providerWhatsapp;
+              delete copy.providerEmail;
+              return copy as CartItem;
+            });
+            setItems(sanitized);
           } else {
             setItems([]);
           }

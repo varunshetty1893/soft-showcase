@@ -1,13 +1,19 @@
 // app/api/auth/register/route.ts
-// Registration route with rate limiting, secure OTP generation, hashed token storage, and non-blocking email delivery.
+// Registration route with rate limiting, PendingRegistration staging (anti-pre-hijack),
+// and strict anti-enumeration guarantees.
 
 import { db } from "@/lib/db/client";
 import bcrypt from "bcryptjs";
 import { RegisterSchema } from "@/lib/validation/auth.schema";
-import { sendVerificationEmail } from "@/lib/email/email-service";
+import { sendVerificationEmail, sendAccountExistsEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
 import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
 import { authRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
+
+const GENERIC_SUCCESS_RESPONSE = {
+  success: true,
+  message: "If you do not have an account, a verification code has been sent to your email.",
+};
 
 export async function POST(req: Request) {
   try {
@@ -31,82 +37,79 @@ export async function POST(req: Request) {
     const { name, email, password } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existingUser && existingUser.emailVerified) {
-      return Response.json(
-        { error: "An account with this email already exists. Please sign in." },
-        { status: 409 }
-      );
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const isAdmin = Boolean(
-      process.env.ADMIN_EMAIL &&
-        process.env.ADMIN_EMAIL.toLowerCase() === normalizedEmail
-    );
-
-    // Create or update user
-    if (existingUser) {
-      await db.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name,
-          passwordHash,
-          isAdmin: existingUser.isAdmin || isAdmin,
-        },
-      });
-    } else {
-      await db.user.create({
-        data: {
-          name,
-          email: normalizedEmail,
-          passwordHash,
-          isAdmin,
-        },
-      });
-    }
-
-    // Generate cryptographically secure 6-digit numeric OTP (Issue 16)
-    const otp = generateSecureOtp();
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    // Remove any existing verification tokens for this email
-    await db.verificationToken.deleteMany({
-      where: { identifier: normalizedEmail },
-    });
-
-    // Save token as SHA-256 hash to protect sensitive secrets (Issue 19)
-    await db.verificationToken.create({
-      data: {
-        identifier: normalizedEmail,
-        token: hashSecretToken(otp),
-        expires,
+    // 1. Check if an already-verified user exists
+    const existingVerifiedUser = await db.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        emailVerified: { not: null },
       },
     });
+
+    if (existingVerifiedUser) {
+      // Send "Account already exists / Reset your password" email without exposing status to caller (anti-enumeration)
+      sendAccountExistsEmail(normalizedEmail, {
+        userName: existingVerifiedUser.name || undefined,
+        loginUrl: `${APP_URL}/login`,
+        resetUrl: `${APP_URL}/forgot-password`,
+      }).catch((emailErr) => {
+        console.error("[Register] Background account-exists notification error:", emailErr);
+      });
+
+      // Return identical generic response to prevent user enumeration
+      return Response.json({
+        ...GENERIC_SUCCESS_RESPONSE,
+        email: normalizedEmail,
+      });
+    }
+
+    // 2. Stage unverified registrant in PendingRegistration table (never touch User table before verification)
+    const passwordHash = await bcrypt.hash(password, 10);
+    const otp = generateSecureOtp();
+    const codeHash = hashSecretToken(otp);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await db.pendingRegistration.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        name,
+        passwordHash,
+        codeHash,
+        attempts: 0,
+        expiresAt,
+      },
+      create: {
+        email: normalizedEmail,
+        name,
+        passwordHash,
+        codeHash,
+        attempts: 0,
+        expiresAt,
+      },
+    });
+
+    // Clean any legacy verification tokens
+    await db.verificationToken.deleteMany({
+      where: { identifier: normalizedEmail },
+    }).catch(() => null);
 
     // Build direct 1-click verification URL
     const verifyUrl = `${APP_URL}/verify-email?email=${encodeURIComponent(
       normalizedEmail
     )}&token=${otp}`;
 
-    // Send verification email asynchronously without blocking the response (Issue 24)
+    // Send verification email asynchronously
     sendVerificationEmail(normalizedEmail, {
       userName: name,
       otp,
       verifyUrl,
       expiresInMinutes: 15,
     }).catch((emailErr) => {
-      console.error("[Register] Background email delivery error:", emailErr);
+      console.error("[Register] Background verification email delivery error:", emailErr);
     });
 
     return Response.json({
-      success: true,
+      ...GENERIC_SUCCESS_RESPONSE,
       email: normalizedEmail,
-      message: "Verification code sent to your email.",
     });
   } catch (error) {
     console.error("[Register] Error during registration:", error);

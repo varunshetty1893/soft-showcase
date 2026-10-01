@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { RegisterSchema } from "@/lib/validation/auth.schema";
+import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 
 // Google "G" SVG
 function GoogleIcon() {
@@ -65,7 +66,7 @@ function StrengthBar({ password }: { password: string }) {
 export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"), "/");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 
 // Google "G" SVG
 function GoogleIcon() {
@@ -33,7 +34,7 @@ function inputCls(error?: boolean) {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"), "/");
   const urlError = searchParams.get("error");
   const verifiedNotice = searchParams.get("verified");
 
