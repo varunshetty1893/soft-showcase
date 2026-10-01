@@ -10,7 +10,7 @@ describe("Database Client Lifecycle (H5)", () => {
   });
 
   it("throws in production when DATABASE_URL is missing", async () => {
-    process.env.NODE_ENV = "production";
+    (process.env as any).NODE_ENV = "production";
     delete process.env.DATABASE_URL;
 
     await expect(async () => {

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, Star } from "lucide-react";
 import { ImageUploader, type ProjectImageItem } from "@/components/admin/ImageUploader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -550,17 +550,62 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
             </select>
           </div>
 
-          <div className="flex items-center gap-3 pt-6">
-            <input
-              id="featured"
-              type="checkbox"
-              checked={form.featured}
-              onChange={(e) => set("featured", e.target.checked)}
-              className="w-4 h-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
-            />
-            <label htmlFor="featured" className="text-sm font-medium text-[#102124] cursor-pointer">
-              Featured project (highlighted on homepage)
-            </label>
+          <div className="sm:col-span-2 pt-2">
+            <button
+              type="button"
+              onClick={() => set("featured", !form.featured)}
+              className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 select-none ${
+                form.featured
+                  ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-300/40 shadow-xs"
+                  : "bg-[#F8FAFA] border-[#D9E2E4] hover:bg-white hover:border-[#BEDEE1]"
+              }`}
+            >
+              <div className="flex items-start gap-3.5">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                    form.featured
+                      ? "bg-amber-400 text-amber-950 shadow-xs"
+                      : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  <Star className={`w-5 h-5 ${form.featured ? "fill-current" : ""}`} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-bold text-[#102124]">
+                      Featured Project Status
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                        form.featured
+                          ? "bg-amber-400 text-amber-950"
+                          : "bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      {form.featured ? "Featured Active" : "Standard Listing"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#526267] mt-0.5 leading-relaxed">
+                    {form.featured
+                      ? "Featured badge active. This project is highlighted on the homepage hero, catalog top recommendations, and filter views."
+                      : "Standard catalog listing. Click anywhere on this card to enable the Featured badge."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Interactive toggle switch */}
+              <div
+                className={`w-12 h-6 rounded-full transition-colors relative shrink-0 p-0.5 ${
+                  form.featured ? "bg-[#155761]" : "bg-gray-300"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                    form.featured ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </div>
+            </button>
           </div>
         </div>
       </div>

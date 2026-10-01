@@ -277,11 +277,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async redirect({ url, baseUrl }) {
-      const safe = getSafeCallbackUrl(url, "/");
-      if (safe.startsWith("/")) {
-        return `${baseUrl}${safe}`;
+      try {
+        const baseOrigin = new URL(baseUrl).origin;
+        if (url.startsWith("/")) {
+          const safe = getSafeCallbackUrl(url, "/", baseOrigin);
+          return `${baseOrigin}${safe}`;
+        }
+        const parsed = new URL(url);
+        if (parsed.origin.toLowerCase() === baseOrigin.toLowerCase()) {
+          const safe = getSafeCallbackUrl(parsed.pathname + parsed.search + parsed.hash, "/", baseOrigin);
+          return `${baseOrigin}${safe}`;
+        }
+      } catch {
+        // Fall back to baseUrl on any error
       }
-      return safe;
+      return baseUrl;
     },
   },
 });

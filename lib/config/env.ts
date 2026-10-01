@@ -22,6 +22,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().optional(),
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  TRUSTED_PROXY_COUNT: z.coerce.number().min(0).default(1),
+  TURNSTILE_SITE_KEY: z.string().optional(),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
 });
@@ -61,6 +64,9 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
     NEXT_PUBLIC_APP_URL: source.NEXT_PUBLIC_APP_URL || source.AUTH_URL || source.NEXTAUTH_URL,
     UPSTASH_REDIS_REST_URL: source.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: source.UPSTASH_REDIS_REST_TOKEN,
+    TRUSTED_PROXY_COUNT: source.TRUSTED_PROXY_COUNT,
+    TURNSTILE_SITE_KEY: source.TURNSTILE_SITE_KEY || source.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+    TURNSTILE_SECRET_KEY: source.TURNSTILE_SECRET_KEY,
     ADMIN_EMAIL: source.ADMIN_EMAIL,
     ADMIN_EMAILS: source.ADMIN_EMAILS,
   };

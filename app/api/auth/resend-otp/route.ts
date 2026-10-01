@@ -7,7 +7,7 @@ import { ResendOtpSchema } from "@/lib/validation/auth.schema";
 import { sendVerificationEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
 import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
-import { otpResendLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { otpResendLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 
 const GENERIC_RESEND_RESPONSE = {
   success: true,
@@ -16,7 +16,7 @@ const GENERIC_RESEND_RESPONSE = {
 
 export async function POST(req: Request) {
   try {
-    const ip = getClientIp(req);
+    const ip = await getRequestIp(req);
     const body = await req.json();
     const result = ResendOtpSchema.safeParse(body);
 

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { getClientIp, whatsappLimiter } from "@/lib/utils/rate-limit";
+import { getRequestIp, whatsappLimiter } from "@/lib/utils/rate-limit";
 import { generateWhatsAppUrl } from "@/lib/whatsapp/whatsapp";
 import { APP_URL } from "@/config/constants";
 
@@ -13,7 +13,7 @@ type Params = { params: Promise<{ slug: string }> };
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     // 1. Rate limiting by client IP
-    const ip = getClientIp(request);
+    const ip = await getRequestIp(request);
     const rateLimitResult = await whatsappLimiter.check(ip);
 
     if (!rateLimitResult.success) {

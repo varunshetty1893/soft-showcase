@@ -5,12 +5,12 @@
 import { db } from "@/lib/db/client";
 import { VerifyOtpSchema } from "@/lib/validation/auth.schema";
 import { verifySecretToken } from "@/lib/utils/crypto";
-import { otpVerifyLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { otpVerifyLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
 
 export async function POST(req: Request) {
   try {
-    const ip = getClientIp(req);
+    const ip = await getRequestIp(req);
     const body = await req.json();
     const result = VerifyOtpSchema.safeParse(body);
 

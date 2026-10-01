@@ -31,7 +31,11 @@ function getAppOrigin(): string | null {
  * 3. Decodes and re-checks encoded variants (e.g. %2F%2F, %2F%5C).
  * 4. Disallows redirects back to auth endpoints (/login, /register, /api/auth/*) to prevent redirect loops.
  */
-export function getSafeCallbackUrl(raw: unknown, fallback: string = "/"): string {
+export function getSafeCallbackUrl(
+  raw: unknown,
+  fallback: string = "/",
+  allowedOrigin?: string
+): string {
   if (!raw || typeof raw !== "string") {
     return fallback;
   }
@@ -52,9 +56,13 @@ export function getSafeCallbackUrl(raw: unknown, fallback: string = "/"): string
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
       try {
         const parsed = new URL(trimmed);
-        const appOrigin = getAppOrigin();
+        const appOrigin = allowedOrigin ? new URL(allowedOrigin).origin : getAppOrigin();
         if (appOrigin && parsed.origin.toLowerCase() === appOrigin.toLowerCase()) {
-          return getSafeCallbackUrl(parsed.pathname + parsed.search + parsed.hash, fallback);
+          return getSafeCallbackUrl(
+            parsed.pathname + parsed.search + parsed.hash,
+            fallback,
+            appOrigin
+          );
         }
       } catch {
         return fallback;
@@ -76,13 +84,13 @@ export function getSafeCallbackUrl(raw: unknown, fallback: string = "/"): string
     return fallback;
   }
 
-  // Must begin with a single '/' and not '//' or '/\'
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
+  // Must begin with a single '/' and not contain consecutive slashes (//) or '/\'
+  if (!trimmed.startsWith("/") || trimmed.includes("//") || trimmed.includes("/\\")) {
     return fallback;
   }
 
-  // Verify decoded string also adheres to single '/' constraint
-  if (!decoded.startsWith("/") || decoded.startsWith("//") || decoded.startsWith("/\\")) {
+  // Verify decoded string also does not contain consecutive slashes (//) or '/\'
+  if (!decoded.startsWith("/") || decoded.includes("//") || decoded.includes("/\\")) {
     return fallback;
   }
 

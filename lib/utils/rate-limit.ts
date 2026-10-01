@@ -1,33 +1,41 @@
 // lib/utils/rate-limit.ts
 // Production-grade Rate Limiter for Soft Showcase.
 // - Production / Vercel Serverless: Upstash Redis (@upstash/ratelimit) distributed rate limiting.
-// - Development: In-memory fallback (no disk or /tmp storage).
-// - Graceful Fallback: If Upstash credentials are not supplied or fail, smoothly falls back to memory.
+// - Development & Test: Isolated in-memory fallback.
+// - Strict IP derivation: x-vercel-forwarded-for -> x-real-ip -> x-forwarded-for (len - TRUSTED_PROXY_COUNT).
+// - Fingerprint fallback: sha256(user-agent + accept-language) when no valid IP is derivable.
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import crypto from "crypto";
 
 export interface RateLimitOptions {
   /** Maximum number of requests per window */
   limit: number;
   /** Time window in milliseconds */
   windowMs: number;
+  /**
+   * Failure mode when the backing store (e.g. Upstash) throws an error:
+   * - "closed": rejects the request with success: false (for auth, registration, OTP, password reset)
+   * - "open": allows the request with a warning log (for general inquiries, WhatsApp link generation)
+   * Default: "open"
+   */
+  failMode?: "open" | "closed";
 }
 
 export interface RateLimitResult {
   success: boolean;
   remaining: number;
   reset: number; // Unix timestamp (ms) when the window resets
+  error?: boolean; // True if backing store experienced an outage/exception
 }
-
-export type RateLimitReturn = Promise<RateLimitResult> & RateLimitResult;
 
 interface WindowEntry {
   count: number;
   resetAt: number;
 }
 
-// ── In-Memory Store (Active in Development or as Graceful Fallback) ───────────
+// ── In-Memory Store (Active in Development/Test) ──────────────────────────────
 class InMemoryRateLimitStore {
   private cache: Map<string, WindowEntry> = new Map();
 
@@ -53,7 +61,7 @@ class InMemoryRateLimitStore {
   }
 }
 
-// Keep singleton across module reloads in development
+// Singleton memory store across module reloads in development
 const globalMemoryStore: InMemoryRateLimitStore =
   (globalThis as any).__softshowcase_memory_rate_limit_store ||
   ((globalThis as any).__softshowcase_memory_rate_limit_store = new InMemoryRateLimitStore());
@@ -75,16 +83,25 @@ function getSharedRedis(): Redis | null {
   }
 }
 
-/**
- * Creates a rate limiter instance with Upstash Redis in production and in-memory fallback in development.
- */
-export function createRateLimiter(options: RateLimitOptions, namespace = "rl") {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const redis = getSharedRedis();
+export interface RateLimiterInstance {
+  check(key: string): Promise<RateLimitResult>;
+  limit(key: string): Promise<RateLimitResult>;
+  reset(key: string): Promise<void>;
+}
 
-  // In development, fall back to in-memory unless explicitly forced via RATE_LIMIT_PROVIDER=upstash
+/**
+ * Creates an async-only rate limiter instance.
+ * Production uses Upstash Redis without dual-counting memory counters.
+ * Development / Test uses isolated in-memory sliding window.
+ */
+export function createRateLimiter(options: RateLimitOptions, namespace = "rl"): RateLimiterInstance {
+  const isProduction = process.env.NODE_ENV === "production";
+  const redis = getSharedRedis();
+  const failMode = options.failMode || "open";
+
+  // Use Upstash if redis credentials exist and either in production or explicitly forced
   const shouldUseUpstash =
-    Boolean(redis) && (!isDevelopment || process.env.RATE_LIMIT_PROVIDER === "upstash");
+    Boolean(redis) && (isProduction || process.env.RATE_LIMIT_PROVIDER === "upstash");
 
   let upstashRatelimit: Ratelimit | null = null;
   if (shouldUseUpstash && redis) {
@@ -136,44 +153,47 @@ export function createRateLimiter(options: RateLimitOptions, namespace = "rl") {
   }
 
   return {
-    /**
-     * Checks rate limit for the given key.
-     * Returns a hybrid object that can be awaited (`await limiter.check(key)`)
-     * or read synchronously (`limiter.check(key).success`) for maximum route compatibility.
-     */
-    check(key: string): RateLimitReturn {
-      const memResult = checkInMemory(key);
-
-      // If Upstash is not active (dev or unconfigured), resolve with in-memory result
+    async check(key: string): Promise<RateLimitResult> {
+      // 1. In development / testing without Upstash, use isolated memory store
       if (!upstashRatelimit) {
-        const promise = Promise.resolve(memResult);
-        Object.assign(promise, memResult);
-        return promise as RateLimitReturn;
+        return checkInMemory(key);
       }
 
-      // Query Upstash Redis with fallback to in-memory on error
-      const asyncCheck = async (): Promise<RateLimitResult> => {
-        try {
-          const res = await upstashRatelimit!.limit(key);
-          return {
-            success: res.success,
-            remaining: res.remaining,
-            reset: res.reset,
-          };
-        } catch (err) {
-          console.warn(`[RateLimit] Upstash limit error for ${namespace}:${key}, falling back to memory:`, err);
-          return memResult;
-        }
-      };
+      // 2. In production with Upstash, query Redis directly (no double-counting memory store!)
+      try {
+        const res = await upstashRatelimit.limit(key);
+        return {
+          success: res.success,
+          remaining: res.remaining,
+          reset: res.reset,
+        };
+      } catch (err) {
+        console.warn(`[RateLimit] Upstash error on ${namespace}:${key}:`, err);
 
-      const promise = asyncCheck();
-      Object.assign(promise, memResult);
-      return promise as RateLimitReturn;
+        // Fail-closed for security-critical limiters (auth, OTP, registration)
+        if (failMode === "closed") {
+          return {
+            success: false,
+            remaining: 0,
+            reset: Date.now() + options.windowMs,
+            error: true,
+          };
+        }
+
+        // Fail-open with warning log for non-critical customer routes
+        return {
+          success: true,
+          remaining: 1,
+          reset: Date.now() + options.windowMs,
+          error: true,
+        };
+      }
     },
 
-    /**
-     * Resets the rate limit for the given key.
-     */
+    async limit(key: string): Promise<RateLimitResult> {
+      return this.check(key);
+    },
+
     async reset(key: string): Promise<void> {
       const scopedKey = `${namespace}:${key}`;
       globalMemoryStore.delete(scopedKey);
@@ -186,123 +206,194 @@ export function createRateLimiter(options: RateLimitOptions, namespace = "rl") {
         }
       }
     },
-
-    /**
-     * Alias for .check(key) matching @upstash/ratelimit native API.
-     */
-    limit(key: string): RateLimitReturn {
-      return this.check(key);
-    },
   };
 }
 
-// ── Pre-configured limiters for security-sensitive endpoints ─────────────────
+// ── Pre-configured Limiters ──────────────────────────────────────────────────
 
-// Public inquiry submission limiter (5 requests per 15 minutes)
+// Public inquiry submission limiter (5 requests per 15 minutes, fail-open)
 export const inquiryLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "open" },
   "inquiry"
 );
 
-// WhatsApp deep-link generation limiter (10 requests per 15 minutes)
+// WhatsApp deep-link generation limiter (10 requests per 15 minutes, fail-open)
 export const whatsappLimiter = createRateLimiter(
-  { limit: 10, windowMs: 15 * 60 * 1000 },
+  { limit: 10, windowMs: 15 * 60 * 1000, failMode: "open" },
   "whatsapp"
 );
 
-// Custom project request limiter (3 requests per 60 minutes)
+// Custom project request limiter (3 requests per 60 minutes, fail-open)
 export const customRequestLimiter = createRateLimiter(
-  { limit: 3, windowMs: 60 * 60 * 1000 },
+  { limit: 3, windowMs: 60 * 60 * 1000, failMode: "open" },
   "custom"
 );
 
-// User registration limiter (5 requests per 15 minutes)
+// User registration limiter (5 requests per 15 minutes, fail-closed)
 export const authRegisterLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "auth_reg"
 );
 
-// Partner registration limiter (5 requests per 15 minutes)
+// Partner registration limiter (5 requests per 15 minutes, fail-closed)
 export const partnerRegisterLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "part_reg"
 );
 
-// OTP Verification limiter (Max 5 attempts per window, addressing Issue 17)
+// OTP Verification limiter (Max 5 attempts per window, fail-closed)
 export const otpVerifyLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "otp_verify"
 );
 
-// OTP Resend limiter (3 requests per 15 minutes)
+// OTP Resend limiter (3 requests per 15 minutes, fail-closed)
 export const otpResendLimiter = createRateLimiter(
-  { limit: 3, windowMs: 15 * 60 * 1000 },
+  { limit: 3, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "otp_resend"
 );
 
-// Password Reset Request limiter (3 requests per 15 minutes)
+// Password Reset Request limiter (3 requests per 15 minutes, fail-closed)
 export const passwordResetRequestLimiter = createRateLimiter(
-  { limit: 3, windowMs: 15 * 60 * 1000 },
+  { limit: 3, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "pwd_req"
 );
 
-// Password Reset Code Verification limiter (5 attempts per 15 minutes)
+// Password Reset Code Verification limiter (5 attempts per 15 minutes, fail-closed)
 export const passwordResetVerifyLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "pwd_verify"
 );
 
-// Support action / message limiter (15 requests per 10 minutes)
+// Support action / message limiter (15 requests per 10 minutes, fail-open)
 export const supportActionLimiter = createRateLimiter(
-  { limit: 15, windowMs: 10 * 60 * 1000 },
+  { limit: 15, windowMs: 10 * 60 * 1000, failMode: "open" },
   "support"
 );
 
-// Transaction creation limiter (10 requests per 10 minutes)
+// Transaction creation limiter (10 requests per 10 minutes, fail-closed)
 export const transactionCreateLimiter = createRateLimiter(
-  { limit: 10, windowMs: 10 * 60 * 1000 },
+  { limit: 10, windowMs: 10 * 60 * 1000, failMode: "closed" },
   "txn_create"
 );
 
-// Credentials login limiter (Max 5 attempts per 15 minutes by IP and by Email)
+// Credentials login limiter (Max 5 attempts per 15 minutes by IP and by Email, fail-closed)
 export const authLoginLimiter = createRateLimiter(
-  { limit: 5, windowMs: 15 * 60 * 1000 },
+  { limit: 5, windowMs: 15 * 60 * 1000, failMode: "closed" },
   "auth_login"
 );
 export const loginLimiter = authLoginLimiter;
 
-/**
- * Extracts the client IP from a Next.js request.
- * Falls back to "unknown" if no IP can be determined.
- */
-export function getClientIp(request?: Request | null): string {
-  if (!request) return "unknown";
-  try {
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";
-    return request.headers.get("x-real-ip") ?? "unknown";
-  } catch {
-    return "unknown";
-  }
+// ── Anti-Spam & Relay Defense Limiters (M4) ──────────────────────────────────
+// Max 3 messages/inquiries per recipient email per hour
+export const recipientEmailLimiter = createRateLimiter(
+  { limit: 3, windowMs: 60 * 60 * 1000, failMode: "closed" },
+  "rcpt_limit"
+);
+
+// Max 5 inquiries per project per IP per hour
+export const projectIpLimiter = createRateLimiter(
+  { limit: 5, windowMs: 60 * 60 * 1000, failMode: "closed" },
+  "proj_ip_limit"
+);
+
+// Global daily cap on outbound transactional emails (500/day)
+export const dailyOutboundEmailLimiter = createRateLimiter(
+  { limit: 500, windowMs: 24 * 60 * 60 * 1000, failMode: "open" },
+  "daily_email_cap"
+);
+
+// ── IP & Fingerprint Extraction (M2) ─────────────────────────────────────────
+
+function getTrustedProxyCount(): number {
+  const envVal = process.env.TRUSTED_PROXY_COUNT;
+  if (!envVal) return 1;
+  const parsed = parseInt(envVal, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 }
 
 /**
- * Extracts the client IP from the request or via Next.js next/headers.
+ * Extracts client IP or client fingerprint using trusted proxy chain.
+ * Order of preference:
+ * 1. x-vercel-forwarded-for (Vercel edge trusted platform header)
+ * 2. x-real-ip
+ * 3. x-forwarded-for: parsed as comma-separated list, taking entry at index:
+ *    Math.max(0, parts.length - trustedProxyCount)
+ *    NEVER the leftmost entry which can be client-spoofed!
+ * 4. Fallback: hash of User-Agent + Accept-Language in a stricter prefix bucket (e.g. `fp_${hash}`)
+ */
+export function extractClientIpOrFingerprint(headers: { get(name: string): string | null }): string {
+  // 1. Platform-set header on Vercel
+  const vercelIp = headers.get("x-vercel-forwarded-for");
+  if (vercelIp) {
+    const candidate = vercelIp.split(",")[0]?.trim();
+    if (candidate && candidate !== "unknown") return candidate;
+  }
+
+  // 2. Trusted real IP from reverse proxy
+  const realIp = headers.get("x-real-ip");
+  if (realIp) {
+    const candidate = realIp.trim();
+    if (candidate && candidate !== "unknown") return candidate;
+  }
+
+  // 3. x-forwarded-for: inspect proxy hops using TRUSTED_PROXY_COUNT
+  const xForwardedFor = headers.get("x-forwarded-for");
+  if (xForwardedFor) {
+    const hops = xForwardedFor
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0 && p !== "unknown");
+
+    if (hops.length > 0) {
+      const proxyCount = getTrustedProxyCount();
+      // Target hop from the right: hops.length - proxyCount
+      const targetIndex = Math.max(0, hops.length - proxyCount);
+      const chosenIp = hops[targetIndex];
+      if (chosenIp) return chosenIp;
+    }
+  }
+
+  // 4. Stricter fallback bucket: hash User-Agent + Accept-Language
+  const userAgent = headers.get("user-agent") || "";
+  const acceptLanguage = headers.get("accept-language") || "";
+
+  if (userAgent || acceptLanguage) {
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${userAgent}|${acceptLanguage}`)
+      .digest("hex")
+      .slice(0, 16);
+    return `fp_${hash}`;
+  }
+
+  return "127.0.0.1";
+}
+
+/**
+ * Single entry point for extracting client IP / identifier in Next.js.
+ * Inspects the request headers, or falls back to next/headers context.
  */
 export async function getRequestIp(request?: Request | null): Promise<string> {
-  const ip = getClientIp(request);
-  if (ip && ip !== "unknown") return ip;
+  if (request && "headers" in request) {
+    return extractClientIpOrFingerprint(request.headers);
+  }
 
   try {
     const { headers } = await import("next/headers");
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    if (forwardedFor) return forwardedFor.split(",")[0]?.trim() ?? "unknown";
-    const realIp = headerList.get("x-real-ip");
-    if (realIp) return realIp.trim();
+    return extractClientIpOrFingerprint(headerList);
   } catch {
-    // Non-fatal if next/headers is not in request context
+    // Non-fatal if next/headers is called outside request scope
   }
 
   return "127.0.0.1";
+}
+
+/**
+ * Backward-compatible synchronous wrapper around extractClientIpOrFingerprint.
+ */
+export function getClientIp(request?: Request | null): string {
+  if (!request || !("headers" in request)) return "127.0.0.1";
+  return extractClientIpOrFingerprint(request.headers);
 }

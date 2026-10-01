@@ -34,6 +34,11 @@ export const InquirySchema = z.object({
     .trim(),
 
   contactMethod: z.enum(["EMAIL", "WHATSAPP"]).default("EMAIL"),
+
+  // Anti-abuse protections (M4)
+  turnstileToken: z.string().optional().nullable(),
+  website: z.string().max(0, "Invalid submission").optional().nullable(),
+  formSubmittedAt: z.number().optional().nullable(),
 }).strict();
 
 export type InquiryInput = z.infer<typeof InquirySchema>;

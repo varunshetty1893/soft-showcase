@@ -8,7 +8,7 @@ import { RegisterSchema } from "@/lib/validation/auth.schema";
 import { sendVerificationEmail, sendAccountExistsEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
 import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
-import { authRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { authRegisterLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 
 const GENERIC_SUCCESS_RESPONSE = {
   success: true,
@@ -17,7 +17,7 @@ const GENERIC_SUCCESS_RESPONSE = {
 
 export async function POST(req: Request) {
   try {
-    const ip = getClientIp(req);
+    const ip = await getRequestIp(req);
     const rateCheck = await authRegisterLimiter.check(ip);
     if (!rateCheck.success) {
       return Response.json(

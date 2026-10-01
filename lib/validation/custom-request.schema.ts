@@ -75,6 +75,11 @@ export const CustomRequestSchema = z.object({
     .trim()
     .optional()
     .nullable(),
+
+  // Anti-abuse protections (M4)
+  turnstileToken: z.string().optional().nullable(),
+  website: z.string().max(0, "Invalid submission").optional().nullable(),
+  formSubmittedAt: z.number().optional().nullable(),
 }).strict();
 
 export type CustomRequestInput = z.infer<typeof CustomRequestSchema>;

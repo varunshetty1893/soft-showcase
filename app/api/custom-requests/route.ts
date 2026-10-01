@@ -6,32 +6,23 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { CustomRequestSchema } from "@/lib/validation/custom-request.schema";
-import { customRequestLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import {
+  customRequestLimiter,
+  getRequestIp,
+  recipientEmailLimiter,
+  dailyOutboundEmailLimiter,
+} from "@/lib/utils/rate-limit";
 import {
   sendAdminCustomRequestEmail,
   sendCustomerCustomRequestConfirmationEmail,
 } from "@/lib/email/email-service";
 import { createAuditLog } from "@/lib/db/audit";
+import { verifyTurnstileToken } from "@/lib/utils/turnstile";
 
 export async function POST(request: Request) {
   try {
-    // Custom project requests are open to any visitor (docs/26-custom-project-system.md)
-    let customerId: string | null = null;
-    try {
-      const session = await auth();
-      customerId = session?.user?.id || null;
-    } catch {
-      // outside request scope or unauthenticated
-    }
-
-    // Request size limit: reject payloads > 128KB (Issue 46)
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 131072) {
-      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
-    }
-
-    // 1. Rate Limiting Check (3 per IP per hour as per docs/26-custom-project-system.md)
-    const ip = getClientIp(request);
+    // 1. IP & Rate Limiting Check (M2 & M3)
+    const ip = await getRequestIp(request);
     const rateLimit = await customRequestLimiter.check(ip);
 
     if (!rateLimit.success) {
@@ -52,13 +43,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Body parsing and Zod Validation
+    // Request size limit: reject payloads > 128KB (Issue 46)
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 131072) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
+    // 2. Body parsing and Anti-Abuse Checks (M4)
     const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
         { error: "Invalid request payload." },
         { status: 400 }
       );
+    }
+
+    // Honeypot check (M4)
+    if (body.website && String(body.website).trim().length > 0) {
+      return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
+    }
+
+    // Minimum fill time check (M4)
+    if (body.formSubmittedAt && typeof body.formSubmittedAt === "number") {
+      const fillDuration = Date.now() - body.formSubmittedAt;
+      if (fillDuration > 0 && fillDuration < 2000) {
+        return NextResponse.json(
+          { error: "Form submitted too quickly. Please review your details before submitting." },
+          { status: 400 }
+        );
+      }
     }
 
     const validation = CustomRequestSchema.safeParse(body);
@@ -74,7 +87,48 @@ export async function POST(request: Request) {
 
     const data = validation.data;
 
-    // 3. Database Insertion
+    // 3. User session verification & CAPTCHA validation (M4)
+    let customerId: string | null = null;
+    let isAuthenticatedVerifiedUser = false;
+    try {
+      const session = await auth();
+      if (session?.user?.id) {
+        customerId = session.user.id;
+        if (session.user.email && session.user.email.toLowerCase() === data.email.toLowerCase()) {
+          isAuthenticatedVerifiedUser = true;
+        }
+      }
+    } catch {
+      customerId = null;
+    }
+
+    let captchaPassed = false;
+    if (!isAuthenticatedVerifiedUser) {
+      const turnstileResult = await verifyTurnstileToken(data.turnstileToken, ip);
+      if (!turnstileResult.success) {
+        return NextResponse.json(
+          { error: "Security verification failed. Please complete the CAPTCHA." },
+          { status: 400 }
+        );
+      }
+      captchaPassed = true;
+    } else {
+      captchaPassed = true;
+    }
+
+    // 4. Anti-Relay abuse limits (M4)
+    const recipientCheck = await recipientEmailLimiter.check(`custom:${data.email.toLowerCase()}`);
+    if (!recipientCheck.success) {
+      const retryAfter = Math.max(1, Math.ceil((recipientCheck.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: "Too many custom project requests submitted for this email address. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+
+    await dailyOutboundEmailLimiter.check("global_daily");
+
+    // 5. Database Insertion
     const customRequest = await db.customProjectRequest.create({
       data: {
         name: data.name,
@@ -92,7 +146,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // 4. Audit Log Entry
+    // 6. Audit Log Entry
     await createAuditLog({
       userId: customerId,
       action: "CUSTOM_REQUEST_RECEIVED",
@@ -105,8 +159,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // 5. Send Email Notifications (graceful background attempts)
-    // 5a. Admin Notification
+    // 7. Send Email Notifications
+    // 7a. Admin Notification
     sendAdminCustomRequestEmail({
       name: data.name,
       email: data.email,
@@ -123,13 +177,15 @@ export async function POST(request: Request) {
       console.error("[Email] Failed to notify admin for custom request:", err);
     });
 
-    // 5b. Customer Confirmation Email
-    sendCustomerCustomRequestConfirmationEmail(data.email, {
-      customerName: data.name,
-      projectTitle: data.projectTitle,
-    }).catch((err) => {
-      console.error("[Email] Failed to send customer confirmation email:", err);
-    });
+    // 7b. Customer Confirmation Email only if authenticated or CAPTCHA passed (M4)
+    if (isAuthenticatedVerifiedUser || captchaPassed) {
+      sendCustomerCustomRequestConfirmationEmail(data.email, {
+        customerName: data.name,
+        projectTitle: data.projectTitle,
+      }).catch((err) => {
+        console.error("[Email] Failed to send customer confirmation email:", err);
+      });
+    }
 
     return NextResponse.json(
       {
