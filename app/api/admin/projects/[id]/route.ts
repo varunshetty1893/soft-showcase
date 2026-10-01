@@ -103,6 +103,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       featured,
       priceMode,
       price,
+      originalPrice,
       demoUrl,
       projectType,
       whatsIncluded,
@@ -154,6 +155,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             (priceMode === "CONTACT" || priceMode === "FREE" || (priceMode === undefined && (existing.priceMode === "CONTACT" || existing.priceMode === "FREE")))
               ? null
               : (price ?? null),
+        }),
+        ...((originalPrice !== undefined || priceMode !== undefined) && {
+          originalPrice:
+            (priceMode === "FIXED" || (priceMode === undefined && existing.priceMode === "FIXED"))
+              ? (originalPrice ?? null)
+              : null,
         }),
         ...(demoUrl !== undefined && { demoUrl: demoUrl ?? null }),
         ...(projectType !== undefined && { projectType: projectType ?? null }),

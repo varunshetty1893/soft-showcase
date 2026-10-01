@@ -167,10 +167,19 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-[#D9E2E4] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#526267]">
-          <p>© {new Date().getFullYear()} {APP_NAME}. Crafted for digital creators & engineering teams.</p>
-          <p className="flex items-center gap-1.5 font-medium text-[#102124]">
-            Direct maker connection • Zero buyer commission
-          </p>
+          <p>© {new Date().getFullYear()} {APP_NAME}. Crafted for digital creators &amp; engineering teams.</p>
+          <div className="flex items-center gap-6">
+            <Link href="/terms" className="hover:text-[#155761] transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="/privacy" className="hover:text-[#155761] transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-[#D9E2E4] hidden sm:inline">•</span>
+            <span className="text-[#102124] font-medium hidden sm:inline">
+              Direct maker connection • Zero buyer commission
+            </span>
+          </div>
         </div>
       </div>
     </footer>

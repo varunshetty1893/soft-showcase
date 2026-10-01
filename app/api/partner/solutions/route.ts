@@ -287,6 +287,7 @@ export async function POST(req: NextRequest) {
         featured: false,
         priceMode: data.priceMode,
         price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
+        originalPrice: data.priceMode === "FIXED" && data.originalPrice ? data.originalPrice : null,
         demoUrl: data.demoUrl || null,
         projectType: data.projectType || null,
         whatsIncluded: data.whatsIncluded || [],

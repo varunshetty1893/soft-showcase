@@ -85,6 +85,7 @@ export async function getPublishedProjects(options: {
         featured: true,
         priceMode: true,
         price: true,
+        originalPrice: true,
         projectType: true,
         createdAt: true,
         category: { select: { id: true, name: true, slug: true } },
@@ -203,6 +204,7 @@ export const getRelatedProjects = cache(async (
       shortDescription: true,
       priceMode: true,
       price: true,
+      originalPrice: true,
       category: { select: { id: true, name: true, slug: true } },
       provider: { select: { id: true, displayName: true, avatarUrl: true } },
       images: {

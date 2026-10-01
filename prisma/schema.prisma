@@ -209,6 +209,7 @@ model Project {
   featured         Boolean       @default(false)
   priceMode        PriceMode     @default(CONTACT)
   price            Decimal?      @db.Decimal(10, 2)
+  originalPrice    Decimal?      @db.Decimal(10, 2)
   demoUrl          String?
   projectType      String?
   whatsIncluded    String[]      @default([])

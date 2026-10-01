@@ -28,6 +28,7 @@ import { APP_NAME, APP_URL } from "@/config/constants";
 import { ChevronRight, ExternalLink, ShieldCheck, CheckCircle2, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { safeJsonLd } from "@/lib/utils";
+import { buildSoftwareJsonLd } from "@/lib/utils/jsonld";
 
 export const revalidate = 3600; // 1 hour
 
@@ -106,26 +107,17 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const primaryImage = project.images.find((i) => i.isPrimary) || project.images[0];
   const baseUrl = APP_URL.replace(/\/$/, "");
 
-  const softwareJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: project.title,
-    description: project.shortDescription,
-    applicationCategory: project.category?.name || "WebApplication",
-    operatingSystem: "Web",
-    image: primaryImage?.url,
-    url: `${baseUrl}/projects/${project.slug}`,
-    offers: {
-      "@type": "Offer",
-      price: project.price ? String(project.price) : "0",
-      priceCurrency: "INR",
-      availability: "https://schema.org/InStock",
-    },
-    author: {
-      "@type": "Organization",
-      name: project.provider?.displayName || APP_NAME,
-    },
-  };
+  const softwareJsonLd = buildSoftwareJsonLd({
+    title: project.title,
+    slug: project.slug,
+    shortDescription: project.shortDescription,
+    priceMode: project.priceMode,
+    price: project.price ? project.price.toString() : null,
+    status: project.status,
+    category: project.category,
+    provider: project.provider,
+    imageUrl: primaryImage?.url,
+  });
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -241,17 +233,18 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               {/* Screenshot Gallery */}
               <ProjectGallery images={project.images} projectTitle={project.title} />
 
-              {/* Amazon / Flipkart Style Price, Limited Deal & Discount Section (Below image, above project overview) */}
+              {/* Price and Verified Discount Section (Below image, above project overview) */}
               <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-7 shadow-xs">
                 <PriceBadge
                   priceMode={project.priceMode}
                   price={project.price ? project.price.toString() : null}
+                  originalPrice={project.originalPrice ? project.originalPrice.toString() : null}
                   variant="detail"
                   showTaxNotice={true}
                 />
               </div>
 
-              {/* Full Description / Overview (Immediately below Price & Limited Deal) */}
+              {/* Full Description / Overview (Immediately below Price) */}
               {project.fullDescription && (
                 <section className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs">
                   <h2 className="text-xl font-bold text-[#102124] mb-4">Project Overview</h2>
@@ -287,12 +280,13 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
             {/* Right Column: Provider Card & Project Summary */}
             <div className="space-y-6 lg:sticky lg:top-24">
-              {/* Amazon / Flipkart Style Order Box */}
+              {/* Order Box */}
               <div className="bg-white rounded-2xl border border-[#D9E2E4] p-5 shadow-xs space-y-3.5">
                 <div className="border-b border-[#F3F7F7] pb-3">
                   <PriceBadge
                     priceMode={project.priceMode}
                     price={project.price ? project.price.toString() : null}
+                    originalPrice={project.originalPrice ? project.originalPrice.toString() : null}
                     variant="card"
                     showTaxNotice={true}
                   />

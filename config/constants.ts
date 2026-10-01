@@ -50,10 +50,11 @@ export const PROJECT_STATUS_LABELS: Record<string, string> = {
   ARCHIVED: "Archived",
 };
 
-// Price mode labels
 export const PRICE_MODE_LABELS: Record<string, string> = {
   CONTACT: "Contact for Price",
   FIXED: "Fixed Price",
   STARTING_FROM: "Starting From",
   FREE: "Free",
 };
+
+export const DEFAULT_CURRENCY = "INR";

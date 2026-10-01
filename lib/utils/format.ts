@@ -59,40 +59,27 @@ export function formatPrice(
 }
 
 /**
- * Calculates a realistic Amazon/Flipkart style original M.R.P. for a given selling price.
- * Provides standard 30% to 55% discount psychology ending in 999 or 499.
- */
-export function calculateMrp(price: number | string | null | undefined): number | null {
-  if (price === null || price === undefined) return null;
-  const num = typeof price === "string" ? parseFloat(price) : price;
-  if (isNaN(num) || num <= 0) return null;
-
-  // Scale factor between 1.5x and 1.8x (approx 33% to 45% discount)
-  const multiplier = num > 50000 ? 1.5 : num > 10000 ? 1.65 : 1.8;
-  const rawMrp = num * multiplier;
-
-  if (rawMrp > 10000) {
-    return Math.ceil(rawMrp / 1000) * 1000 - 1; // e.g. 49,999, 99,999
-  }
-  if (rawMrp > 1000) {
-    return Math.ceil(rawMrp / 500) * 500 - 1; // e.g. 4,999, 7,499
-  }
-  return Math.ceil(rawMrp / 100) * 100 - 1; // e.g. 999, 1,499
-}
-
-/**
- * Calculates the discount percentage between price and MRP.
- * Example: price=24999, mrp=49999 -> 50
+ * Calculates the discount percentage between selling price and verified original price.
+ * Example: price=24999, originalPrice=49999 -> 50%
+ * Returns 0 if originalPrice <= price or if values are invalid/missing.
  */
 export function calculateDiscountPercent(
   price: number | string | null | undefined,
-  mrp: number | string | null | undefined
+  originalPrice: number | string | null | undefined
 ): number {
-  if (!price || !mrp) return 0;
+  if (
+    price === null ||
+    price === undefined ||
+    originalPrice === null ||
+    originalPrice === undefined
+  ) {
+    return 0;
+  }
   const p = typeof price === "string" ? parseFloat(price) : price;
-  const m = typeof mrp === "string" ? parseFloat(mrp) : mrp;
-  if (isNaN(p) || isNaN(m) || m <= p || p <= 0) return 0;
-  return Math.round(((m - p) / m) * 100);
+  const orig =
+    typeof originalPrice === "string" ? parseFloat(originalPrice) : originalPrice;
+  if (isNaN(p) || isNaN(orig) || orig <= p || p <= 0) return 0;
+  return Math.round(((orig - p) / orig) * 100);
 }
 
 /**

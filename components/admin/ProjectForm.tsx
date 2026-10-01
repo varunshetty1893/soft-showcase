@@ -34,6 +34,7 @@ type ProjectFormData = {
   // Pricing
   priceMode: "CONTACT" | "FIXED" | "STARTING_FROM" | "FREE";
   price: string;
+  originalPrice: string;
   // Details
   demoUrl: string;
   projectType: string;
@@ -81,6 +82,7 @@ const EMPTY: ProjectFormData = {
   featured: false,
   priceMode: "CONTACT",
   price: "",
+  originalPrice: "",
   demoUrl: "",
   projectType: "",
   categoryId: "",
@@ -303,6 +305,10 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
       price:
         form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM"
           ? parseFloat(form.price) || null
+          : null,
+      originalPrice:
+        form.priceMode === "FIXED" && form.originalPrice && form.originalPrice.trim() !== ""
+          ? parseFloat(form.originalPrice) || null
           : null,
       demoUrl: form.demoUrl || null,
       projectType: form.projectType || null,
@@ -644,6 +650,27 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
                 className={fieldClass}
               />
               {errors.price?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+            </div>
+          )}
+
+          {form.priceMode === "FIXED" && (
+            <div>
+              <label className={labelClass}>
+                Original Price (₹) (Optional — only if previously sold/listed at this price)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.originalPrice}
+                onChange={(e) => set("originalPrice", e.target.value)}
+                placeholder="Must be higher than selling price"
+                className={fieldClass}
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Leave blank if no prior verifiable price exists. Never invent discounts.
+              </p>
+              {errors.originalPrice?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
             </div>
           )}
         </div>

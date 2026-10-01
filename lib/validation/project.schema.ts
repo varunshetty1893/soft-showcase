@@ -43,6 +43,12 @@ const projectFields = {
 
   price: z.number().positive("Price must be a positive number").nullable(),
 
+  originalPrice: z
+    .number()
+    .positive("Original price must be a positive number")
+    .optional()
+    .nullable(),
+
   demoUrl: z
     .string()
     .url("Please enter a valid URL")
@@ -142,6 +148,23 @@ export const ProjectSchema = z
       message: "Price must be empty for CONTACT and FREE price modes",
       path: ["price"],
     }
+  )
+  .refine(
+    (data) => {
+      if (data.originalPrice !== null && data.originalPrice !== undefined) {
+        if (data.priceMode !== "FIXED") {
+          return false;
+        }
+        if (data.price === null || data.price === undefined || data.originalPrice <= data.price) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
+      path: ["originalPrice"],
+    }
   );
 
 // Partial version for updates — built from raw fields so .partial() works
@@ -171,6 +194,23 @@ export const ProjectUpdateSchema = z
     {
       message: "Price must be null for CONTACT and FREE price modes",
       path: ["price"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.originalPrice !== null && data.originalPrice !== undefined) {
+        if (data.priceMode && data.priceMode !== "FIXED") {
+          return false;
+        }
+        if (data.price !== undefined && data.price !== null && data.originalPrice <= data.price) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
+      path: ["originalPrice"],
     }
   );
 

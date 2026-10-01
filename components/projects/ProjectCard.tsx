@@ -18,6 +18,7 @@ export interface ProjectCardData {
   featured?: boolean;
   priceMode: string;
   price?: { toString(): string } | number | string | null;
+  originalPrice?: { toString(): string } | number | string | null;
   category?: {
     id: string;
     name: string;
@@ -132,7 +133,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* ── Footer / Meta ───────────────────────────────────────────────── */}
         <div className="mt-5 pt-3.5 border-t border-[#F3F7F7] flex items-center justify-between gap-2.5">
-          <PriceBadge priceMode={project.priceMode} price={project.price} variant="card" />
+          <PriceBadge
+            priceMode={project.priceMode}
+            price={project.price}
+            originalPrice={project.originalPrice}
+            variant="card"
+          />
 
           {/* Provider Snippet */}
           {project.provider && (

@@ -315,6 +315,7 @@ export async function PUT(
         status: data.status,
         priceMode: data.priceMode,
         price: data.price,
+        originalPrice: data.priceMode === "FIXED" && data.originalPrice ? data.originalPrice : null,
         demoUrl: data.demoUrl || null,
         projectType: data.projectType,
         whatsIncluded: data.whatsIncluded,

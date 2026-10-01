@@ -292,6 +292,9 @@ export function PartnerSolutionForm({
     initialData?.priceMode || "FIXED"
   );
   const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "");
+  const [originalPrice, setOriginalPrice] = React.useState(
+    initialData?.originalPrice ? String(initialData.originalPrice) : ""
+  );
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
@@ -989,6 +992,11 @@ export function PartnerSolutionForm({
           ? Number(price)
           : null;
 
+      const computedOriginalPrice =
+        priceMode === "FIXED" && originalPrice && originalPrice.trim() !== "" && Number(originalPrice) > 0
+          ? Number(originalPrice)
+          : null;
+
       let formattedDemoUrl: string | null = null;
       if (demoUrl.trim()) {
         const trimmed = demoUrl.trim();
@@ -1015,6 +1023,7 @@ export function PartnerSolutionForm({
         fullDescription: fullDescription.trim(),
         priceMode,
         price: computedPrice,
+        originalPrice: computedOriginalPrice,
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
         status,
@@ -1365,6 +1374,21 @@ export function PartnerSolutionForm({
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="24999"
                 required
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {priceMode === "FIXED" && (
+            <div>
+              <Label className="text-xs font-semibold text-[#102124]">
+                Original Price (INR) (Optional)
+              </Label>
+              <Input
+                type="number"
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                placeholder="Must be > selling price"
                 className="mt-1"
               />
             </div>

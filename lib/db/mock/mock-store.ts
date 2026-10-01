@@ -110,6 +110,7 @@ const initialProjects = [
     featured: true,
     priceMode: "STARTING_FROM",
     price: 49999,
+    originalPrice: null,
     demoUrl: "https://example.com/demo/omnicart",
     projectType: "E-Commerce System",
     whatsIncluded: [
@@ -135,6 +136,7 @@ const initialProjects = [
     featured: true,
     priceMode: "FIXED",
     price: 79999,
+    originalPrice: null,
     demoUrl: "https://example.com/demo/smartdoc",
     projectType: "AI Healthcare Platform",
     whatsIncluded: [
