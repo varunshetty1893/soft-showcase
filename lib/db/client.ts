@@ -12,27 +12,37 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function getClient(): PrismaClient {
+  const databaseUrl = process.env.DATABASE_URL;
   const isProduction = process.env.NODE_ENV === "production";
+  const isVitest = Boolean(process.env.VITEST);
+  const isBuildPhase =
+    !isVitest &&
+    (process.env.NEXT_PHASE === "phase-production-build" ||
+      (process.env.npm_lifecycle_event === "build" && process.env.NODE_ENV !== "test") ||
+      (Array.isArray(process.argv) &&
+        process.argv.some(
+          (arg) => typeof arg === "string" && (arg === "build" || arg === "next build")
+        )));
+
   const useMockDb =
-    !isProduction &&
-    (process.env.USE_MOCK_DB === "true" || !process.env.DATABASE_URL);
+    (isBuildPhase && (!databaseUrl || !databaseUrl.trim())) ||
+    (!isProduction && (process.env.USE_MOCK_DB === "true" || !databaseUrl || !databaseUrl.trim()));
 
   if (useMockDb) {
     if (!globalForPrisma.mockDb) {
       globalForPrisma.mockDb = createMockPrismaClient();
-      console.warn("[Database] Running with in-memory mock store (USE_MOCK_DB=true).");
+      console.warn(
+        `[Database] Running with in-memory mock store (${
+          isBuildPhase
+            ? "build phase active without DATABASE_URL"
+            : process.env.USE_MOCK_DB === "true"
+            ? "USE_MOCK_DB=true"
+            : "no DATABASE_URL in development"
+        }).`
+      );
     }
     return globalForPrisma.mockDb;
   }
-
-  const databaseUrl = process.env.DATABASE_URL;
-  const isBuildPhase =
-    process.env.NEXT_PHASE === "phase-production-build" ||
-    (process.env.npm_lifecycle_event === "build" && process.env.NODE_ENV !== "test") ||
-    (Array.isArray(process.argv) &&
-      process.argv.some(
-        (arg) => typeof arg === "string" && (arg === "build" || arg === "next build")
-      ));
 
   if (isProduction && !isBuildPhase && (!databaseUrl || !databaseUrl.trim())) {
     throw new Error(
@@ -41,13 +51,21 @@ function getClient(): PrismaClient {
   }
 
   if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = new PrismaClient({
-      ...(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {}),
-      log:
-        process.env.DEBUG_PRISMA === "true"
-          ? ["query", "error", "warn"]
-          : ["error"],
-    });
+    try {
+      globalForPrisma.prisma = new PrismaClient({
+        ...(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {}),
+        log:
+          process.env.DEBUG_PRISMA === "true"
+            ? ["query", "error", "warn"]
+            : ["error"],
+      });
+    } catch (err) {
+      console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
+      if (!globalForPrisma.mockDb) {
+        globalForPrisma.mockDb = createMockPrismaClient();
+      }
+      return globalForPrisma.mockDb;
+    }
   }
 
   return globalForPrisma.prisma;

@@ -9,6 +9,7 @@ describe("Database Client Lifecycle (H5)", () => {
     process.env = { ...originalEnv };
     delete process.env.NEXT_PHASE;
     delete process.env.npm_lifecycle_event;
+    delete process.env.USE_MOCK_DB;
     delete (globalThis as any).prisma;
     delete (globalThis as any).mockDb;
   });
@@ -16,6 +17,7 @@ describe("Database Client Lifecycle (H5)", () => {
   it("throws in production when DATABASE_URL is missing", async () => {
     (process.env as any).NODE_ENV = "production";
     delete process.env.DATABASE_URL;
+    delete process.env.USE_MOCK_DB;
 
     await expect(async () => {
       // Re-import with clean modules
