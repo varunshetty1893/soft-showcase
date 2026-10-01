@@ -7,6 +7,10 @@ describe("Database Client Lifecycle (H5)", () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.NEXT_PHASE;
+    delete process.env.npm_lifecycle_event;
+    delete (globalThis as any).prisma;
+    delete (globalThis as any).mockDb;
   });
 
   it("throws in production when DATABASE_URL is missing", async () => {

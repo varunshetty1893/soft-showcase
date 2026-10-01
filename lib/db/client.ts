@@ -28,10 +28,10 @@ function getClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
   const isBuildPhase =
     process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.npm_lifecycle_event === "build" ||
+    (process.env.npm_lifecycle_event === "build" && process.env.NODE_ENV !== "test") ||
     (Array.isArray(process.argv) &&
       process.argv.some(
-        (arg) => typeof arg === "string" && arg.includes("build")
+        (arg) => typeof arg === "string" && (arg === "build" || arg === "next build")
       ));
 
   if (isProduction && !isBuildPhase && (!databaseUrl || !databaseUrl.trim())) {
