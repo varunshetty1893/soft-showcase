@@ -108,12 +108,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Strip anti-spam fields before strict Zod validation so .strict() doesn't reject them
-    const {
-      website: _website,
-      formSubmittedAt: _formSubmittedAt,
-      turnstileToken: _turnstileToken,
-      ...cleanPayload
-    } = body;
+    const cleanPayload = { ...body };
+    delete cleanPayload.website;
+    delete cleanPayload.formSubmittedAt;
+    delete cleanPayload.turnstileToken;
 
     // 3. Validate input with strict schema (rejects provider_email, providerId, etc.)
     const parsed = InquirySchema.safeParse(cleanPayload);
@@ -308,12 +306,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 8. Update inquiry notificationStatus
-    await db.inquiry
-      .update({
+    try {
+      await db.inquiry.update({
         where: { id: inquiry.id },
         data: { notificationStatus },
-      })
-      .catch(() => null);
+      });
+    } catch {
+      // Non-fatal
+    }
 
     // 9. Return success response (B10: honest message when email is skipped or throttled)
     const responseMessage =

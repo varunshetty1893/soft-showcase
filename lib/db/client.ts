@@ -8,7 +8,20 @@ import { PrismaClient } from "@prisma/client";
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   mockDb?: PrismaClient;
+  __createMockPrismaClient?: () => PrismaClient;
 };
+
+function loadMockPrismaClient(): PrismaClient {
+  if (process.env.NODE_ENV !== "production") {
+    if (typeof globalForPrisma.__createMockPrismaClient === "function") {
+      return globalForPrisma.__createMockPrismaClient();
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createMockPrismaClient } = require("./mock/mock-store");
+    return createMockPrismaClient();
+  }
+  throw new Error("[Database] Mock store is disabled in production.");
+}
 
 function getClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
@@ -29,9 +42,7 @@ function getClient(): PrismaClient {
 
     if (useMockDb) {
       if (!globalForPrisma.mockDb) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { createMockPrismaClient } = require("./mock/mock-store");
-        globalForPrisma.mockDb = createMockPrismaClient();
+        globalForPrisma.mockDb = loadMockPrismaClient();
         console.warn(
           `[Database] Running with in-memory mock store (${
             process.env.USE_MOCK_DB === "true"
@@ -68,9 +79,7 @@ function getClient(): PrismaClient {
       if (process.env.NODE_ENV !== "production") {
         console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
         if (!globalForPrisma.mockDb) {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { createMockPrismaClient } = require("./mock/mock-store");
-          globalForPrisma.mockDb = createMockPrismaClient();
+          globalForPrisma.mockDb = loadMockPrismaClient();
         }
         return globalForPrisma.mockDb!;
       }

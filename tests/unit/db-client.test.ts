@@ -67,6 +67,13 @@ describe("Database Client Lifecycle & Mock Bundle Exclusion (H5 / N12)", () => {
       const serverJsFiles = collectFiles(nextServerDir);
       for (const file of serverJsFiles) {
         const content = fs.readFileSync(file, "utf8");
+        // Skip files compiled by the running `next dev` server (isDev=true / .runtime.dev.js)
+        if (
+          content.includes("isDev=true") ||
+          content.includes(".runtime.dev.js")
+        ) {
+          continue;
+        }
         expect(content).not.toContain("elena@vancestudios.dev");
       }
     }

@@ -17,6 +17,7 @@ export interface EmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  skipped?: boolean;
 }
 
 export interface EmailProvider {

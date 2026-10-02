@@ -162,7 +162,7 @@ describe("Inquiry Anti-Abuse & Three-Layer Lead Protection (M4 / N1 / N2 / N3)",
   });
 
   it("N1: passes turnstileToken from request body to verifyTurnstileToken and strips anti-spam fields before Zod validation", async () => {
-    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+    (db.inquiry.create as any).mockImplementation(async (args: any) => ({
       id: "inq-turnstile-ok",
       ...args.data,
     }));
@@ -184,7 +184,7 @@ describe("Inquiry Anti-Abuse & Three-Layer Lead Protection (M4 / N1 / N2 / N3)",
   });
 
   it("N2: one abuser hitting 3/hr per provider+IP cannot block other legitimate visitors", async () => {
-    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+    (db.inquiry.create as any).mockImplementation(async (args: any) => ({
       id: "inq-abuser-test",
       ...args.data,
     }));
@@ -232,7 +232,7 @@ describe("Inquiry Anti-Abuse & Three-Layer Lead Protection (M4 / N1 / N2 / N3)",
   });
 
   it("N2: global burst limit (40/hr) still saves the inquiry with notificationStatus=THROTTLED and skips email without rejecting customer", async () => {
-    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+    (db.inquiry.create as any).mockImplementation(async (args: any) => ({
       id: "inq-burst",
       ...args.data,
     }));
@@ -270,7 +270,7 @@ describe("Inquiry Anti-Abuse & Three-Layer Lead Protection (M4 / N1 / N2 / N3)",
   });
 
   it("N3: daily outbound email cap boundary saves inquiry with notificationStatus=THROTTLED and skips sending when cap is reached", async () => {
-    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+    (db.inquiry.create as any).mockImplementation(async (args: any) => ({
       id: "inq-cap",
       ...args.data,
     }));

@@ -230,7 +230,7 @@ export class InMemoryStore {
     // No-op: disk persistence disabled (N12 / N13)
   }
 
-  loadFromDisk(_force = false) {
+  loadFromDisk() {
     // No-op: disk persistence disabled (N12 / N13)
   }
 

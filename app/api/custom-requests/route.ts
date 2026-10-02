@@ -73,7 +73,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const session = await auth().catch(() => null);
+    let session = null;
+    try {
+      session = await auth();
+    } catch {
+      session = null;
+    }
     const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
 
     // 2b. Unauthenticated submissions require Turnstile verification (N1)
@@ -103,12 +108,10 @@ export async function POST(req: NextRequest) {
       captchaVerified = true;
     }
 
-    const {
-      website: _website,
-      formSubmittedAt: _formSubmittedAt,
-      turnstileToken: _turnstileToken,
-      ...cleanPayload
-    } = body;
+    const cleanPayload = { ...body };
+    delete cleanPayload.website;
+    delete cleanPayload.formSubmittedAt;
+    delete cleanPayload.turnstileToken;
 
     // 3. Validate input with Zod
     const parsed = CustomRequestSchema.safeParse(cleanPayload);
@@ -248,10 +251,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (notificationStatus !== "PENDING") {
-      await db.customProjectRequest.update?.({
-        where: { id: customRequest.id },
-        data: { notificationStatus },
-      }).catch(() => null);
+      try {
+        await db.customProjectRequest.update?.({
+          where: { id: customRequest.id },
+          data: { notificationStatus },
+        });
+      } catch {
+        // Non-fatal
+      }
     }
 
     const responseMessage = emailDispatched

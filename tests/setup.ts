@@ -1,5 +1,9 @@
 import dotenv from "dotenv";
 import path from "path";
+import { createMockPrismaClient } from "@/lib/db/mock/mock-store";
+
+(globalThis as unknown as { __createMockPrismaClient?: () => unknown }).__createMockPrismaClient =
+  createMockPrismaClient;
 
 // Load .env.local first (overrides .env), then .env
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
