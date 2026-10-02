@@ -15,6 +15,12 @@ interface AddToCartButtonProps {
     shortDescription: string;
     priceMode: string;
     price?: number | string | null;
+    originalPrice?: number | string | null;
+    priceQualifier?: string | null;
+    dealType?: string | null;
+    dealLabel?: string | null;
+    dealStartsAt?: Date | string | null;
+    dealEndsAt?: Date | string | null;
     imageUrl?: string | null;
     providerName?: string | null;
     categoryName?: string | null;
@@ -51,6 +57,12 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
         shortDescription: project.shortDescription,
         priceMode: project.priceMode,
         price: project.price,
+        originalPrice: project.originalPrice,
+        priceQualifier: project.priceQualifier,
+        dealType: project.dealType,
+        dealLabel: project.dealLabel,
+        dealStartsAt: project.dealStartsAt,
+        dealEndsAt: project.dealEndsAt,
         imageUrl: project.imageUrl,
         providerName: project.providerName,
         categoryName: project.categoryName,

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 
 interface PartnerProfileFormProps {
   partner: any;
@@ -15,6 +16,7 @@ interface PartnerProfileFormProps {
 
 export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [displayName, setDisplayName] = React.useState(partner?.displayName || "");
   const [bio, setBio] = React.useState(partner?.bio || "");
@@ -35,13 +37,9 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
   const [showWhatsapp, setShowWhatsapp] = React.useState(partner?.showWhatsapp ?? true);
 
   const [loading, setLoading] = React.useState(false);
-  const [success, setSuccess] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
     setLoading(true);
 
     try {
@@ -68,10 +66,10 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update profile");
 
-      setSuccess(true);
+      toast.success("Partner studio profile updated successfully!");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -79,19 +77,6 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
-      {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 rounded-2xl bg-[#DDF4EC] border border-[#2F7D78]/30 text-[#2F7D78] text-xs flex items-center gap-2 font-semibold">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>Partner studio profile updated successfully!</span>
-        </div>
-      )}
 
       {/* Identity & Studio info */}
       <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">

@@ -7,14 +7,16 @@
 
 import * as React from "react";
 import { useSession } from "next-auth/react";
+import { getEffectivePricing, type ProjectPricingInput } from "@/lib/utils/pricing";
 
-export interface CartItem {
+export interface CartItem extends ProjectPricingInput {
   id: string;
   title: string;
   slug: string;
   shortDescription: string;
   priceMode: string;
   price?: number | string | null;
+  originalPrice?: number | string | null;
   imageUrl?: string | null;
   providerName?: string | null;
   categoryName?: string | null;
@@ -193,8 +195,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const totalEstimatedPrice = React.useMemo(() => {
     return items.reduce((sum, item) => {
-      const num = Number(item.price);
-      return !isNaN(num) && item.priceMode === "FIXED" ? sum + num : sum;
+      const effective = getEffectivePricing(item);
+      return effective.priceMode === "FIXED" &&
+        effective.effectivePrice !== null &&
+        effective.effectivePrice > 0
+        ? sum + effective.effectivePrice
+        : sum;
     }, 0);
   }, [items]);
 

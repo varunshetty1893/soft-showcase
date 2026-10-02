@@ -77,7 +77,13 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
 
   let status: string;
   if (partner) {
-    status = partner.applicationStatus;
+    if ((partner as any).removedAt) {
+      status = "removed";
+    } else if (partner.isActive === false && partner.applicationStatus === "approved") {
+      status = "deactivated";
+    } else {
+      status = partner.applicationStatus;
+    }
   } else if (effectiveEmail) {
     status = "not_applied";
   } else {
@@ -307,22 +313,29 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
             </>
           )}
 
-          {/* Status: Suspended or Deactivated */}
-          {(status === "suspended" || status === "deactivated") && (
+          {/* Status: Suspended, Deactivated, or Removed */}
+          {(status === "suspended" || status === "deactivated" || status === "removed") && (
             <>
               <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
                 <AlertTriangle className="w-8 h-8" />
               </div>
               <div className="space-y-2">
                 <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold uppercase tracking-wider">
-                  Account {status === "suspended" ? "Suspended" : "Deactivated"}
+                  Account {status === "removed" ? "Removed" : status === "suspended" ? "Suspended" : "Deactivated"}
                 </span>
                 <h1 className="text-2xl font-bold text-[#102124]">
-                  Partner Portal Access Paused
+                  {status === "removed" ? "Partner Profile Removed" : "Partner Portal Access Paused"}
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  Your Solution Partner account is currently {status}. Please reach out to platform support for assistance or reactivation.
+                  {status === "removed"
+                    ? "Your Solution Partner profile has been removed from the platform. Your customer account remains active."
+                    : `Your Solution Partner account is currently ${status}. Please reach out to platform support for assistance or reactivation.`}
                 </p>
+                {status === "removed" && (partner as any)?.removalReason && (
+                  <p className="text-xs text-amber-900 bg-amber-50 p-3 rounded-xl border border-amber-200 text-left">
+                    <strong>Reason:</strong> {(partner as any).removalReason}
+                  </p>
+                )}
               </div>
               <div className="pt-2">
                 <Link

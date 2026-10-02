@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { PartnerProfileUpdateSchema } from "@/lib/validation/partner.schema";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
 
 export async function GET() {
   const session = await auth();
@@ -13,22 +14,7 @@ export async function GET() {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    // One-time fallback: if legacy unlinked record exists with user email, associate it to userId
-    if (!partner && session.user.email) {
-      const unlinked = await db.projectProvider.findFirst({
-        where: { email: session.user.email, userId: null },
-      });
-      if (unlinked) {
-        partner = await db.projectProvider.update({
-          where: { id: unlinked.id },
-          data: { userId: session.user.id },
-        });
-      }
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -54,21 +40,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.email) {
-      const unlinked = await db.projectProvider.findFirst({
-        where: { email: session.user.email, userId: null },
-      });
-      if (unlinked) {
-        partner = await db.projectProvider.update({
-          where: { id: unlinked.id },
-          data: { userId: session.user.id },
-        });
-      }
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });

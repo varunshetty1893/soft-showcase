@@ -139,6 +139,11 @@ model ProjectProvider {
   providerConsentConfirmed   Boolean   @default(false)
   providerConsentConfirmedAt DateTime?
 
+  // Soft removal tracking (Phase 2B)
+  removedAt                  DateTime?
+  removedById                String?
+  removalReason              String?   @db.Text
+
   projects     Project[]
   inquiries    Inquiry[]
   transactions Transaction[]
@@ -146,6 +151,7 @@ model ProjectProvider {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([removedAt])
   @@map("project_providers")
 }
 
@@ -202,20 +208,47 @@ enum PriceMode {
   FREE
 }
 
+enum DealType {
+  NONE
+  LIMITED_DEAL
+  LAUNCH_OFFER
+  FESTIVE_SALE
+  EARLY_BIRD
+  CLEARANCE
+  CUSTOM
+}
+
+enum PriceQualifier {
+  NONE
+  STARTING_FROM
+  NEGOTIABLE
+}
+
 model Project {
-  id               String        @id @default(cuid())
+  id               String         @id @default(cuid())
   title            String
-  slug             String        @unique
+  slug             String         @unique
   shortDescription String
-  fullDescription  String        @db.Text
-  status           ProjectStatus @default(DRAFT)
-  featured         Boolean       @default(false)
-  priceMode        PriceMode     @default(CONTACT)
-  price            Decimal?      @db.Decimal(10, 2)
-  originalPrice    Decimal?      @db.Decimal(10, 2)
+  fullDescription  String         @db.Text
+  status           ProjectStatus  @default(DRAFT)
+  featured         Boolean        @default(false)
+  featuredOrder    Int            @default(0)
+  priceMode        PriceMode      @default(CONTACT)
+  price            Decimal?       @db.Decimal(10, 2)
+  originalPrice    Decimal?       @db.Decimal(10, 2)
+  priceQualifier   PriceQualifier @default(NONE)
+  dealType         DealType       @default(NONE)
+  dealLabel        String?
+  dealStartsAt     DateTime?
+  dealEndsAt       DateTime?
   demoUrl          String?
   projectType      String?
-  whatsIncluded    String[]      @default([])
+  whatsIncluded    String[]       @default([])
+
+  // Moderation tracking (Phase 3)
+  moderationNote   String?        @db.Text
+  moderatedAt      DateTime?
+  moderatedById    String?
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])

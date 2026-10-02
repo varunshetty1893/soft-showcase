@@ -7,6 +7,12 @@ import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse, getCurrentUser } from "@/lib/auth/session";
 import { ProjectImportSchema } from "@/lib/validation/project-import.schema";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slug";
+import {
+  isPartnerOwnedProject,
+  assertAdminCanUpdate,
+  ProjectOwnershipError,
+} from "@/lib/auth/project-permissions";
+import { writeAuditLog } from "@/lib/db/audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,8 +110,73 @@ export async function POST(request: NextRequest) {
         email: true,
         isActive: true,
         providerConsentConfirmed: true,
+        userId: true,
+        user: { select: { id: true, role: true, isAdmin: true } },
       },
     });
+
+    // Phase 3: Admin import cannot overwrite or inject content into a partner-owned project or solution_partner provider
+    if (body.targetProjectId) {
+      const targetProj = await db.project.findUnique({
+        where: { id: String(body.targetProjectId) },
+        include: {
+          provider: {
+            include: { user: { select: { id: true, role: true, isAdmin: true } } },
+          },
+        },
+      });
+      if (targetProj && isPartnerOwnedProject(targetProj, user?.id)) {
+        try {
+          assertAdminCanUpdate(targetProj, body.project || body, user?.id);
+        } catch (err) {
+          if (err instanceof ProjectOwnershipError) {
+            await writeAuditLog({
+              actorId: user?.id ?? null,
+              action: "ADMIN_EDIT_DENIED",
+              entityType: "Project",
+              entityId: targetProj.id,
+              metadata: {
+                importAttempt: true,
+                disallowedFields: err.disallowedFields,
+              },
+            });
+            return NextResponse.json(
+              { error: err.message, disallowedFields: err.disallowedFields },
+              { status: err.status }
+            );
+          }
+          throw err;
+        }
+      }
+    }
+
+    if (
+      !isPreview &&
+      existingProvider &&
+      isPartnerOwnedProject({ provider: existingProvider }, user?.id)
+    ) {
+      try {
+        assertAdminCanUpdate({ provider: existingProvider }, data as unknown as Record<string, unknown>, user?.id);
+      } catch (err) {
+        if (err instanceof ProjectOwnershipError) {
+          await writeAuditLog({
+            actorId: user?.id ?? null,
+            action: "ADMIN_EDIT_DENIED",
+            entityType: "ProjectProvider",
+            entityId: existingProvider.id,
+            metadata: {
+              importAttempt: true,
+              disallowedFields: err.disallowedFields,
+            },
+          });
+          return NextResponse.json(
+            { error: err.message, disallowedFields: err.disallowedFields },
+            { status: err.status }
+          );
+        }
+        throw err;
+      }
+    }
 
     const existingTechnologies = techNames.length > 0
       ? await db.technology.findMany({

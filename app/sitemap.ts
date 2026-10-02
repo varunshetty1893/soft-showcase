@@ -6,6 +6,7 @@
 import type { MetadataRoute } from "next";
 import { APP_URL } from "@/config/constants";
 import { db } from "@/lib/db/client";
+import { publicProjectWhere } from "@/lib/db/queries/public-filters";
 
 // Fixed build-time reference date for static content routes
 const STATIC_PAGE_DATE = new Date("2025-01-01T00:00:00.000Z");
@@ -64,13 +65,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.NODE_ENV !== "production" || process.env.DATABASE_URL?.trim()) {
     try {
       const projects = await db.project.findMany({
-        where: {
-          status: "PUBLISHED",
-          provider: {
-            isActive: true,
-            applicationStatus: "approved",
-          },
-        },
+        where: publicProjectWhere(),
         select: { slug: true, updatedAt: true },
       });
 

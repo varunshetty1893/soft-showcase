@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils/format";
 
 interface Message {
@@ -32,6 +33,7 @@ interface AdminSupportDetailManagerProps {
 
 export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [status, setStatus] = React.useState(ticket.status || "OPEN");
   const [adminNotes, setAdminNotes] = React.useState(ticket.adminNotes || "");
@@ -40,12 +42,8 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
 
   const [loading, setLoading] = React.useState(false);
   const [replyLoading, setReplyLoading] = React.useState(false);
-  const [success, setSuccess] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
   const handleUpdateStatus = async () => {
-    setError(null);
-    setSuccess(false);
     setLoading(true);
 
     try {
@@ -61,10 +59,10 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update ticket");
 
-      setSuccess(true);
+      toast.success("Ticket updated successfully!");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -73,7 +71,6 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim()) return;
-    setError(null);
     setReplyLoading(true);
 
     try {
@@ -89,9 +86,10 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
       setMessages((prev) => [...prev, data.message]);
       setReplyText("");
       setStatus("WAITING_CUSTOMER");
+      toast.success("Reply sent to ticket thread.");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
+      toast.error(err instanceof Error ? err.message : "Failed to send message");
     } finally {
       setReplyLoading(false);
     }
@@ -139,6 +137,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: "RESOLVED" }),
               });
+              toast.success("Support ticket marked as resolved.");
               router.refresh();
             }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1"
@@ -148,18 +147,6 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
           </Button>
         )}
       </div>
-
-      {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-          Ticket updated successfully!
-        </div>
-      )}
 
       {/* Messages Thread */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">

@@ -7,6 +7,11 @@ import { auth } from "@/lib/auth/auth";
 import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { slugify } from "@/lib/utils/slug";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
+import {
+  assertPartnerCanChangeStatus,
+  ProjectOwnershipError,
+} from "@/lib/auth/project-permissions";
 
 export async function GET(
   _req: NextRequest,
@@ -20,13 +25,7 @@ export async function GET(
   const { id } = await params;
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -85,13 +84,7 @@ export async function PUT(
 
   try {
     await ensureAdditiveSchema();
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -244,6 +237,18 @@ export async function PUT(
 
     const data = parsed.data;
 
+    // Phase 3: Partner cannot flip status to PUBLISHED if an admin placed a moderation hold
+    if (!session.user.isAdmin) {
+      try {
+        assertPartnerCanChangeStatus(existing as any, data.status);
+      } catch (err) {
+        if (err instanceof ProjectOwnershipError) {
+          return NextResponse.json({ error: err.message }, { status: err.status });
+        }
+        throw err;
+      }
+    }
+
     if (data.status === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
       return NextResponse.json(
         {
@@ -323,6 +328,8 @@ export async function PUT(
       sanitizedImages[0].isPrimary = true;
     }
 
+    const effectiveDealType = data.priceMode === "FIXED" ? (data.dealType ?? "NONE") : "NONE";
+
     // Atomically execute updates and audit log with native Prisma nested writes (Issue 48 / P2028 fix)
     const updated = await db.project.update({
       where: { id },
@@ -334,6 +341,11 @@ export async function PUT(
         priceMode: data.priceMode,
         price: data.price,
         originalPrice: data.priceMode === "FIXED" && data.originalPrice ? data.originalPrice : null,
+        priceQualifier: data.priceQualifier ?? "NONE",
+        dealType: effectiveDealType,
+        dealLabel: effectiveDealType === "CUSTOM" ? (data.dealLabel ?? null) : null,
+        dealStartsAt: data.priceMode === "FIXED" && data.dealStartsAt ? data.dealStartsAt : null,
+        dealEndsAt: data.priceMode === "FIXED" && data.dealEndsAt ? data.dealEndsAt : null,
         demoUrl: data.demoUrl || null,
         projectType: data.projectType,
         whatsIncluded: data.whatsIncluded,
@@ -430,13 +442,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -514,13 +520,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -536,6 +536,75 @@ export async function PATCH(
     }
 
     const body = await req.json();
+
+    // Phase 4: Quick offer actions (Extend / End offer now / Remove offer)
+    if (body.offerAction) {
+      const action = String(body.offerAction);
+      const regularPrice =
+        existing.originalPrice != null
+          ? Number(existing.originalPrice)
+          : existing.price != null
+          ? Number(existing.price)
+          : null;
+
+      if (action === "end_now" || action === "remove_offer") {
+        const updated = await db.project.update({
+          where: { id },
+          data: {
+            price: regularPrice,
+            originalPrice: null,
+            dealType: "NONE",
+            dealLabel: null,
+            dealStartsAt: null,
+            dealEndsAt: null,
+          },
+        });
+        try {
+          revalidatePath("/");
+          revalidatePath("/projects");
+          revalidatePath(`/projects/${updated.slug}`);
+          revalidatePath("/partner/solutions");
+        } catch {
+          // ignore
+        }
+        return NextResponse.json({
+          project: updated,
+          success: true,
+          message:
+            action === "end_now"
+              ? "Offer ended. Price reverted to regular price."
+              : "Offer removed.",
+        });
+      }
+
+      if (action === "extend") {
+        const nextEndsAt = body.dealEndsAt ? new Date(body.dealEndsAt) : null;
+        if (!nextEndsAt || Number.isNaN(nextEndsAt.getTime()) || nextEndsAt.getTime() <= Date.now()) {
+          return NextResponse.json(
+            { error: "New offer end date must be in the future." },
+            { status: 400 }
+          );
+        }
+        const updated = await db.project.update({
+          where: { id },
+          data: { dealEndsAt: nextEndsAt },
+        });
+        try {
+          revalidatePath("/");
+          revalidatePath("/projects");
+          revalidatePath(`/projects/${updated.slug}`);
+          revalidatePath("/partner/solutions");
+        } catch {
+          // ignore
+        }
+        return NextResponse.json({
+          project: updated,
+          success: true,
+          message: "Offer end date extended.",
+        });
+      }
+    }
+
     const updateData: { featured?: boolean; status?: "DRAFT" | "PUBLISHED" | "ARCHIVED" } = {};
 
     if (typeof body.featured === "boolean") {
@@ -543,6 +612,17 @@ export async function PATCH(
     }
 
     if (body.status && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(body.status)) {
+      if (!session.user.isAdmin) {
+        try {
+          assertPartnerCanChangeStatus(existing as any, body.status);
+        } catch (err) {
+          if (err instanceof ProjectOwnershipError) {
+            return NextResponse.json({ error: err.message }, { status: err.status });
+          }
+          throw err;
+        }
+      }
+
       if (
         body.status === "PUBLISHED" &&
         !session.user.isAdmin &&

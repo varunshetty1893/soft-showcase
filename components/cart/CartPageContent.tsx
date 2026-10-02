@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useCart } from "@/lib/cart/cart-context";
 import { buttonVariants } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils/format";
+import { getEffectivePricing } from "@/lib/utils/pricing";
 import {
   ShoppingCart,
   Trash2,
@@ -151,15 +152,7 @@ export function CartPageContent() {
                   </p>
 
                   <div className="mt-2 text-xs font-bold text-[#155761]">
-                    {item.priceMode === "FREE"
-                      ? "Free / Open Source"
-                      : item.priceMode === "CONTACT" || item.priceMode === "CONTACT_FOR_PRICE"
-                      ? "Price on Request"
-                      : item.priceMode === "STARTING_FROM" && item.price
-                      ? `From ${formatPrice(item.price)}`
-                      : item.price
-                      ? formatPrice(item.price)
-                      : "Price on Request"}
+                    {getEffectivePricing(item).formattedPrice}
                   </div>
                 </div>
 

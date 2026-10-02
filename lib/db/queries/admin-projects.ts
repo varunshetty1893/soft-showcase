@@ -76,19 +76,37 @@ export async function getAdminProjects(options: {
       where,
       skip,
       take: pageSize,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ featured: "desc" }, { featuredOrder: "asc" }, { createdAt: "desc" }],
       select: {
         id: true,
         title: true,
         slug: true,
         status: true,
         featured: true,
+        featuredOrder: true,
         priceMode: true,
         price: true,
+        originalPrice: true,
+        priceQualifier: true,
+        dealType: true,
+        dealLabel: true,
+        dealStartsAt: true,
+        dealEndsAt: true,
+        moderationNote: true,
+        moderatedAt: true,
+        moderatedById: true,
         createdAt: true,
         updatedAt: true,
         category: { select: { id: true, name: true } },
-        provider: { select: { id: true, displayName: true } },
+        provider: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            userId: true,
+            user: { select: { id: true, role: true, isAdmin: true } },
+          },
+        },
         images: {
           where: { isPrimary: true },
           take: 1,
@@ -119,7 +137,11 @@ export async function getAdminProjectById(id: string) {
     where: { id },
     include: {
       category: true,
-      provider: true,
+      provider: {
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true, isAdmin: true } },
+        },
+      },
       images: { orderBy: { sortOrder: "asc" } },
       features: { orderBy: { sortOrder: "asc" } },
       specifications: { orderBy: { sortOrder: "asc" } },
@@ -148,7 +170,7 @@ export async function getAdminTechnologies() {
 /** All active providers for the provider selector. */
 export async function getAdminProviderList() {
   return db.projectProvider.findMany({
-    where: { isActive: true },
+    where: { isActive: true, removedAt: null },
     orderBy: { displayName: "asc" },
     select: {
       id: true,

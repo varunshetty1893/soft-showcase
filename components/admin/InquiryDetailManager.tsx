@@ -5,13 +5,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { InquiryStatusBadge } from "@/components/customer/InquiryStatusBadge";
 import type { InquiryStatus, NotificationStatus } from "@prisma/client";
 import {
   Save,
   RotateCw,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
 } from "lucide-react";
 
@@ -34,18 +33,14 @@ const ALL_STATUSES: InquiryStatus[] = [
 
 export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
   const router = useRouter();
+  const toast = useToast();
   const [status, setStatus] = React.useState<InquiryStatus>(inquiry.status);
   const [adminNotes, setAdminNotes] = React.useState(inquiry.adminNotes || "");
   const [saving, setSaving] = React.useState(false);
   const [retryingEmail, setRetryingEmail] = React.useState(false);
-  const [feedback, setFeedback] = React.useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
-    setFeedback(null);
 
     try {
       const res = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
@@ -62,11 +57,11 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
         throw new Error(data.error || "Failed to update inquiry");
       }
 
-      setFeedback({ type: "success", text: "Inquiry status and notes saved." });
+      toast.success("Inquiry status and notes saved.");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Update failed";
-      setFeedback({ type: "error", text: msg });
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -74,7 +69,6 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
 
   const handleRetryEmail = async () => {
     setRetryingEmail(true);
-    setFeedback(null);
 
     try {
       const res = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
@@ -87,14 +81,11 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
         throw new Error("Failed to trigger email retry");
       }
 
-      setFeedback({
-        type: "success",
-        text: "Provider notification email retry dispatched.",
-      });
+      toast.success("Provider notification email retry dispatched.");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Retry failed";
-      setFeedback({ type: "error", text: msg });
+      toast.error(msg);
     } finally {
       setRetryingEmail(false);
     }
@@ -108,23 +99,6 @@ export function InquiryDetailManager({ inquiry }: InquiryDetailManagerProps) {
         </h3>
         <InquiryStatusBadge status={status} />
       </div>
-
-      {feedback && (
-        <div
-          className={`p-4 rounded-xl flex items-start gap-3 text-xs ${
-            feedback.type === "success"
-              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-              : "bg-rose-50 border border-rose-200 text-rose-800"
-          }`}
-        >
-          {feedback.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          )}
-          <p>{feedback.text}</p>
-        </div>
-      )}
 
       {/* Status Selector */}
       <div>

@@ -9,9 +9,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 
 export function SupportTicketForm({ returnUrl = "/partner/support" }: { returnUrl?: string }) {
   const router = useRouter();
+  const toast = useToast();
 
   const [subject, setSubject] = React.useState("");
   const [category, setCategory] = React.useState("Listing Approval");
@@ -43,10 +45,13 @@ export function SupportTicketForm({ returnUrl = "/partner/support" }: { returnUr
         throw new Error(data.error || "Failed to create support ticket");
       }
 
-      router.push(`${returnUrl}/${data.ticket.id}`);
+      toast.success("Support ticket submitted.");
+      router.push(`${returnUrl}/${data.ticket.id}?success=${encodeURIComponent("Support ticket created successfully.")}`);
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

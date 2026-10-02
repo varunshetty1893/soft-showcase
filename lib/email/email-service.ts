@@ -21,7 +21,8 @@ import {
   renderAccountExistsEmail,
   type AccountExistsEmailData,
 } from "./templates/account-exists";
-import { APP_URL } from "@/config/constants";
+import { escapeHtml } from "./escape";
+import { APP_NAME, APP_URL } from "@/config/constants";
 
 export interface InquiryEmailData {
   inquiry: {
@@ -181,6 +182,83 @@ export async function sendAccountExistsEmail(
   const { subject, html, text } = renderAccountExistsEmail(data);
   return sendEmail({
     to: email,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send notification to a partner when their provider profile is soft-removed by an admin (Phase 2B).
+ * Uses strict HTML escaping on all dynamic inputs.
+ */
+export async function sendPartnerRemovedEmail(data: {
+  to: string;
+  partnerName: string;
+  reason: string;
+}): Promise<EmailResult> {
+  const safeName = escapeHtml(data.partnerName || "Partner");
+  const safeReason = escapeHtml(data.reason || "Administrative policy review");
+  const safeAppName = escapeHtml(APP_NAME);
+
+  const subject = `Notice Regarding Your Partner Profile — ${APP_NAME}`;
+  const html = `
+    <div style="font-family: sans-serif; color: #102124; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #D9E2E4; border-radius: 12px;">
+      <h2 style="color: #155761; margin-top: 0;">Partner Profile Removed</h2>
+      <p>Hello <strong>${safeName}</strong>,</p>
+      <p>Your Solution Partner profile on <strong>${safeAppName}</strong> has been removed from public listings by platform administration.</p>
+      <div style="background: #F8FAFA; border-left: 4px solid #E11D48; padding: 12px 16px; margin: 16px 0; border-radius: 6px;">
+        <p style="margin: 0; font-size: 14px;"><strong>Reason provided:</strong><br/>${safeReason}</p>
+      </div>
+      <p style="font-size: 14px; color: #526267;">Your standard customer account remains active, and any historical inquiry or transaction records are preserved. If you believe this action was taken in error, please contact platform support.</p>
+    </div>
+  `;
+  const text = `Hello ${data.partnerName},\n\nYour Solution Partner profile on ${APP_NAME} has been removed from public listings.\n\nReason: ${data.reason}\n\nYour customer account remains active. Please contact support if you have questions.`;
+
+  return sendEmail({
+    to: data.to,
+    subject,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send notification to a partner when an admin moderates or requests changes on their project (Phase 3).
+ * Uses strict HTML escaping on all dynamic inputs.
+ */
+export async function sendPartnerModerationEmail(data: {
+  to: string;
+  partnerName: string;
+  projectTitle: string;
+  projectId: string;
+  actionLabel: string;
+  note: string;
+}): Promise<EmailResult> {
+  const safeName = escapeHtml(data.partnerName || "Partner");
+  const safeTitle = escapeHtml(data.projectTitle);
+  const safeAction = escapeHtml(data.actionLabel);
+  const safeNote = escapeHtml(data.note);
+  const safeUrl = escapeHtml(`${APP_URL}/partner/solutions/${data.projectId}/edit`);
+
+  const subject = `Moderation Update for "${data.projectTitle}" — ${APP_NAME}`;
+  const html = `
+    <div style="font-family: sans-serif; color: #102124; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #D9E2E4; border-radius: 12px;">
+      <h2 style="color: #155761; margin-top: 0;">Project Moderation Notice</h2>
+      <p>Hello <strong>${safeName}</strong>,</p>
+      <p>A platform administrator has updated the moderation status or requested changes on your project <strong>${safeTitle}</strong> (${safeAction}).</p>
+      <div style="background: #FFFBEB; border-left: 4px solid #D97706; padding: 12px 16px; margin: 16px 0; border-radius: 6px;">
+        <p style="margin: 0; font-size: 14px;"><strong>Moderator Note:</strong><br/>${safeNote}</p>
+      </div>
+      <p style="margin-top: 20px;">
+        <a href="${safeUrl}" style="background: #155761; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Review in Partner Dashboard</a>
+      </p>
+    </div>
+  `;
+  const text = `Hello ${data.partnerName},\n\nModeration update for "${data.projectTitle}" (${data.actionLabel}):\n\n${data.note}\n\nReview in your Partner Dashboard: ${APP_URL}/partner/solutions/${data.projectId}/edit`;
+
+  return sendEmail({
+    to: data.to,
     subject,
     html,
     text,

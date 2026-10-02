@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { auth } from "@/lib/auth/auth";
 import { PartnerSolutionImportSchema } from "@/lib/validation/project-import.schema";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slug";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,13 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });

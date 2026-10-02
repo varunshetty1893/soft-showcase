@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 
 interface SolutionOption {
   id: string;
@@ -21,6 +22,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({ solutions }: TransactionFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [customerName, setCustomerName] = React.useState("");
   const [customerEmail, setCustomerEmail] = React.useState("");
@@ -76,10 +78,12 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
         throw new Error(data.error || "Failed to record transaction");
       }
 
-      router.push("/partner/transactions");
+      router.push(`/partner/transactions?success=${encodeURIComponent("Transaction recorded successfully.")}`);
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

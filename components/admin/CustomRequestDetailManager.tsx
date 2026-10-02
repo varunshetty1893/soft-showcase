@@ -5,9 +5,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { RequestStatusBadge } from "@/components/customer/RequestStatusBadge";
 import type { CustomRequestStatus } from "@prisma/client";
-import { Save, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 
 interface CustomRequestDetailManagerProps {
   request: {
@@ -30,17 +31,13 @@ export function CustomRequestDetailManager({
   request,
 }: CustomRequestDetailManagerProps) {
   const router = useRouter();
+  const toast = useToast();
   const [status, setStatus] = React.useState<CustomRequestStatus>(request.status);
   const [adminNotes, setAdminNotes] = React.useState(request.adminNotes || "");
   const [saving, setSaving] = React.useState(false);
-  const [feedback, setFeedback] = React.useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
-    setFeedback(null);
 
     try {
       const res = await fetch(`/api/admin/custom-requests/${request.id}`, {
@@ -57,11 +54,11 @@ export function CustomRequestDetailManager({
         throw new Error(data.error || "Failed to update custom request");
       }
 
-      setFeedback({ type: "success", text: "Request status and notes saved." });
+      toast.success("Request status and notes saved.");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Update failed";
-      setFeedback({ type: "error", text: msg });
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -75,23 +72,6 @@ export function CustomRequestDetailManager({
         </h3>
         <RequestStatusBadge status={status} />
       </div>
-
-      {feedback && (
-        <div
-          className={`p-4 rounded-xl flex items-start gap-3 text-xs ${
-            feedback.type === "success"
-              ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
-              : "bg-rose-50 border border-rose-200 text-rose-800"
-          }`}
-        >
-          {feedback.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          )}
-          <p>{feedback.text}</p>
-        </div>
-      )}
 
       {/* Status Selector */}
       <div>

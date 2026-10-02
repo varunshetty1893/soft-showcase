@@ -97,9 +97,15 @@ export async function POST(req: NextRequest) {
       fullDescription,
       status,
       featured,
+      featuredOrder,
       priceMode,
       price,
       originalPrice,
+      priceQualifier,
+      dealType,
+      dealLabel,
+      dealStartsAt,
+      dealEndsAt,
       demoUrl,
       projectType,
       whatsIncluded,
@@ -176,6 +182,8 @@ export async function POST(req: NextRequest) {
         .catch(() => null);
     }
 
+    const effectiveDealType = priceMode === "FIXED" ? (dealType ?? "NONE") : "NONE";
+
     const project = await db.project.create({
       data: {
         title,
@@ -184,9 +192,15 @@ export async function POST(req: NextRequest) {
         fullDescription,
         status,
         featured,
+        featuredOrder: featuredOrder ?? 0,
         priceMode,
         price: priceMode === "CONTACT" || priceMode === "FREE" ? null : (price ?? null),
         originalPrice: priceMode === "FIXED" && originalPrice ? originalPrice : null,
+        priceQualifier: priceQualifier ?? "NONE",
+        dealType: effectiveDealType,
+        dealLabel: effectiveDealType === "CUSTOM" ? (dealLabel ?? null) : null,
+        dealStartsAt: priceMode === "FIXED" && dealStartsAt ? dealStartsAt : null,
+        dealEndsAt: priceMode === "FIXED" && dealEndsAt ? dealEndsAt : null,
         demoUrl: demoUrl ?? null,
         projectType: projectType ?? null,
         whatsIncluded,

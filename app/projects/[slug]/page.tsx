@@ -7,7 +7,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { PriceBadge } from "@/components/projects/PriceBadge";
+import { PriceBlock } from "@/components/projects/PriceBlock";
 import { TechBadge } from "@/components/projects/TechBadge";
 import { ProjectGallery } from "@/components/projects/ProjectGallery";
 import { ProjectFeatures } from "@/components/projects/ProjectFeatures";
@@ -107,12 +107,28 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const primaryImage = project.images.find((i) => i.isPrimary) || project.images[0];
   const baseUrl = APP_URL.replace(/\/$/, "");
 
+  const pricingProps = {
+    priceMode: project.priceMode,
+    price: project.price ? project.price.toString() : null,
+    originalPrice: (project as any).originalPrice
+      ? (project as any).originalPrice.toString()
+      : null,
+    priceQualifier: (project as any).priceQualifier ?? "NONE",
+    dealType: (project as any).dealType ?? "NONE",
+    dealLabel: (project as any).dealLabel ?? null,
+    dealStartsAt: (project as any).dealStartsAt
+      ? new Date((project as any).dealStartsAt).toISOString()
+      : null,
+    dealEndsAt: (project as any).dealEndsAt
+      ? new Date((project as any).dealEndsAt).toISOString()
+      : null,
+  };
+
   const softwareJsonLd = buildSoftwareJsonLd({
     title: project.title,
     slug: project.slug,
     shortDescription: project.shortDescription,
-    priceMode: project.priceMode,
-    price: project.price ? project.price.toString() : null,
+    ...pricingProps,
     status: project.status,
     category: project.category,
     provider: project.provider,
@@ -233,16 +249,12 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               {/* Screenshot Gallery */}
               <ProjectGallery images={project.images} projectTitle={project.title} />
 
-              {/* Price and Verified Discount Section (Below image, above project overview) */}
-              <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-7 shadow-xs">
-                <PriceBadge
-                  priceMode={project.priceMode}
-                  price={project.price ? project.price.toString() : null}
-                  originalPrice={project.originalPrice ? project.originalPrice.toString() : null}
-                  variant="detail"
-                  showTaxNotice={true}
-                />
-              </div>
+              {/* Large Offer Banner (shown only while an offer/discount is active) */}
+              <PriceBlock
+                {...pricingProps}
+                variant="hero"
+                onlyWhenDiscounted={true}
+              />
 
               {/* Full Description / Overview (Immediately below Price) */}
               {project.fullDescription && (
@@ -283,13 +295,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               {/* Order Box */}
               <div className="bg-white rounded-2xl border border-[#D9E2E4] p-5 shadow-xs space-y-3.5">
                 <div className="border-b border-[#F3F7F7] pb-3">
-                  <PriceBadge
-                    priceMode={project.priceMode}
-                    price={project.price ? project.price.toString() : null}
-                    originalPrice={project.originalPrice ? project.originalPrice.toString() : null}
-                    variant="card"
-                    showTaxNotice={true}
-                  />
+                  <PriceBlock {...pricingProps} variant="compact" />
                 </div>
 
                 <div className="space-y-2 text-xs text-[#526267]">
@@ -314,8 +320,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                       title: project.title,
                       slug: project.slug,
                       shortDescription: project.shortDescription,
-                      priceMode: project.priceMode,
-                      price: project.price ? project.price.toString() : null,
+                      ...pricingProps,
                       imageUrl: project.images?.[0]?.url || null,
                       providerName: project.provider.displayName,
                       categoryName: project.category.name,

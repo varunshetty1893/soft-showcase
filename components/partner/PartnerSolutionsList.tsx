@@ -56,6 +56,12 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
     setProjects(initialProjects);
   }, [initialProjects]);
 
+  React.useEffect(() => {
+    if (!errorNotice) return;
+    const timer = setTimeout(() => setErrorNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [errorNotice]);
+
   const handleDeleteSolution = async () => {
     if (!deletingId) return;
     setIsDeleting(true);

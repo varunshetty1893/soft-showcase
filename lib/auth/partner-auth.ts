@@ -150,7 +150,7 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
     };
   }
 
-  // 4. Partner profile must exist, be approved, and be active
+  // 4. Partner profile must exist, not be removed, be approved, and be active
   if (!partner) {
     if (useRedirect) {
       redirect("/partner/status");
@@ -158,12 +158,19 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
     throw new AuthError("FORBIDDEN", "No partner profile found for this account.");
   }
 
+  if ((partner as any).removedAt) {
+    if (useRedirect) {
+      redirect("/partner/status?status=removed");
+    }
+    throw new AuthError("FORBIDDEN", "Partner profile has been removed from the platform.");
+  }
+
   const isApproved = partner.applicationStatus === "approved";
   const isActive = partner.isActive !== false; // Active by default unless explicitly disabled
 
   if (!isApproved || !isActive) {
     if (useRedirect) {
-      redirect(`/partner/status?status=${encodeURIComponent(partner.applicationStatus || "pending")}`);
+      redirect(`/partner/status?status=${encodeURIComponent(partner.isActive === false ? "deactivated" : partner.applicationStatus || "pending")}`);
     }
     throw new AuthError("FORBIDDEN", "Partner profile is not approved or active.");
   }
@@ -186,3 +193,66 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
 export async function getEffectivePartnerContext(): Promise<EffectivePartnerContext> {
   return requirePartner(true);
 }
+
+/**
+ * Resolves the partner record for API routes without redirecting.
+ * Links legacy unlinked provider records by email if applicable, and for admins
+ * resolves or creates the admin's own dedicated ProjectProvider record (never
+ * selecting a random third-party partner via bare findFirst()).
+ */
+export async function resolvePartnerForUser(user: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  isAdmin?: boolean;
+  role?: string;
+}) {
+  const userEmail = (user.email || "").toLowerCase().trim();
+  const isAdmin = isAdminUser(user);
+
+  let partner = await db.projectProvider.findFirst({
+    where: { userId: user.id },
+  });
+
+  if (!partner && userEmail) {
+    const unlinked = await db.projectProvider.findFirst({
+      where: { email: userEmail, userId: null },
+    });
+    if (unlinked) {
+      partner = await db.projectProvider
+        .update({
+          where: { id: unlinked.id },
+          data: { userId: user.id },
+        })
+        .catch(() => unlinked);
+    }
+  }
+
+  if (!partner && isAdmin) {
+    partner = await db.projectProvider
+      .create({
+        data: {
+          userId: user.id,
+          displayName: user.name || "Platform Administrator",
+          email: userEmail || `admin-${user.id}@softshowcase.local`,
+          bio: "Platform Administrator with full oversight.",
+          avatarUrl: user.image || null,
+          verificationStatus: "verified",
+          applicationStatus: "approved",
+          isActive: true,
+          skills: ["Administration", "Full Oversight"],
+          technologies: ["Next.js", "Prisma", "PostgreSQL"],
+          solutionsOffered: "Platform Management",
+        },
+      })
+      .catch(() => null);
+  }
+
+  if (!isAdmin && partner && (partner as any).removedAt) {
+    return null;
+  }
+
+  return partner;
+}
+

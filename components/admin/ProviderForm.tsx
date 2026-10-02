@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import { ArrowLeft, Save, ShieldCheck, AlertCircle, Lock, CheckCircle2 } from "lucide-react";
 
 interface ProviderFormData {
@@ -30,6 +31,7 @@ interface ProviderFormProps {
 
 export function ProviderForm({ initialData, mode }: ProviderFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [formData, setFormData] = React.useState<ProviderFormData>({
     displayName: initialData?.displayName || "",
@@ -84,14 +86,16 @@ export function ProviderForm({ initialData, mode }: ProviderFormProps) {
         throw new Error(data.error || "Failed to save provider");
       }
 
-      router.push("/admin/providers");
+      const msg =
+        mode === "create"
+          ? `Provider "${formData.displayName}" created successfully.`
+          : `Provider "${formData.displayName}" updated successfully.`;
+      router.push(`/admin/providers?success=${encodeURIComponent(msg)}`);
       router.refresh();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage("An unexpected error occurred");
-      }
+      const msg = err instanceof Error ? err.message : "An unexpected error occurred";
+      setErrorMessage(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

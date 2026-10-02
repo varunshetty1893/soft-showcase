@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 interface AdminProfileFormProps {
   user: {
@@ -33,6 +34,7 @@ interface AdminProfileFormProps {
 export function AdminProfileForm({ user }: AdminProfileFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
   const initialTab = searchParams.get("tab") === "password" ? "password" : "info";
 
   const [activeTab, setActiveTab] = React.useState<"info" | "password">(initialTab);
@@ -50,10 +52,22 @@ export function AdminProfileForm({ user }: AdminProfileFormProps) {
   const [savingPassword, setSavingPassword] = React.useState(false);
   const [passwordMsg, setPasswordMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  React.useEffect(() => {
+    if (!profileMsg) return;
+    const timer = setTimeout(() => setProfileMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [profileMsg]);
+
+  React.useEffect(() => {
+    if (!passwordMsg) return;
+    const timer = setTimeout(() => setPasswordMsg(null), 4000);
+    return () => clearTimeout(timer);
+  }, [passwordMsg]);
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setProfileMsg({ type: "error", text: "Display name cannot be empty." });
+      toast.error("Display name cannot be empty.");
       return;
     }
 
@@ -69,13 +83,11 @@ export function AdminProfileForm({ user }: AdminProfileFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update profile");
 
-      setProfileMsg({ type: "success", text: "Admin display name updated successfully." });
+      toast.success("Admin display name updated successfully.");
       router.refresh();
     } catch (err: unknown) {
-      setProfileMsg({
-        type: "error",
-        text: err instanceof Error ? err.message : "Something went wrong.",
-      });
+      const errText = err instanceof Error ? err.message : "Something went wrong.";
+      toast.error(errText);
     } finally {
       setSavingProfile(false);
     }
@@ -84,11 +96,11 @@ export function AdminProfileForm({ user }: AdminProfileFormProps) {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 8) {
-      setPasswordMsg({ type: "error", text: "Password must be at least 8 characters long." });
+      toast.error("Password must be at least 8 characters long.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMsg({ type: "error", text: "New passwords do not match." });
+      toast.error("New passwords do not match.");
       return;
     }
 
@@ -108,18 +120,15 @@ export function AdminProfileForm({ user }: AdminProfileFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update password.");
 
-      setPasswordMsg({
-        type: "success",
-        text: "Password updated successfully! You can now log in with your email and this new password.",
-      });
+      toast.success(
+        "Password updated successfully! You can now log in with your email and this new password."
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: unknown) {
-      setPasswordMsg({
-        type: "error",
-        text: err instanceof Error ? err.message : "Failed to update password.",
-      });
+      const errText = err instanceof Error ? err.message : "Failed to update password.";
+      toast.error(errText);
     } finally {
       setSavingPassword(false);
     }

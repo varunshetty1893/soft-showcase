@@ -1,11 +1,30 @@
 // lib/validation/project.schema.ts
-// Zod validation schema for creating and editing projects.
-// Price validation rules enforced per docs/13-database-design.md.
+// Zod validation schema for creating and editing projects (including Phase 3 moderation & Phase 4 pricing offers).
+// Source of truth: docs/13-database-design.md + Phase 4 pricing offer rules.
 
 import { z } from "zod";
+import {
+  DEAL_TYPES,
+  PRICE_QUALIFIERS,
+  TIME_LIMITED_DEAL_TYPES,
+  type DealTypeValue,
+} from "@/lib/utils/pricing";
 
-const PriceModeEnum = z.enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"]);
-const ProjectStatusEnum = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export const PriceModeEnum = z.enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"]);
+export const ProjectStatusEnum = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
+export const DealTypeEnum = z.enum(DEAL_TYPES);
+export const PriceQualifierEnum = z.enum(PRICE_QUALIFIERS);
+
+const nullableDateOrIso = z
+  .union([z.date(), z.string(), z.null(), z.undefined()])
+  .transform((val) => {
+    if (!val) return null;
+    if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val;
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  });
 
 // Raw object shape — used for .partial() since ZodEffects (from .refine()) doesn't support it
 const projectFields = {
@@ -39,6 +58,8 @@ const projectFields = {
 
   featured: z.boolean().default(false),
 
+  featuredOrder: z.number().int().min(0).default(0).optional(),
+
   priceMode: PriceModeEnum.default("CONTACT"),
 
   price: z.number().positive("Price must be a positive number").nullable(),
@@ -48,6 +69,23 @@ const projectFields = {
     .positive("Original price must be a positive number")
     .optional()
     .nullable(),
+
+  priceQualifier: PriceQualifierEnum.default("NONE").optional(),
+
+  dealType: DealTypeEnum.default("NONE").optional(),
+
+  dealLabel: z
+    .string()
+    .trim()
+    .max(24, "Custom offer label cannot exceed 24 characters")
+    .optional()
+    .nullable(),
+
+  dealStartsAt: nullableDateOrIso.optional(),
+
+  dealEndsAt: nullableDateOrIso.optional(),
+
+  moderationNote: z.string().trim().max(1000).optional().nullable(),
 
   demoUrl: z
     .string()
@@ -107,7 +145,10 @@ const projectFields = {
   images: z
     .array(
       z.object({
-        url: z.string().url("Please provide a valid image URL").max(2_000_000, "Image URL is too large"),
+        url: z
+          .string()
+          .url("Please provide a valid image URL")
+          .max(2_000_000, "Image URL is too large"),
         storageKey: z.string().max(250).optional(),
         altText: z.string().max(200).optional(),
         isPrimary: z.boolean().optional(),
@@ -122,97 +163,177 @@ const projectFields = {
   providerId: z.string().min(1, "Please select a provider"),
 };
 
-// Full schema with price validation refinements (docs/13-database-design.md)
+function applyPricingOfferSuperRefine(
+  data: {
+    priceMode?: "CONTACT" | "FIXED" | "STARTING_FROM" | "FREE";
+    price?: number | null;
+    originalPrice?: number | null;
+    dealType?: DealTypeValue;
+    dealLabel?: string | null;
+    dealStartsAt?: Date | null;
+    dealEndsAt?: Date | null;
+  },
+  ctx: z.RefinementCtx,
+  isPartial = false
+) {
+  const mode = data.priceMode;
+  const dealType = (data.dealType || "NONE") as DealTypeValue;
+
+  if (!isPartial) {
+    if (mode === "FIXED" || mode === "STARTING_FROM") {
+      if (data.price === null || data.price === undefined || data.price <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A price is required for FIXED and STARTING_FROM price modes",
+          path: ["price"],
+        });
+      }
+    }
+
+    if (mode === "CONTACT" || mode === "FREE") {
+      if (data.price !== null && data.price !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Price must be empty for CONTACT and FREE price modes",
+          path: ["price"],
+        });
+      }
+    }
+  } else {
+    if (
+      (mode === "FIXED" || mode === "STARTING_FROM") &&
+      data.price !== undefined &&
+      (data.price === null || data.price <= 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A price is required for FIXED and STARTING_FROM price modes",
+        path: ["price"],
+      });
+    }
+    if (
+      (mode === "CONTACT" || mode === "FREE") &&
+      data.price !== undefined &&
+      data.price !== null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Price must be null for CONTACT and FREE price modes",
+        path: ["price"],
+      });
+    }
+  }
+
+  // Original price validation
+  if (data.originalPrice !== null && data.originalPrice !== undefined) {
+    if (mode && mode !== "FIXED") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
+        path: ["originalPrice"],
+      });
+    } else if (
+      data.price !== undefined &&
+      data.price !== null &&
+      data.originalPrice <= data.price
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
+        path: ["originalPrice"],
+      });
+    }
+  }
+
+  // Promotional Offer / Deal validation (Phase 4)
+  if (dealType !== "NONE") {
+    if (mode && mode !== "FIXED") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Offers are only allowed when priceMode is FIXED",
+        path: ["dealType"],
+      });
+    }
+
+    if (
+      !isPartial &&
+      (data.originalPrice === null ||
+        data.originalPrice === undefined ||
+        data.price === null ||
+        data.price === undefined ||
+        data.originalPrice <= data.price)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Regular price (originalPrice) must be greater than selling price when an offer is set",
+        path: ["originalPrice"],
+      });
+    }
+
+    if (dealType === "CUSTOM") {
+      const cleanLabel = (data.dealLabel || "").trim();
+      if (!cleanLabel) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Custom deal label is required when dealType is CUSTOM",
+          path: ["dealLabel"],
+        });
+      } else if (cleanLabel.length > 24) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Custom deal label cannot exceed 24 characters",
+          path: ["dealLabel"],
+        });
+      }
+    }
+
+    const nowMs = Date.now();
+    if (TIME_LIMITED_DEAL_TYPES.has(dealType)) {
+      if (!data.dealEndsAt) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${dealType} requires an end date in the future`,
+          path: ["dealEndsAt"],
+        });
+      } else if (data.dealEndsAt.getTime() <= nowMs) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Offer end date must be in the future",
+          path: ["dealEndsAt"],
+        });
+      }
+    } else if (data.dealEndsAt && data.dealEndsAt.getTime() <= nowMs) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Offer end date must be in the future",
+        path: ["dealEndsAt"],
+      });
+    }
+
+    if (
+      data.dealStartsAt &&
+      data.dealEndsAt &&
+      data.dealEndsAt.getTime() <= data.dealStartsAt.getTime()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Offer end date must be after start date",
+        path: ["dealEndsAt"],
+      });
+    }
+  }
+}
+
 export const ProjectSchema = z
   .object(projectFields)
-  .refine(
-    (data) => {
-      if (data.priceMode === "FIXED" || data.priceMode === "STARTING_FROM") {
-        return data.price !== null && data.price > 0;
-      }
-      return true;
-    },
-    {
-      message: "A price is required for FIXED and STARTING_FROM price modes",
-      path: ["price"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.priceMode === "CONTACT" || data.priceMode === "FREE") {
-        return data.price === null;
-      }
-      return true;
-    },
-    {
-      message: "Price must be empty for CONTACT and FREE price modes",
-      path: ["price"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.originalPrice !== null && data.originalPrice !== undefined) {
-        if (data.priceMode !== "FIXED") {
-          return false;
-        }
-        if (data.price === null || data.price === undefined || data.originalPrice <= data.price) {
-          return false;
-        }
-      }
-      return true;
-    },
-    {
-      message: "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
-      path: ["originalPrice"],
-    }
-  );
+  .superRefine((data, ctx) => applyPricingOfferSuperRefine(data, ctx, false));
 
-// Partial version for updates — built from raw fields so .partial() works
-// (ZodEffects returned by .refine() does not support .partial())
 export const ProjectUpdateSchema = z
   .object(projectFields)
   .partial()
-  .refine(
-    (data) => {
-      if (data.priceMode === "FIXED" || data.priceMode === "STARTING_FROM") {
-        return data.price === undefined || (data.price !== null && data.price > 0);
-      }
-      return true;
-    },
-    {
-      message: "A price is required for FIXED and STARTING_FROM price modes",
-      path: ["price"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.priceMode === "CONTACT" || data.priceMode === "FREE") {
-        return data.price === undefined || data.price === null;
-      }
-      return true;
-    },
-    {
-      message: "Price must be null for CONTACT and FREE price modes",
-      path: ["price"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.originalPrice !== null && data.originalPrice !== undefined) {
-        if (data.priceMode && data.priceMode !== "FIXED") {
-          return false;
-        }
-        if (data.price !== undefined && data.price !== null && data.originalPrice <= data.price) {
-          return false;
-        }
-      }
-      return true;
-    },
-    {
-      message: "Original price must be strictly greater than selling price and is only allowed for FIXED price mode",
-      path: ["originalPrice"],
-    }
-  );
+  .superRefine((data, ctx) => applyPricingOfferSuperRefine(data, ctx, true));
 
 export type ProjectInput = z.infer<typeof ProjectSchema>;
 export type ProjectUpdateInput = z.infer<typeof ProjectUpdateSchema>;

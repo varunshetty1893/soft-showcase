@@ -8,6 +8,7 @@ import { Plus, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { ProviderTable, type ProviderTableRow } from "@/components/admin/ProviderTable";
 import { getAllProviders } from "@/lib/db/queries/providers";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Provider Management — Admin",
@@ -19,9 +20,10 @@ export const revalidate = 0;
 
 export default async function AdminProvidersPage() {
   let providers: ProviderTableRow[] = [];
+  const currentUser = await getCurrentUser();
 
   try {
-    providers = await getAllProviders();
+    providers = (await getAllProviders()) as unknown as ProviderTableRow[];
   } catch (error) {
     console.warn("Could not query providers from database:", error);
   }
@@ -49,7 +51,7 @@ export default async function AdminProvidersPage() {
       </div>
 
       {/* ── Table Section ──────────────────────────────────────────────── */}
-      <ProviderTable providers={providers} />
+      <ProviderTable providers={providers} currentAdminUserId={currentUser?.id} />
     </div>
   );
 }

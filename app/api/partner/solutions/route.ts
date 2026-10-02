@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
 import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
-import { slugify } from "@/lib/utils/slug";
+import { generateUniqueSlug } from "@/lib/utils/slug";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
 
 export async function GET() {
   const session = await auth();
@@ -16,13 +17,7 @@ export async function GET() {
 
   try {
     await ensureAdditiveSchema();
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -59,30 +54,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureAdditiveSchema();
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner =
-        (await db.projectProvider.findFirst({
-          where: { isActive: true, applicationStatus: "approved" },
-        })) ||
-        (await db.projectProvider.findFirst()) ||
-        (await db.projectProvider
-          .create({
-            data: {
-              userId: session.user.id,
-              displayName: session.user.name || "Platform Administrator",
-              email: session.user.email || `admin-${session.user.id}@softshowcase.local`,
-              bio: "Platform Administrator",
-              verificationStatus: "verified",
-              applicationStatus: "approved",
-              isActive: true,
-            },
-          })
-          .catch(() => null));
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -91,14 +63,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Compute unique slug with race condition protection (Issue 53)
-    const baseSlug = slugify(body.title || "solution") || `solution-${Date.now()}`;
-    let finalSlug = baseSlug;
-    let count = 1;
-    while (await db.project.findUnique({ where: { slug: finalSlug } })) {
-      finalSlug = `${baseSlug}-${count}-${Math.random().toString(36).substring(2, 6)}`;
-      count++;
-      if (count > 5) break;
-    }
+    const finalSlug = await generateUniqueSlug(body.title || "solution", async (s) => {
+      const found = await db.project.findUnique({ where: { slug: s } });
+      return Boolean(found);
+    });
 
     // Normalize price: if CONTACT or FREE, must be null
     let price: number | null = null;
@@ -312,6 +280,8 @@ export async function POST(req: NextRequest) {
       sanitizedImages[0].isPrimary = true;
     }
 
+    const effectiveDealType = data.priceMode === "FIXED" ? (data.dealType ?? "NONE") : "NONE";
+
     // Atomically create solution and audit log with native Prisma nested writes
     const newProject = await db.project.create({
       data: {
@@ -324,6 +294,11 @@ export async function POST(req: NextRequest) {
         priceMode: data.priceMode,
         price: data.priceMode === "CONTACT" || data.priceMode === "FREE" ? null : (data.price ?? null),
         originalPrice: data.priceMode === "FIXED" && data.originalPrice ? data.originalPrice : null,
+        priceQualifier: data.priceQualifier ?? "NONE",
+        dealType: effectiveDealType,
+        dealLabel: effectiveDealType === "CUSTOM" ? (data.dealLabel ?? null) : null,
+        dealStartsAt: data.priceMode === "FIXED" && data.dealStartsAt ? data.dealStartsAt : null,
+        dealEndsAt: data.priceMode === "FIXED" && data.dealEndsAt ? data.dealEndsAt : null,
         demoUrl: data.demoUrl || null,
         projectType: data.projectType || null,
         whatsIncluded: data.whatsIncluded || [],

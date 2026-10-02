@@ -19,6 +19,11 @@ export interface ProjectCardData {
   priceMode: string;
   price?: { toString(): string } | number | string | null;
   originalPrice?: { toString(): string } | number | string | null;
+  priceQualifier?: string | null;
+  dealType?: string | null;
+  dealLabel?: string | null;
+  dealStartsAt?: Date | string | null;
+  dealEndsAt?: Date | string | null;
   category?: {
     id: string;
     name: string;
@@ -94,6 +99,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
               shortDescription: project.shortDescription,
               priceMode: project.priceMode,
               price: project.price ? project.price.toString() : null,
+              originalPrice: project.originalPrice ? project.originalPrice.toString() : null,
+              priceQualifier: project.priceQualifier,
+              dealType: project.dealType,
+              dealLabel: project.dealLabel,
+              dealStartsAt: project.dealStartsAt,
+              dealEndsAt: project.dealEndsAt,
               imageUrl: primaryImage?.url || null,
               providerName: project.provider?.displayName || null,
               categoryName: project.category?.name || null,
@@ -136,6 +147,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
             priceMode={project.priceMode}
             price={project.price}
             originalPrice={project.originalPrice}
+            priceQualifier={project.priceQualifier}
+            dealType={project.dealType}
+            dealLabel={project.dealLabel}
+            dealStartsAt={project.dealStartsAt}
+            dealEndsAt={project.dealEndsAt}
             variant="card"
           />
 

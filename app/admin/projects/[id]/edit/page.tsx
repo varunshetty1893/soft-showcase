@@ -5,6 +5,8 @@
 import { notFound } from "next/navigation";
 import ProjectForm from "@/components/admin/ProjectForm";
 import { getAdminProjectById } from "@/lib/db/queries/admin-projects";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getProjectOwnership } from "@/lib/auth/project-permissions";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ id: string }> };
@@ -20,14 +22,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function EditProjectPage({ params }: Props) {
   const { id } = await params;
 
-  let project;
-  try {
-    project = await getAdminProjectById(id);
-  } catch {
-    project = null;
-  }
+  const [project, currentUser] = await Promise.all([
+    getAdminProjectById(id).catch(() => null),
+    getCurrentUser().catch(() => null),
+  ]);
 
   if (!project) notFound();
+
+  const ownership = getProjectOwnership(project, currentUser);
 
   // Transform Prisma model → ProjectForm initialData shape
   const initialData = {
@@ -37,12 +39,37 @@ export default async function EditProjectPage({ params }: Props) {
     fullDescription: project.fullDescription,
     status: project.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
     featured: project.featured,
+    featuredOrder: (project as any).featuredOrder ?? 0,
+    moderationNote: (project as any).moderationNote ?? "",
+    moderatedAt: (project as any).moderatedAt
+      ? new Date((project as any).moderatedAt).toISOString()
+      : null,
     priceMode: project.priceMode as "CONTACT" | "FIXED" | "STARTING_FROM" | "FREE",
     price: project.price?.toString() ?? "",
     originalPrice: project.originalPrice?.toString() ?? "",
+    priceQualifier: (((project as any).priceQualifier as string) ?? "NONE") as
+      | "NONE"
+      | "STARTING_FROM"
+      | "NEGOTIABLE",
+    dealType: (((project as any).dealType as string) ?? "NONE") as
+      | "NONE"
+      | "LIMITED_DEAL"
+      | "LAUNCH_OFFER"
+      | "FESTIVE_SALE"
+      | "EARLY_BIRD"
+      | "CLEARANCE"
+      | "CUSTOM",
+    dealLabel: ((project as any).dealLabel as string) ?? "",
+    dealStartsAt: (project as any).dealStartsAt
+      ? new Date((project as any).dealStartsAt).toISOString()
+      : "",
+    dealEndsAt: (project as any).dealEndsAt
+      ? new Date((project as any).dealEndsAt).toISOString()
+      : "",
     demoUrl: project.demoUrl ?? "",
     projectType: project.projectType ?? "",
     categoryId: project.categoryId,
+    categoryName: project.category?.name ?? "",
     providerId: project.providerId,
     whatsIncluded: project.whatsIncluded,
     features: project.features.map((f) => ({
@@ -60,6 +87,9 @@ export default async function EditProjectPage({ params }: Props) {
       answer: faq.answer,
     })),
     technologyIds: project.technologies.map((t) => t.technologyId),
+    technologyNames: project.technologies
+      .map((t: any) => t.technology?.name)
+      .filter(Boolean) as string[],
   };
 
   // Transform images → ProjectImageItem shape
@@ -83,7 +113,13 @@ export default async function EditProjectPage({ params }: Props) {
       </div>
 
       {/* Form */}
-      <ProjectForm initialData={initialData} projectId={project.id} initialImages={initialImages} />
+      <ProjectForm
+        initialData={initialData}
+        projectId={project.id}
+        initialImages={initialImages}
+        isPartnerOwned={ownership.isPartnerOwned}
+        partnerDisplayName={project.provider?.displayName}
+      />
     </div>
   );
 }

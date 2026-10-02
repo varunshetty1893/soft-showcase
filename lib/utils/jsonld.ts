@@ -3,8 +3,9 @@
 // Follows strict B6 pricing rules for Google Rich Snippets.
 
 import { APP_NAME, APP_URL, DEFAULT_CURRENCY } from "@/config/constants";
+import { getEffectivePricing, type ProjectPricingInput } from "@/lib/utils/pricing";
 
-export interface ProjectJsonLdInput {
+export interface ProjectJsonLdInput extends ProjectPricingInput {
   title: string;
   slug: string;
   shortDescription: string;
@@ -16,23 +17,54 @@ export interface ProjectJsonLdInput {
   imageUrl?: string | null;
 }
 
-export function buildProjectOffers(project: Pick<ProjectJsonLdInput, "priceMode" | "price" | "status">) {
+export function buildProjectOffers(
+  project: Pick<
+    ProjectJsonLdInput,
+    | "priceMode"
+    | "price"
+    | "originalPrice"
+    | "priceQualifier"
+    | "dealType"
+    | "dealLabel"
+    | "dealStartsAt"
+    | "dealEndsAt"
+    | "status"
+  >,
+  now: Date = new Date()
+) {
   const isPublished = project.status === "PUBLISHED";
   const availability = isPublished
     ? "https://schema.org/InStock"
     : "https://schema.org/OutOfStock";
 
-  if (project.priceMode === "FIXED" && project.price !== null && project.price !== undefined) {
-    const rawPrice = project.price.toString();
-    const num = parseFloat(rawPrice);
-    if (!isNaN(num) && num > 0) {
-      return {
-        "@type": "Offer",
-        price: num.toString(),
-        priceCurrency: DEFAULT_CURRENCY,
-        availability,
-      };
-    }
+  const effective = getEffectivePricing(
+    {
+      priceMode: project.priceMode,
+      price: project.price != null ? String(project.price) : null,
+      originalPrice: project.originalPrice != null ? String(project.originalPrice) : null,
+      priceQualifier: project.priceQualifier,
+      dealType: project.dealType,
+      dealLabel: project.dealLabel,
+      dealStartsAt: project.dealStartsAt,
+      dealEndsAt: project.dealEndsAt,
+    },
+    now
+  );
+
+  if (
+    project.priceMode === "FIXED" &&
+    effective.effectivePrice !== null &&
+    effective.effectivePrice > 0
+  ) {
+    return {
+      "@type": "Offer",
+      price: effective.effectivePrice.toString(),
+      priceCurrency: DEFAULT_CURRENCY,
+      availability,
+      ...(effective.isOfferActive && effective.dealEndsAtIso
+        ? { priceValidUntil: effective.dealEndsAtIso }
+        : {}),
+    };
   }
 
   if (project.priceMode === "FREE") {

@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { CreateTransactionSchema } from "@/lib/validation/transaction.schema";
 import { generateSecureTransactionNumber } from "@/lib/utils/crypto";
 import { transactionCreateLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
 
 function isValidEvidenceUrl(url: string | null | undefined): boolean {
   if (!url) return true;
@@ -35,13 +36,7 @@ export async function GET() {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
@@ -92,13 +87,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
-    });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
+    const partner = await resolvePartnerForUser(session.user);
 
     if (!partner) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });

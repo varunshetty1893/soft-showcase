@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 
 interface AdminTransactionDetailManagerProps {
@@ -23,17 +24,14 @@ interface AdminTransactionDetailManagerProps {
 
 export function AdminTransactionDetailManager({ transaction }: AdminTransactionDetailManagerProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [paymentStatus, setPaymentStatus] = React.useState(transaction.paymentStatus || "PENDING");
   const [deliveryStatus, setDeliveryStatus] = React.useState(transaction.deliveryStatus || "PENDING");
   const [adminNotes, setAdminNotes] = React.useState(transaction.adminNotes || "");
   const [loading, setLoading] = React.useState(false);
-  const [success, setSuccess] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
   const handleUpdate = async (newStatus?: string) => {
-    setError(null);
-    setSuccess(false);
     setLoading(true);
 
     try {
@@ -51,10 +49,10 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
       if (!res.ok) throw new Error(data.error || "Failed to update transaction");
 
       if (newStatus) setPaymentStatus(newStatus);
-      setSuccess(true);
+      toast.success("Transaction updated successfully!");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -121,18 +119,6 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
           )}
         </div>
       </div>
-
-      {error && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-          Transaction updated successfully!
-        </div>
-      )}
 
       {/* Grid of details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

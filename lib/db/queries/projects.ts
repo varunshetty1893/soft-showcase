@@ -6,11 +6,20 @@ import { cache } from "react";
 import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE } from "@/config/constants";
+import { publicProviderWhere, publicProjectWhere } from "./public-filters";
+
+export { publicProviderWhere, publicProjectWhere };
 
 function isMissingColumnError(err: unknown): boolean {
   const code = (err as { code?: string })?.code;
   const msg = String((err as { message?: string })?.message || "");
-  return code === "P2022" || msg.includes("originalPrice") || msg.includes("does not exist");
+  return (
+    code === "P2022" ||
+    msg.includes("originalPrice") ||
+    msg.includes("dealType") ||
+    msg.includes("removedAt") ||
+    msg.includes("does not exist")
+  );
 }
 
 /**
@@ -45,12 +54,7 @@ export async function getPublishedProjects(options: {
 
   const skip = (page - 1) * pageSize;
 
-  const where = {
-    status: "PUBLISHED" as ProjectStatus,
-    provider: {
-      isActive: true,
-      applicationStatus: "approved",
-    },
+  const where = publicProjectWhere({
     ...(featured !== undefined && { featured }),
     ...(categorySlug && { category: { slug: categorySlug } }),
     ...(technologySlug && {
@@ -83,7 +87,7 @@ export async function getPublishedProjects(options: {
         ],
       };
     })()),
-  };
+  });
 
   const baseSelect = {
     id: true,
@@ -117,10 +121,15 @@ export async function getPublishedProjects(options: {
         where,
         skip,
         take: pageSize,
-        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ featured: "desc" }, { featuredOrder: "asc" }, { createdAt: "desc" }],
         select: {
           ...baseSelect,
           originalPrice: true,
+          priceQualifier: true,
+          dealType: true,
+          dealLabel: true,
+          dealStartsAt: true,
+          dealEndsAt: true,
         },
       }),
       db.project.count({ where }),
@@ -137,16 +146,32 @@ export async function getPublishedProjects(options: {
     await ensureAdditiveSchema();
     const [fallbackProjects, fallbackTotal] = await Promise.all([
       db.project.findMany({
-        where,
+        where: {
+          status: "PUBLISHED" as ProjectStatus,
+          provider: { isActive: true, applicationStatus: "approved" },
+        },
         skip,
         take: pageSize,
         orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
         select: baseSelect,
       }),
-      db.project.count({ where }),
+      db.project.count({
+        where: {
+          status: "PUBLISHED" as ProjectStatus,
+          provider: { isActive: true, applicationStatus: "approved" },
+        },
+      }),
     ]);
     result = [
-      fallbackProjects.map((p) => ({ ...p, originalPrice: null })),
+      fallbackProjects.map((p) => ({
+        ...p,
+        originalPrice: null,
+        priceQualifier: "NONE" as const,
+        dealType: "NONE" as const,
+        dealLabel: null,
+        dealStartsAt: null,
+        dealEndsAt: null,
+      })),
       fallbackTotal,
     ];
   }
@@ -171,17 +196,12 @@ export const getProjectBySlug = cache(async (slug: string) => {
     return null;
   }
   const trimmed = slug.trim();
-  const whereClause = {
+  const whereClause = publicProjectWhere({
     OR: [
       { slug: trimmed },
       { slug: { equals: trimmed, mode: "insensitive" as const } },
     ],
-    status: "PUBLISHED" as ProjectStatus,
-    provider: {
-      isActive: true,
-      applicationStatus: "approved",
-    },
-  };
+  });
 
   const relationsSelect = {
     category: true,
@@ -199,6 +219,7 @@ export const getProjectBySlug = cache(async (slug: string) => {
         linkedinUrl: true,
         showEmail: true,
         showWhatsapp: true,
+        removedAt: true,
       },
     },
     images: { orderBy: { sortOrder: "asc" as const } },
@@ -224,7 +245,14 @@ export const getProjectBySlug = cache(async (slug: string) => {
     if (!isMissingColumnError(err)) throw err;
     await ensureAdditiveSchema();
     const fallback = await db.project.findFirst({
-      where: whereClause,
+      where: {
+        OR: [
+          { slug: trimmed },
+          { slug: { equals: trimmed, mode: "insensitive" as const } },
+        ],
+        status: "PUBLISHED" as ProjectStatus,
+        provider: { isActive: true, applicationStatus: "approved" },
+      },
       select: {
         id: true,
         title: true,
@@ -245,10 +273,24 @@ export const getProjectBySlug = cache(async (slug: string) => {
         ...relationsSelect,
       },
     });
-    project = fallback ? ({ ...fallback, originalPrice: null } as Awaited<ReturnType<typeof queryFullProject>>) : null;
+    project = fallback
+      ? ({
+          ...fallback,
+          originalPrice: null,
+          featuredOrder: 0,
+          priceQualifier: "NONE",
+          dealType: "NONE",
+          dealLabel: null,
+          dealStartsAt: null,
+          dealEndsAt: null,
+          moderationNote: null,
+          moderatedAt: null,
+          moderatedById: null,
+        } as Awaited<ReturnType<typeof queryFullProject>>)
+      : null;
   }
 
-  if (!project) return null;
+  if (!project || (project.provider as any)?.removedAt) return null;
 
   const hasConfiguredEmail =
     project.provider?.email !== undefined
@@ -286,15 +328,10 @@ export const getRelatedProjects = cache(async (
   if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
     return [];
   }
-  const whereClause = {
+  const whereClause = publicProjectWhere({
     categoryId,
-    status: "PUBLISHED" as ProjectStatus,
     id: { not: excludeProjectId },
-    provider: {
-      isActive: true,
-      applicationStatus: "approved",
-    },
-  };
+  });
 
   const baseSelect = {
     id: true,
@@ -322,37 +359,50 @@ export const getRelatedProjects = cache(async (
       select: {
         ...baseSelect,
         originalPrice: true,
+        priceQualifier: true,
+        dealType: true,
+        dealLabel: true,
+        dealStartsAt: true,
+        dealEndsAt: true,
       },
     });
   } catch (err) {
     if (!isMissingColumnError(err)) throw err;
     await ensureAdditiveSchema();
     const fallback = await db.project.findMany({
-      where: whereClause,
+      where: {
+        categoryId,
+        status: "PUBLISHED" as ProjectStatus,
+        id: { not: excludeProjectId },
+        provider: { isActive: true, applicationStatus: "approved" },
+      },
       take: limit,
       orderBy: { featured: "desc" },
       select: baseSelect,
     });
-    return fallback.map((p) => ({ ...p, originalPrice: null }));
+    return fallback.map((p) => ({
+      ...p,
+      originalPrice: null,
+      priceQualifier: "NONE" as const,
+      dealType: "NONE" as const,
+      dealLabel: null,
+      dealStartsAt: null,
+      dealEndsAt: null,
+    }));
   }
 });
 
 /**
- * Fetch all published project slugs — used for static generation.
+ * Fetch all published project slugs — used for static generation and sitemap.
  */
 export async function getAllPublishedSlugs(): Promise<string[]> {
   if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
     return [];
   }
   try {
+    await ensureAdditiveSchema();
     const projects = await db.project.findMany({
-      where: {
-        status: "PUBLISHED",
-        provider: {
-          isActive: true,
-          applicationStatus: "approved",
-        },
-      },
+      where: publicProjectWhere(),
       select: { slug: true },
     });
     return projects.map((p) => p.slug);

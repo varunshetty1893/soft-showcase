@@ -234,10 +234,31 @@ export class InMemoryStore {
     // No-op: disk persistence disabled (N12 / N13)
   }
 
+  resolveProvider(pr: any) {
+    if (!pr) return null;
+    const user = pr.userId ? this.users.find((u) => u.id === pr.userId) || null : null;
+    const projectsCount = this.projects.filter((p) => p.providerId === pr.id).length;
+    const inquiriesCount = this.inquiries.filter((i) => i.providerId === pr.id).length;
+    const transactionsCount = this.transactions.filter((t) => t.partnerId === pr.id).length;
+    return {
+      removedAt: null,
+      removedById: null,
+      removalReason: null,
+      ...pr,
+      user,
+      _count: {
+        projects: projectsCount,
+        inquiries: inquiriesCount,
+        transactions: transactionsCount,
+      },
+    };
+  }
+
   resolveProject(p: any) {
     if (!p) return null;
     const category = this.categories.find((c) => c.id === p.categoryId) || this.categories[0];
-    const provider = this.providers.find((pr) => pr.id === p.providerId) || this.providers[0];
+    const rawProvider = this.providers.find((pr) => pr.id === p.providerId) || this.providers[0];
+    const provider = this.resolveProvider(rawProvider);
     const images = this.projectImages.filter((img) => img.projectId === p.id);
     const features = this.projectFeatures.filter((f) => f.projectId === p.id);
     const specifications = this.projectSpecs.filter((s) => s.projectId === p.id);
@@ -253,6 +274,15 @@ export class InMemoryStore {
     });
 
     return {
+      featuredOrder: 0,
+      priceQualifier: "NONE",
+      dealType: "NONE",
+      dealLabel: null,
+      dealStartsAt: null,
+      dealEndsAt: null,
+      moderationNote: null,
+      moderatedAt: null,
+      moderatedById: null,
       ...p,
       category,
       provider,
@@ -263,6 +293,72 @@ export class InMemoryStore {
       technologies,
     };
   }
+}
+
+function matchesProviderWhere(pr: any, where: any): boolean {
+  if (!where) return true;
+  if ("id" in where && where.id !== undefined) {
+    if (typeof where.id === "string" && pr.id !== where.id) return false;
+  }
+  if ("userId" in where && where.userId !== undefined) {
+    if ((pr.userId ?? null) !== where.userId) return false;
+  }
+  if ("email" in where && where.email !== undefined) {
+    const targetEmail = typeof where.email === "string" ? where.email : where.email?.equals;
+    if (targetEmail && pr.email?.toLowerCase() !== targetEmail.toLowerCase()) return false;
+  }
+  if ("isActive" in where && where.isActive !== undefined) {
+    if (Boolean(pr.isActive) !== Boolean(where.isActive)) return false;
+  }
+  if ("applicationStatus" in where && where.applicationStatus !== undefined) {
+    if (typeof where.applicationStatus === "string" && pr.applicationStatus !== where.applicationStatus) return false;
+    if (where.applicationStatus && typeof where.applicationStatus === "object" && Array.isArray(where.applicationStatus.in)) {
+      if (!where.applicationStatus.in.includes(pr.applicationStatus)) return false;
+    }
+  }
+  if ("removedAt" in where) {
+    const val = pr.removedAt ?? null;
+    if (where.removedAt === null && val !== null) return false;
+    if (where.removedAt && typeof where.removedAt === "object" && "not" in where.removedAt) {
+      if (where.removedAt.not === null && val === null) return false;
+    }
+  }
+  return true;
+}
+
+function matchesProjectWhere(proj: any, where: any): boolean {
+  if (!where) return true;
+  if ("id" in where && where.id !== undefined) {
+    if (typeof where.id === "string" && proj.id !== where.id) return false;
+    if (where.id && typeof where.id === "object" && "not" in where.id && proj.id === where.id.not) return false;
+  }
+  if ("slug" in where && where.slug !== undefined) {
+    const targetSlug = typeof where.slug === "string" ? where.slug : where.slug?.equals;
+    if (targetSlug && proj.slug?.toLowerCase() !== targetSlug.toLowerCase()) return false;
+  }
+  if ("status" in where && where.status !== undefined) {
+    if (typeof where.status === "string" && proj.status !== where.status) return false;
+  }
+  if ("featured" in where && where.featured !== undefined) {
+    if (Boolean(proj.featured) !== Boolean(where.featured)) return false;
+  }
+  if ("categoryId" in where && where.categoryId !== undefined) {
+    if (proj.categoryId !== where.categoryId) return false;
+  }
+  if ("providerId" in where && where.providerId !== undefined) {
+    if (proj.providerId !== where.providerId) return false;
+  }
+  if (where.provider) {
+    if (!proj.provider || !matchesProviderWhere(proj.provider, where.provider)) return false;
+  }
+  if (where.category?.slug) {
+    if (proj.category?.slug !== where.category.slug) return false;
+  }
+  if (Array.isArray(where.OR)) {
+    const anyOr = where.OR.some((clause: any) => matchesProjectWhere(proj, clause));
+    if (!anyOr) return false;
+  }
+  return true;
 }
 
 export const memoryStore = new InMemoryStore();
@@ -294,11 +390,17 @@ export function createMockPrismaClient(): any {
           async findMany(args?: any) {
             memoryStore.loadFromDisk();
             if (modelName === "project") {
-              return memoryStore.projects.map((p) => memoryStore.resolveProject(p));
+              return memoryStore.projects
+                .map((p) => memoryStore.resolveProject(p))
+                .filter((p) => matchesProjectWhere(p, args?.where));
             }
             if (modelName === "category") return [...memoryStore.categories];
             if (modelName === "technology") return [...memoryStore.technologies];
-            if (modelName === "projectProvider") return [...memoryStore.providers];
+            if (modelName === "projectProvider") {
+              return memoryStore.providers
+                .map((pr) => memoryStore.resolveProvider(pr))
+                .filter((pr) => matchesProviderWhere(pr, args?.where));
+            }
             if (modelName === "user") return [...memoryStore.users];
             if (modelName === "pendingRegistration") return [...memoryStore.pendingRegistrations];
             if (modelName === "verificationToken") {
@@ -311,6 +413,7 @@ export function createMockPrismaClient(): any {
             }
             if (modelName === "inquiry") return [...memoryStore.inquiries];
             if (modelName === "transaction") return [...memoryStore.transactions];
+            if (modelName === "supportTicket") return [...memoryStore.supportTickets];
             if (modelName === "auditLog") return [...memoryStore.auditLogs];
             return [];
           },
@@ -337,9 +440,11 @@ export function createMockPrismaClient(): any {
               }
             }
             if (modelName === "projectProvider") {
-              if (args?.where?.id) return memoryStore.providers.find((p) => p.id === args.where.id) || null;
-              if (args?.where?.email) return memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
-              if (args?.where?.userId) return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
+              let found = null;
+              if (args?.where?.id) found = memoryStore.providers.find((p) => p.id === args.where.id) || null;
+              else if (args?.where?.email) found = memoryStore.providers.find((p) => p.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+              else if (args?.where?.userId) found = memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
+              return memoryStore.resolveProvider(found);
             }
             if (modelName === "category") {
               if (args?.where?.slug) return memoryStore.categories.find((c) => c.slug === args.where.slug) || null;
@@ -355,10 +460,9 @@ export function createMockPrismaClient(): any {
           async findFirst(args?: any) {
             memoryStore.loadFromDisk();
             if (modelName === "project") {
-              const list = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
-              if (args?.where?.slug) {
-                return list.find((p) => p.slug === args.where.slug) || null;
-              }
+              const list = memoryStore.projects
+                .map((p) => memoryStore.resolveProject(p))
+                .filter((p) => matchesProjectWhere(p, args?.where));
               return list[0] || null;
             }
             if (modelName === "user") {
@@ -368,18 +472,44 @@ export function createMockPrismaClient(): any {
               return memoryStore.users[0] || null;
             }
             if (modelName === "projectProvider") {
-              if (args?.where?.userId) {
-                return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
-              }
-              return memoryStore.providers[0] || null;
+              const list = memoryStore.providers
+                .map((pr) => memoryStore.resolveProvider(pr))
+                .filter((pr) => matchesProviderWhere(pr, args?.where));
+              return list[0] || null;
             }
             return null;
           },
 
-          async count() {
-            if (modelName === "project") return memoryStore.projects.length;
+          async count(args?: any) {
+            if (modelName === "project") {
+              return memoryStore.projects
+                .map((p) => memoryStore.resolveProject(p))
+                .filter((p) => matchesProjectWhere(p, args?.where)).length;
+            }
             if (modelName === "user") return memoryStore.users.length;
-            if (modelName === "projectProvider") return memoryStore.providers.length;
+            if (modelName === "projectProvider") {
+              return memoryStore.providers
+                .map((pr) => memoryStore.resolveProvider(pr))
+                .filter((pr) => matchesProviderWhere(pr, args?.where)).length;
+            }
+            if (modelName === "inquiry") {
+              if (args?.where?.providerId) {
+                return memoryStore.inquiries.filter((i) => i.providerId === args.where.providerId).length;
+              }
+              return memoryStore.inquiries.length;
+            }
+            if (modelName === "transaction") {
+              if (args?.where?.partnerId) {
+                return memoryStore.transactions.filter((t) => t.partnerId === args.where.partnerId).length;
+              }
+              return memoryStore.transactions.length;
+            }
+            if (modelName === "supportTicket") {
+              if (args?.where?.requesterId) {
+                return memoryStore.supportTickets.filter((t) => t.requesterId === args.where.requesterId).length;
+              }
+              return memoryStore.supportTickets.length;
+            }
             return 0;
           },
 
@@ -436,10 +566,23 @@ export function createMockPrismaClient(): any {
                 throw err;
               }
               memoryStore.users.push(data);
+            } else if (modelName === "projectProvider") {
+              memoryStore.providers.push({
+                isActive: true,
+                applicationStatus: "approved",
+                removedAt: null,
+                removedById: null,
+                removalReason: null,
+                ...data,
+              });
             } else if (modelName === "verificationToken") {
               memoryStore.verificationTokens.push(data);
             } else if (modelName === "inquiry") {
               memoryStore.inquiries.unshift(data);
+            } else if (modelName === "transaction") {
+              memoryStore.transactions.unshift(data);
+            } else if (modelName === "supportTicket") {
+              memoryStore.supportTickets.unshift(data);
             } else if (modelName === "auditLog") {
               memoryStore.auditLogs.unshift(data);
             }
@@ -521,53 +664,64 @@ export function createMockPrismaClient(): any {
             if (modelName === "inquiry") coll = memoryStore.inquiries;
             if (modelName === "customProjectRequest") coll = memoryStore.customRequests;
             if (modelName === "transaction") coll = memoryStore.transactions;
+            if (modelName === "projectProvider") coll = memoryStore.providers;
+            if (modelName === "project") coll = memoryStore.projects;
 
             let updatedCount = 0;
             if (coll) {
               const where = args?.where || {};
-              const targetIdentifier = typeof where.identifier === "string" ? where.identifier.toLowerCase() : undefined;
-              const targetEmail =
-                typeof where.email === "string"
-                  ? where.email.toLowerCase()
-                  : typeof where.email?.equals === "string"
-                  ? where.email.equals.toLowerCase()
-                  : undefined;
-              const targetCustomerEmail =
-                typeof where.customerEmail === "string" ? where.customerEmail.toLowerCase() : undefined;
-
               for (let i = 0; i < coll.length; i++) {
                 const item = coll[i];
-                let match =
-                  (!targetIdentifier && !targetEmail && !targetCustomerEmail) ||
-                  Boolean(targetIdentifier && item.identifier?.toLowerCase() === targetIdentifier) ||
-                  Boolean(targetEmail && item.email?.toLowerCase() === targetEmail) ||
-                  Boolean(targetCustomerEmail && item.customerEmail?.toLowerCase() === targetCustomerEmail);
+                let match = true;
 
-                if (match && "customerId" in where) {
-                  match = (item.customerId ?? null) === where.customerId;
-                }
-                if (match && where.attempts && typeof where.attempts === "object") {
-                  const currentAttempts = item.attempts ?? 0;
-                  if (typeof where.attempts.lt === "number" && !(currentAttempts < where.attempts.lt)) {
-                    match = false;
+                if (modelName === "projectProvider") {
+                  match = matchesProviderWhere(item, where);
+                } else if (modelName === "project") {
+                  match = matchesProjectWhere(memoryStore.resolveProject(item), where);
+                } else {
+                  const targetIdentifier = typeof where.identifier === "string" ? where.identifier.toLowerCase() : undefined;
+                  const targetEmail =
+                    typeof where.email === "string"
+                      ? where.email.toLowerCase()
+                      : typeof where.email?.equals === "string"
+                      ? where.email.equals.toLowerCase()
+                      : undefined;
+                  const targetCustomerEmail =
+                    typeof where.customerEmail === "string" ? where.customerEmail.toLowerCase() : undefined;
+
+                  match =
+                    (!targetIdentifier && !targetEmail && !targetCustomerEmail && !where.id) ||
+                    Boolean(where.id && item.id === where.id) ||
+                    Boolean(targetIdentifier && item.identifier?.toLowerCase() === targetIdentifier) ||
+                    Boolean(targetEmail && item.email?.toLowerCase() === targetEmail) ||
+                    Boolean(targetCustomerEmail && item.customerEmail?.toLowerCase() === targetCustomerEmail);
+
+                  if (match && "customerId" in where) {
+                    match = (item.customerId ?? null) === where.customerId;
                   }
-                  if (typeof where.attempts.lte === "number" && !(currentAttempts <= where.attempts.lte)) {
-                    match = false;
+                  if (match && where.attempts && typeof where.attempts === "object") {
+                    const currentAttempts = item.attempts ?? 0;
+                    if (typeof where.attempts.lt === "number" && !(currentAttempts < where.attempts.lt)) {
+                      match = false;
+                    }
+                    if (typeof where.attempts.lte === "number" && !(currentAttempts <= where.attempts.lte)) {
+                      match = false;
+                    }
+                    if (typeof where.attempts.gte === "number" && !(currentAttempts >= where.attempts.gte)) {
+                      match = false;
+                    }
                   }
-                  if (typeof where.attempts.gte === "number" && !(currentAttempts >= where.attempts.gte)) {
-                    match = false;
+                  if (match && where.expiresAt && typeof where.expiresAt === "object") {
+                    const itemExpiresAt = item.expiresAt ? new Date(item.expiresAt).getTime() : 0;
+                    if (where.expiresAt.gt && !(itemExpiresAt > new Date(where.expiresAt.gt).getTime())) {
+                      match = false;
+                    }
                   }
-                }
-                if (match && where.expiresAt && typeof where.expiresAt === "object") {
-                  const itemExpiresAt = item.expiresAt ? new Date(item.expiresAt).getTime() : 0;
-                  if (where.expiresAt.gt && !(itemExpiresAt > new Date(where.expiresAt.gt).getTime())) {
-                    match = false;
-                  }
-                }
-                if (match && where.expires && typeof where.expires === "object") {
-                  const itemExpires = item.expires ? new Date(item.expires).getTime() : 0;
-                  if (where.expires.gt && !(itemExpires > new Date(where.expires.gt).getTime())) {
-                    match = false;
+                  if (match && where.expires && typeof where.expires === "object") {
+                    const itemExpires = item.expires ? new Date(item.expires).getTime() : 0;
+                    if (where.expires.gt && !(itemExpires > new Date(where.expires.gt).getTime())) {
+                      match = false;
+                    }
                   }
                 }
 
@@ -598,6 +752,10 @@ export function createMockPrismaClient(): any {
               memoryStore.projects = memoryStore.projects.filter((p) => p.id !== targetId);
               memoryStore.saveToDisk();
             }
+            if (modelName === "projectProvider" && targetId) {
+              memoryStore.providers = memoryStore.providers.filter((p) => p.id !== targetId);
+              memoryStore.saveToDisk();
+            }
             return { id: targetId || "deleted" };
           },
 
@@ -613,6 +771,33 @@ export function createMockPrismaClient(): any {
                   (!targetId || u.id !== targetId)
               );
               count = initial - memoryStore.users.length;
+            }
+            if (modelName === "session") {
+              const targetUserId = args?.where?.userId;
+              const initial = memoryStore.sessions.length;
+              memoryStore.sessions = memoryStore.sessions.filter(
+                (s) => !targetUserId || s.userId !== targetUserId
+              );
+              count = initial - memoryStore.sessions.length;
+            }
+            if (modelName === "project") {
+              const targetProviderId = args?.where?.providerId;
+              const initial = memoryStore.projects.length;
+              memoryStore.projects = memoryStore.projects.filter(
+                (p) => !targetProviderId || p.providerId !== targetProviderId
+              );
+              count = initial - memoryStore.projects.length;
+            }
+            if (modelName === "projectImage") {
+              const projectIdIn = args?.where?.projectId?.in;
+              const targetProjectId = typeof args?.where?.projectId === "string" ? args.where.projectId : undefined;
+              const initial = memoryStore.projectImages.length;
+              memoryStore.projectImages = memoryStore.projectImages.filter((img) => {
+                if (Array.isArray(projectIdIn)) return !projectIdIn.includes(img.projectId);
+                if (targetProjectId) return img.projectId !== targetProjectId;
+                return false;
+              });
+              count = initial - memoryStore.projectImages.length;
             }
             if (modelName === "pendingRegistration" && args?.where?.email) {
               const initial = memoryStore.pendingRegistrations.length;

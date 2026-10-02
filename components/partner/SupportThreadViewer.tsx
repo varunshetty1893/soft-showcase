@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Send, User, Shield, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils/format";
 
 interface Message {
@@ -33,6 +34,7 @@ export function SupportThreadViewer({
   ticketStatus,
 }: SupportThreadViewerProps) {
   const router = useRouter();
+  const toast = useToast();
   const [messages, setMessages] = React.useState<Message[]>(initialMessages);
   const [replyText, setReplyText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -59,9 +61,12 @@ export function SupportThreadViewer({
 
       setMessages((prev) => [...prev, data.message]);
       setReplyText("");
+      toast.success("Reply sent.");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
+      const msg = err instanceof Error ? err.message : "Failed to send message";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

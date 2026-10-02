@@ -2,6 +2,7 @@
 // Database query helpers for categories and technologies.
 
 import { db } from "@/lib/db/client";
+import { publicProjectWhere } from "./public-filters";
 
 /**
  * Get all active categories for navigation/filters.
@@ -12,7 +13,7 @@ export async function getActiveCategories() {
     orderBy: { sortOrder: "asc" },
     include: {
       _count: {
-        select: { projects: { where: { status: "PUBLISHED" } } },
+        select: { projects: { where: publicProjectWhere() } },
       },
     },
   });
