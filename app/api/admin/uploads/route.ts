@@ -49,8 +49,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image file provided" }, { status: 400 });
     }
 
+    // 2. Validate image type, size, and real file magic bytes
+    try {
+      await validateImageFile(file);
+    } catch (valErr) {
+      return NextResponse.json(
+        { error: valErr instanceof Error ? valErr.message : "Invalid image file" },
+        { status: 400 }
+      );
+    }
+
     if (!projectId) {
-      return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
+      const result = await uploadImage(file, "soft-showcase/projects/new");
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            url: result.url,
+            storageKey: result.storageKey,
+            altText,
+            isPrimary,
+            sortOrder: 0,
+          },
+        },
+        { status: 201 }
+      );
     }
 
     // 1. Verify project exists
@@ -61,16 +85,6 @@ export async function POST(request: NextRequest) {
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
-
-    // 2. Validate image type, size, and real file magic bytes
-    try {
-      await validateImageFile(file);
-    } catch (valErr) {
-      return NextResponse.json(
-        { error: valErr instanceof Error ? valErr.message : "Invalid image file" },
-        { status: 400 }
-      );
     }
 
     // Execute upload and database registration inside per-project lock to eliminate race conditions

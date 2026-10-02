@@ -39,7 +39,7 @@ export interface ProjectImageItem {
 }
 
 interface ImageUploaderProps {
-  projectId: string;
+  projectId?: string;
   initialImages?: ProjectImageItem[];
   onImagesChange?: (images: ProjectImageItem[]) => void;
 }
@@ -106,7 +106,9 @@ export function ImageUploader({
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("projectId", projectId);
+        if (projectId) {
+          formData.append("projectId", projectId);
+        }
         formData.append("isPrimary", String(uploadedImages.length === 0));
 
         const res = await fetch("/api/admin/uploads", {
@@ -156,6 +158,15 @@ export function ImageUploader({
 
   // Set primary image
   async function handleSetPrimary(imageId: string) {
+    if (!projectId) {
+      const updated = images.map((img) => ({
+        ...img,
+        isPrimary: img.id === imageId,
+      }));
+      notifyChange(updated);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
         method: "PATCH",
@@ -181,6 +192,15 @@ export function ImageUploader({
 
   // Save alt text
   async function handleSaveAlt(imageId: string) {
+    if (!projectId) {
+      const updated = images.map((img) =>
+        img.id === imageId ? { ...img, altText: altTextDraft.trim() || null } : img
+      );
+      notifyChange(updated);
+      setEditingAltId(null);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
         method: "PATCH",
@@ -206,7 +226,14 @@ export function ImageUploader({
 
   // Delete image
   async function handleDelete(imageId: string) {
-    if (!confirm("Are you sure you want to delete this screenshot?")) return;
+    if (!projectId) {
+      let updated = images.filter((img) => img.id !== imageId);
+      if (images.find((img) => img.id === imageId)?.isPrimary && updated.length > 0) {
+        updated = updated.map((img, idx) => ({ ...img, isPrimary: idx === 0 }));
+      }
+      notifyChange(updated);
+      return;
+    }
 
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
@@ -253,6 +280,8 @@ export function ImageUploader({
 
     const updated = reordered.map((img, idx) => ({ ...img, sortOrder: idx }));
     notifyChange(updated);
+
+    if (!projectId) return;
 
     // Persist new order to server
     try {
@@ -355,7 +384,6 @@ export function ImageUploader({
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   className="object-cover"
                   referrerPolicy="no-referrer"
-                  unoptimized={img.url.startsWith("data:")}
                 />
 
                 {/* Primary Badge or Make Primary Button */}

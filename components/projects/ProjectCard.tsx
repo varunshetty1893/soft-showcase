@@ -59,7 +59,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
             alt={primaryImage.altText || `${project.title} software preview thumbnail`}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            unoptimized={primaryImage.url.startsWith("data:")}
             referrerPolicy="no-referrer"
             className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
           />
@@ -149,7 +148,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
                   alt={project.provider.displayName}
                   width={16}
                   height={16}
-                  unoptimized={project.provider.avatarUrl.startsWith("data:")}
                   referrerPolicy="no-referrer"
                   className="w-4 h-4 rounded-full border border-[#D9E2E4] object-cover"
                 />

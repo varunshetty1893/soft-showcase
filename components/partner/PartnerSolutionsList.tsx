@@ -219,7 +219,6 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-cover group-hover:scale-102 transition-transform duration-300"
                       referrerPolicy="no-referrer"
-                      unoptimized={primaryImg.startsWith("data:")}
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] p-4 text-center">

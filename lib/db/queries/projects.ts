@@ -34,6 +34,15 @@ export async function getPublishedProjects(options: {
     featured,
   } = options;
 
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
+    return {
+      projects: [],
+      total: 0,
+      totalPages: 0,
+      currentPage: page,
+    };
+  }
+
   const skip = (page - 1) * pageSize;
 
   const where = {
@@ -158,6 +167,9 @@ export async function getPublishedProjects(options: {
  * Returns null if not found or not published.
  */
 export const getProjectBySlug = cache(async (slug: string) => {
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
+    return null;
+  }
   const trimmed = slug.trim();
   const whereClause = {
     OR: [
@@ -271,6 +283,9 @@ export const getRelatedProjects = cache(async (
   excludeProjectId: string,
   limit = 3
 ) => {
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
+    return [];
+  }
   const whereClause = {
     categoryId,
     status: "PUBLISHED" as ProjectStatus,

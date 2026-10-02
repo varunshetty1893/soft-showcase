@@ -15,13 +15,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify partner profile exists strictly by userId (Issue 42)
+    const userEmail = session.user.email?.toLowerCase().trim() || "";
     const partner = await db.projectProvider.findFirst({
-      where: { userId: session.user.id },
+      where: {
+        OR: [
+          { userId: session.user.id },
+          ...(userEmail
+            ? [{ email: { equals: userEmail, mode: "insensitive" as const } }]
+            : []),
+        ],
+      },
     });
 
     if (!partner && !session.user.isAdmin) {
       return NextResponse.json({ error: "Partner profile not found" }, { status: 403 });
+    }
+
+    if (partner && !partner.userId) {
+      await db.projectProvider
+        .update({
+          where: { id: partner.id },
+          data: { userId: session.user.id },
+        })
+        .catch(() => null);
     }
 
     const formData = await request.formData();

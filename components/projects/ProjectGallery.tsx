@@ -42,7 +42,6 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
           fill
           priority
           sizes="(max-width: 1024px) 100vw, 800px"
-          unoptimized={currentImage.url.startsWith("data:")}
           referrerPolicy="no-referrer"
           className="object-contain"
         />
@@ -72,7 +71,6 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                 alt={img.altText || `${projectTitle} preview thumbnail ${idx + 1}`}
                 fill
                 sizes="96px"
-                unoptimized={img.url.startsWith("data:")}
                 referrerPolicy="no-referrer"
                 className="object-cover"
               />

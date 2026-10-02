@@ -157,6 +157,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const [form, setForm] = useState<ProjectFormData>({ ...EMPTY, ...initialData });
+  const [images, setImages] = useState<ProjectImageItem[]>(initialImages ?? []);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(isEditing);
   const [whatsIncludedInput, setWhatsIncludedInput] = useState(
     initialData?.whatsIncluded?.join("\n") ?? ""
@@ -353,6 +354,16 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
           sortOrder: i,
         })),
       technologyIds: form.technologyIds,
+      ...(!isEditing &&
+        images.length > 0 && {
+          images: images.map((img, i) => ({
+            url: img.url,
+            storageKey: img.storageKey,
+            altText: img.altText || undefined,
+            isPrimary: img.isPrimary,
+            sortOrder: i,
+          })),
+        }),
     };
 
     try {
@@ -943,40 +954,11 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Project Images ──────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#102124]">Project Screenshots</h2>
-          {!projectId && (
-            <span className="text-xs text-[#526267]">
-              Save the project first, then add images
-            </span>
-          )}
-        </div>
-
-        {projectId ? (
-          <ImageUploader
-            projectId={projectId}
-            initialImages={initialImages}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-[#D9E2E4] rounded-2xl gap-2 bg-[#F8FAFA]">
-            <svg
-              className="w-10 h-10 text-[#526267]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <p className="text-xs text-[#526267]">
-              Create the project, then upload screenshots from the edit page.
-            </p>
-          </div>
-        )}
+        <ImageUploader
+          projectId={projectId}
+          initialImages={images}
+          onImagesChange={setImages}
+        />
       </div>
 
       {/* ── Submit Bar ───────────────────────────────────────────────────────── */}

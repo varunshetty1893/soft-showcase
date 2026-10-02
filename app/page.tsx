@@ -63,8 +63,8 @@ export default async function HomePage() {
       const allRes = await getPublishedProjects({ pageSize: 6 });
       featuredProjects = allRes.projects;
     }
-  } catch (err) {
-    console.warn("Could not load featured projects for homepage:", err);
+  } catch {
+    featuredProjects = [];
   }
 
   const websiteSchema = {

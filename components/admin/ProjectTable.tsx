@@ -335,7 +335,6 @@ export default function ProjectTable() {
                             sizes="40px"
                             className="object-cover"
                             referrerPolicy="no-referrer"
-                            unoptimized={project.images[0].url.startsWith("data:")}
                           />
                         </div>
                       ) : (

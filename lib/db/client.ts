@@ -95,12 +95,91 @@ function getClient(): PrismaClient {
   return globalForPrisma.prisma;
 }
 
+function isInitializationOrConnectionError(err: unknown): boolean {
+  const name = (err as { name?: string })?.name || "";
+  const code = (err as { code?: string; errorCode?: string })?.code || (err as { errorCode?: string })?.errorCode || "";
+  const msg = String((err as { message?: string })?.message || "");
+  return (
+    name.includes("PrismaClientInitializationError") ||
+    code === "P1000" ||
+    code === "P1001" ||
+    code === "P1002" ||
+    code === "P1003" ||
+    msg.includes("Can't reach database server") ||
+    msg.includes("PrismaClientInitializationError") ||
+    msg.includes("Environment variable not found: DATABASE_URL") ||
+    msg.includes("Authentication failed against database server")
+  );
+}
+
+function wrapModelDelegate(
+  delegate: Record<string | symbol, unknown>,
+  modelName: string | symbol
+): Record<string | symbol, unknown> {
+  if (process.env.NODE_ENV !== "production") {
+    return new Proxy(delegate, {
+      get(target, methodProp) {
+        const orig = target[methodProp];
+        if (typeof orig !== "function") return orig;
+        return (...args: unknown[]) => {
+          try {
+            const res = orig.apply(target, args);
+            if (res && typeof (res as Promise<unknown>).catch === "function") {
+              return (res as Promise<unknown>).catch((err: unknown) => {
+                if (isInitializationOrConnectionError(err)) {
+                  if (!globalForPrisma.mockDb) {
+                    globalForPrisma.mockDb = loadMockPrismaClient();
+                  }
+                  const mockDelegate = (
+                    globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
+                  )[modelName];
+                  const mockFn = mockDelegate?.[methodProp];
+                  if (typeof mockFn === "function") {
+                    return mockFn.apply(mockDelegate, args);
+                  }
+                }
+                throw err;
+              });
+            }
+            return res;
+          } catch (err) {
+            if (isInitializationOrConnectionError(err)) {
+              if (!globalForPrisma.mockDb) {
+                globalForPrisma.mockDb = loadMockPrismaClient();
+              }
+              const mockDelegate = (
+                globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
+              )[modelName];
+              const mockFn = mockDelegate?.[methodProp];
+              if (typeof mockFn === "function") {
+                return mockFn.apply(mockDelegate, args);
+              }
+            }
+            throw err;
+          }
+        };
+      },
+    });
+  }
+  return delegate;
+}
+
 export const db: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop) {
+    if (process.env.NODE_ENV !== "production" && globalForPrisma.mockDb) {
+      const mockVal = (globalForPrisma.mockDb as unknown as Record<string | symbol, unknown>)[prop];
+      if (typeof mockVal === "function") {
+        return mockVal.bind(globalForPrisma.mockDb);
+      }
+      return mockVal;
+    }
     const client = getClient();
     const val = (client as unknown as Record<string | symbol, unknown>)[prop];
     if (typeof val === "function") {
       return val.bind(client);
+    }
+    if (val && typeof val === "object") {
+      return wrapModelDelegate(val as Record<string | symbol, unknown>, prop);
     }
     return val;
   },
