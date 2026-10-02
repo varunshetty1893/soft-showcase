@@ -1,14 +1,29 @@
 // app/api/user/profile/route.ts
 // Customer profile update endpoint.
-// Allows authenticated users to update their profile settings (e.g. name).
+// Allows authenticated users to update their profile settings (name, whatsapp, contactEmail).
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 import { z } from "zod";
 
 const ProfileUpdateSchema = z.object({
-  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name cannot exceed 100 characters"),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name cannot exceed 100 characters")
+    .optional(),
+  whatsapp: z.string().trim().optional().nullable().or(z.literal("")),
+  contactEmail: z
+    .string()
+    .trim()
+    .email("Please enter a valid contact email address")
+    .max(255)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -31,13 +46,50 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const data = result.data;
+    const updateData: {
+      name?: string;
+      whatsapp?: string | null;
+      contactEmail?: string | null;
+    } = {};
+
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+
+    if (data.whatsapp !== undefined) {
+      if (data.whatsapp && data.whatsapp.trim()) {
+        if (!isValidPhone(data.whatsapp)) {
+          return NextResponse.json(
+            {
+              error: "Please enter a valid phone number with country code (e.g. +91 98765 43210)",
+            },
+            { status: 400 }
+          );
+        }
+        updateData.whatsapp = normalizeToE164(data.whatsapp);
+      } else {
+        updateData.whatsapp = null;
+      }
+    }
+
+    if (data.contactEmail !== undefined) {
+      if (data.contactEmail && data.contactEmail.trim()) {
+        updateData.contactEmail = data.contactEmail.trim().toLowerCase();
+      } else {
+        updateData.contactEmail = null;
+      }
+    }
+
     const updatedUser = await db.user.update({
       where: { id: user.id },
-      data: { name: result.data.name },
+      data: updateData,
       select: {
         id: true,
         name: true,
         email: true,
+        whatsapp: true,
+        contactEmail: true,
         image: true,
         isAdmin: true,
       },

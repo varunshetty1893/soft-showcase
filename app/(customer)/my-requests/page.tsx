@@ -27,11 +27,11 @@ export const metadata: Metadata = {
 export default async function MyRequestsPage() {
   const session = await auth();
 
-  if (!session?.user?.id || !session?.user?.email) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const requests = await getCustomerRequests(session.user.email);
+  const requests = await getCustomerRequests(session.user.id);
 
   return (
     <div>

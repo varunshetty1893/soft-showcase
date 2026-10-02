@@ -2,6 +2,7 @@
 // Zod schemas for Solution Partner registration, status updates, and verification.
 
 import { z } from "zod";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const PartnerRegisterSchema = z
   .object({
@@ -26,15 +27,12 @@ export const PartnerRegisterSchema = z
       .string()
       .trim()
       .transform((val) => {
-        const cleaned = val.replace(/[\s\-()]/g, "");
-        if (/^\d{12}$/.test(cleaned)) {
-          return `+${cleaned}`;
-        }
-        return cleaned;
+        const normalized = normalizeToE164(val);
+        return normalized || val;
       })
       .refine(
-        (val) => /^\+[1-9]\d{11}$/.test(val),
-        "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)"
+        (val) => isValidPhone(val),
+        "Please enter a valid WhatsApp phone number with country code (e.g. +91 98765 43210)"
       ),
     displayName: z
       .string()
@@ -131,15 +129,12 @@ export const PartnerProfileUpdateSchema = z.object({
     .trim()
     .transform((val) => {
       if (!val) return val;
-      const cleaned = val.replace(/[\s\-()]/g, "");
-      if (/^\d{12}$/.test(cleaned)) {
-        return `+${cleaned}`;
-      }
-      return cleaned;
+      const normalized = normalizeToE164(val);
+      return normalized || val;
     })
     .refine(
-      (val) => !val || /^\+[1-9]\d{11}$/.test(val),
-      "WhatsApp number must contain exactly 13 characters including country code (e.g. +919876543210)"
+      (val) => !val || isValidPhone(val),
+      "Please enter a valid WhatsApp phone number with country code (e.g. +91 98765 43210)"
     )
     .optional()
     .nullable()

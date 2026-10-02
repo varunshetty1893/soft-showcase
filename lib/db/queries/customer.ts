@@ -8,22 +8,13 @@ import { db } from "@/lib/db/client";
 
 /**
  * Fetch all inquiries submitted by a specific user.
- * Automatically links any unlinked legacy guest inquiries matching the user's email to customerId.
+ * Scoped strictly by customerId.
  */
 export async function getCustomerInquiries(
   userId: string,
-  email?: string | null,
+  _deprecatedEmail?: string | null,
   options?: { page?: number; pageSize?: number }
 ) {
-  if (email) {
-    const normalizedEmail = email.toLowerCase().trim();
-    // Link unlinked past inquiries submitted before account creation (Issue 43)
-    await db.inquiry.updateMany({
-      where: { email: normalizedEmail, customerId: null },
-      data: { customerId: userId },
-    }).catch(() => null);
-  }
-
   const page = options?.page || 1;
   const pageSize = options?.pageSize || 50;
   const skip = (page - 1) * pageSize;
@@ -69,10 +60,11 @@ export async function getCustomerInquiries(
 // ─── Custom Project Requests ──────────────────────────────────────────────────
 
 /**
- * Fetch custom project requests for a customer with pagination.
+ * Fetch custom project requests for a customer by customerId with pagination.
+ * Scoped strictly to authenticated account customerId (Issue B5).
  */
 export async function getCustomerRequests(
-  email: string,
+  userId: string,
   options?: { page?: number; pageSize?: number }
 ) {
   const page = options?.page || 1;
@@ -80,12 +72,14 @@ export async function getCustomerRequests(
   const skip = (page - 1) * pageSize;
 
   return db.customProjectRequest.findMany({
-    where: { email: { equals: email.trim().toLowerCase(), mode: "insensitive" } },
+    where: { customerId: userId },
     orderBy: { createdAt: "desc" },
     skip,
     take: pageSize,
     select: {
       id: true,
+      customerId: true,
+      linkedAt: true,
       projectTitle: true,
       category: true,
       technologyPreferences: true,
@@ -102,7 +96,7 @@ export async function getCustomerRequests(
 // ─── Customer Profile & Stats ─────────────────────────────────────────────────
 
 /**
- * Fetch user details for the customer profile page.
+ * Fetch user details for the customer profile page including DB-persisted contact details.
  */
 export async function getCustomerProfile(userId: string) {
   return db.user.findUnique({
@@ -111,6 +105,8 @@ export async function getCustomerProfile(userId: string) {
       id: true,
       name: true,
       email: true,
+      whatsapp: true,
+      contactEmail: true,
       image: true,
       isAdmin: true,
       createdAt: true,
@@ -120,18 +116,37 @@ export async function getCustomerProfile(userId: string) {
 
 /**
  * Get summary counts for the customer area badges and profile overview.
+ * Scoped strictly by customerId.
  */
-export async function getCustomerStats(userId: string, email: string) {
+export async function getCustomerStats(userId: string, _deprecatedEmail?: string) {
   const [inquiryCount, requestCount] = await Promise.all([
     db.inquiry.count({
-      where: {
-        OR: [{ customerId: userId }, { email: email.toLowerCase() }],
-      },
+      where: { customerId: userId },
     }),
     db.customProjectRequest.count({
-      where: { email: { equals: email, mode: "insensitive" } },
+      where: { customerId: userId },
     }),
   ]);
 
   return { inquiryCount, requestCount };
+}
+
+/**
+ * Link guest inquiries and custom requests to a verified user account.
+ * Executed strictly once upon verified sign-in.
+ */
+export async function linkVerifiedUserRecords(userId: string, email: string) {
+  if (!userId || !email) return;
+  const normalizedEmail = email.toLowerCase().trim();
+
+  await Promise.all([
+    db.inquiry.updateMany({
+      where: { email: normalizedEmail, customerId: null },
+      data: { customerId: userId },
+    }).catch((err) => console.error("[Linking] Failed to link guest inquiries:", err)),
+    db.customProjectRequest.updateMany({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" }, customerId: null },
+      data: { customerId: userId, linkedAt: new Date() },
+    }).catch((err) => console.error("[Linking] Failed to link guest custom requests:", err)),
+  ]);
 }

@@ -1,3 +1,5 @@
+import { normalizeToWhatsAppDigits } from "@/lib/utils/phone";
+
 // lib/whatsapp/whatsapp.ts
 // WhatsApp URL generator for project contact flow.
 //
@@ -75,5 +77,8 @@ export function generateWhatsAppUrl(
  *   9876543210      → 9876543210 (no country code assumed)
  */
 export function normalizeWhatsAppNumber(raw: string): string {
+  if (!raw) return "";
+  const parsedDigits = normalizeToWhatsAppDigits(raw);
+  if (parsedDigits) return parsedDigits;
   return raw.replace(/\D/g, "").replace(/^00/, "");
 }

@@ -2,6 +2,7 @@
 // Zod validation schema for the custom project request endpoint.
 
 import { z } from "zod";
+import { isValidPhone } from "@/lib/utils/phone";
 
 export const CustomRequestSchema = z.object({
   name: z
@@ -19,10 +20,13 @@ export const CustomRequestSchema = z.object({
 
   whatsapp: z
     .string()
-    .max(20, "WhatsApp number is too long")
     .trim()
     .optional()
-    .nullable(),
+    .nullable()
+    .refine(
+      (val) => !val || isValidPhone(val),
+      "Please enter a valid phone number with country code (e.g. +91 98765 43210)"
+    ),
 
   projectTitle: z
     .string()

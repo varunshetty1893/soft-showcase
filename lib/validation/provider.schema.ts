@@ -2,6 +2,7 @@
 // Zod validation schema for creating and editing project providers.
 
 import { z } from "zod";
+import { isValidPhone } from "@/lib/utils/phone";
 
 export const ProviderSchema = z.object({
   displayName: z
@@ -19,11 +20,14 @@ export const ProviderSchema = z.object({
 
   whatsappNumber: z
     .string()
-    .max(20, "WhatsApp number is too long")
     .trim()
     .optional()
     .nullable()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .refine(
+      (val) => !val || isValidPhone(val),
+      "Please enter a valid phone number with country code (e.g. +91 98765 43210)"
+    ),
 
   bio: z
     .string()
