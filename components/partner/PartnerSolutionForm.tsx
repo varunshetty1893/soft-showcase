@@ -1382,7 +1382,7 @@ export function PartnerSolutionForm({
           {priceMode === "FIXED" && (
             <div>
               <Label className="text-xs font-semibold text-[#102124]">
-                Original Price (INR) (Optional)
+                Original price (only if you really sold/listed at this price before)
               </Label>
               <Input
                 type="number"
@@ -1391,6 +1391,9 @@ export function PartnerSolutionForm({
                 placeholder="Must be > selling price"
                 className="mt-1"
               />
+              <p className="text-[11px] text-[#526267] mt-1">
+                Leave blank if no prior verifiable price exists. Never invent discounts.
+              </p>
             </div>
           )}
 

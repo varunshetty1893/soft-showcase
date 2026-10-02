@@ -228,7 +228,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
 
           {/* ── Main Content Grid ──────────────────────────────────────── */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Left 2 Columns: Gallery, Price/Deal Box, Overview, Features, Specs, FAQ */}
+            {/* Left 2 Columns: Gallery, Price Box, Overview, Features, Specs, FAQ */}
             <div className="lg:col-span-2 space-y-8">
               {/* Screenshot Gallery */}
               <ProjectGallery images={project.images} projectTitle={project.title} />

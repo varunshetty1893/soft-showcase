@@ -6,16 +6,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 import {
   HelpCircle,
   MessageSquare,
   FileCode,
-  ShieldCheck,
   Headphones,
   ArrowRight,
-  ExternalLink,
   ChevronRight,
 } from "lucide-react";
 

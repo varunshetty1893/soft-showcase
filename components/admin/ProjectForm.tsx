@@ -656,7 +656,7 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
           {form.priceMode === "FIXED" && (
             <div>
               <label className={labelClass}>
-                Original Price (₹) (Optional — only if previously sold/listed at this price)
+                Original price (only if you really sold/listed at this price before)
               </label>
               <input
                 type="number"

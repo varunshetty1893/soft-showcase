@@ -132,5 +132,20 @@ describe("Pricing Honesty & Discount Calculation (B1)", () => {
         expect(result.error.issues.some((i) => i.path.includes("originalPrice"))).toBe(true);
       }
     });
+
+    it("rejects originalPrice on STARTING_FROM projects", () => {
+      const invalidStartingWithOriginal = {
+        ...baseProject,
+        priceMode: "STARTING_FROM" as const,
+        price: 9999,
+        originalPrice: 19999,
+      };
+
+      const result = ProjectSchema.safeParse(invalidStartingWithOriginal);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("originalPrice"))).toBe(true);
+      }
+    });
   });
 });
