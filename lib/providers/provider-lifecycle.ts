@@ -244,11 +244,15 @@ export async function removeProvider(params: {
     };
   }
 
-  if ((confirmName || "").trim() !== existing.displayName.trim()) {
+  const typedLower = (confirmName || "").trim().toLowerCase();
+  const nameLower = existing.displayName.trim().toLowerCase();
+  const emailLower = (existing.email || "").trim().toLowerCase();
+
+  if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
     return {
       ok: false,
       status: 400,
-      message: `Confirmation name must exactly match "${existing.displayName}".`,
+      message: `Confirmation must match provider name "${existing.displayName}" or email "${existing.email}".`,
     };
   }
 
@@ -458,11 +462,15 @@ export async function permanentlyDeleteProvider(params: {
     };
   }
 
-  if ((confirmName || "").trim() !== existing.displayName.trim()) {
+  const typedLower = (confirmName || "").trim().toLowerCase();
+  const nameLower = existing.displayName.trim().toLowerCase();
+  const emailLower = (existing.email || "").trim().toLowerCase();
+
+  if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
     return {
       ok: false,
       status: 400,
-      message: `Confirmation name must exactly match "${existing.displayName}".`,
+      message: `Confirmation name must match "${existing.displayName}" or "${existing.email}".`,
     };
   }
 

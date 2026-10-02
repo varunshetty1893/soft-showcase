@@ -71,6 +71,18 @@ type ProviderRow = ProviderTableRow;
 
 type FilterTab = "all" | "pending" | "active" | "inactive" | "rejected" | "removed";
 
+function isProviderConfirmMatch(
+  typed: string,
+  provider: ProviderRow | null | undefined
+): boolean {
+  if (!provider) return false;
+  const t = typed.trim().toLowerCase();
+  if (!t) return false;
+  const name = provider.displayName.trim().toLowerCase();
+  const email = (provider.email || "").trim().toLowerCase();
+  return t === name || (Boolean(email) && t === email);
+}
+
 export function ProviderTable({
   providers: initial,
   currentAdminUserId,
@@ -999,8 +1011,8 @@ export function ProviderTable({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#102124] uppercase tracking-wider mb-1.5">
-                Type <span className="text-rose-600 font-mono">{removeModalProvider.displayName}</span> to confirm *
+              <label className="block text-xs font-bold text-[#102124] mb-1.5">
+                Type <span className="text-rose-600 font-mono font-bold">{removeModalProvider.displayName}</span> (or <span className="text-rose-600 font-mono font-bold">{removeModalProvider.email}</span>) to confirm *
               </label>
               <input
                 type="text"
@@ -1037,7 +1049,7 @@ export function ProviderTable({
                 disabled={
                   loadingId === removeModalProvider.id ||
                   !removeReason.trim() ||
-                  removeConfirmName.trim() !== removeModalProvider.displayName.trim()
+                  !isProviderConfirmMatch(removeConfirmName, removeModalProvider)
                 }
                 onClick={handleRemoveProviderConfirm}
               >
@@ -1077,8 +1089,8 @@ export function ProviderTable({
             </p>
 
             <div>
-              <label className="block text-xs font-bold text-[#102124] uppercase tracking-wider mb-1.5">
-                Type <span className="text-rose-600 font-mono">{deleteModalProvider.displayName}</span> to confirm *
+              <label className="block text-xs font-bold text-[#102124] mb-1.5">
+                Type <span className="text-rose-600 font-mono font-bold">{deleteModalProvider.displayName}</span> (or <span className="text-rose-600 font-mono font-bold">{deleteModalProvider.email}</span>) to confirm *
               </label>
               <input
                 type="text"
@@ -1104,7 +1116,7 @@ export function ProviderTable({
                 size="sm"
                 disabled={
                   loadingId === deleteModalProvider.id ||
-                  deleteConfirmName.trim() !== deleteModalProvider.displayName.trim()
+                  !isProviderConfirmMatch(deleteConfirmName, deleteModalProvider)
                 }
                 onClick={handlePermanentDeleteConfirm}
               >
