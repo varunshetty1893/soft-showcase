@@ -80,10 +80,17 @@ export const DEAL_BADGE_META: Record<Exclude<DealTypeValue, "NONE">, DealBadgeMe
   },
 };
 
+export type NumericInput =
+  | number
+  | string
+  | { toNumber?: () => number; toString?: () => string }
+  | null
+  | undefined;
+
 export interface ProjectPricingInput {
   priceMode?: string | null;
-  price?: number | string | { toNumber?: () => number } | null;
-  originalPrice?: number | string | { toNumber?: () => number } | null;
+  price?: NumericInput;
+  originalPrice?: NumericInput;
   priceQualifier?: string | null;
   dealType?: string | null;
   dealLabel?: string | null;
@@ -142,9 +149,7 @@ export interface EffectivePricingResult {
   countdownLabel: string | null;
 }
 
-function toFiniteNumber(
-  value: number | string | { toNumber?: () => number } | null | undefined
-): number | null {
+function toFiniteNumber(value: NumericInput): number | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
@@ -153,7 +158,7 @@ function toFiniteNumber(
     const n = value.toNumber();
     return Number.isFinite(n) ? n : null;
   }
-  const parsed = Number(value);
+  const parsed = Number(String(value));
   return Number.isFinite(parsed) ? parsed : null;
 }
 

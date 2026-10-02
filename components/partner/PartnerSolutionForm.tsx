@@ -1102,11 +1102,11 @@ export function PartnerSolutionForm({
 
       const startsAtUtc =
         priceMode === "FIXED" && dealStartsAt
-          ? fromIstDatetimeLocal(dealStartsAt)?.toISOString() ?? null
+          ? fromIstDatetimeLocal(dealStartsAt)
           : null;
       const endsAtUtc =
         priceMode === "FIXED" && dealEndsAt
-          ? fromIstDatetimeLocal(dealEndsAt)?.toISOString() ?? null
+          ? fromIstDatetimeLocal(dealEndsAt)
           : null;
 
       const payload = {
@@ -2063,7 +2063,7 @@ export function PartnerSolutionForm({
               type="button"
               onClick={() => {
                 setWhatsIncluded((prev) => prev.slice(0, 20));
-                setSuccessNotice("What's Included has been trimmed to 20 items.");
+                toast.success("What's Included has been trimmed to 20 items.");
                 setErrorItems((prev) => prev.filter((item) => item.field !== "whatsIncluded"));
               }}
               className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"
@@ -2141,7 +2141,7 @@ export function PartnerSolutionForm({
               type="button"
               onClick={() => {
                 setFeatures((prev) => prev.slice(0, 25));
-                setSuccessNotice("Key Features has been trimmed to 25 features.");
+                toast.success("Key Features has been trimmed to 25 features.");
                 setErrorItems((prev) => prev.filter((item) => item.field !== "features"));
               }}
               className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"

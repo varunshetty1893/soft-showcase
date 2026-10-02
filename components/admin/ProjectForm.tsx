@@ -488,11 +488,11 @@ export default function ProjectForm({
 
     const startsAtUtc =
       form.priceMode === "FIXED" && form.dealStartsAt
-        ? fromIstDatetimeLocal(form.dealStartsAt)?.toISOString() ?? null
+        ? fromIstDatetimeLocal(form.dealStartsAt)
         : null;
     const endsAtUtc =
       form.priceMode === "FIXED" && form.dealEndsAt
-        ? fromIstDatetimeLocal(form.dealEndsAt)?.toISOString() ?? null
+        ? fromIstDatetimeLocal(form.dealEndsAt)
         : null;
 
     const payload = {

@@ -282,6 +282,14 @@ export async function POST(request: NextRequest) {
           email: true,
           isActive: true,
           providerConsentConfirmed: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              role: true,
+              isAdmin: true,
+            },
+          },
         },
       });
       providerCreated = true;

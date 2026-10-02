@@ -10,7 +10,6 @@ import * as React from "react";
 import { Tag, Clock, Sparkles } from "lucide-react";
 import { PriceBlock } from "./PriceBlock";
 import {
-  DEAL_TYPES,
   TIME_LIMITED_DEAL_TYPES,
   validatePricingOfferInput,
   toIstDatetimeLocal,
