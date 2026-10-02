@@ -27,6 +27,10 @@ export default async function PartnerSolutionsPage() {
     shortDescription: p.shortDescription,
     priceMode: p.priceMode,
     price: p.price ? p.price.toString() : null,
+    originalPrice:
+      (p as { originalPrice?: unknown }).originalPrice != null
+        ? String((p as { originalPrice?: unknown }).originalPrice)
+        : null,
     status: p.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
     featured: Boolean(p.featured),
     category: p.category ? { id: p.category.id, name: p.category.name, slug: p.category.slug } : null,

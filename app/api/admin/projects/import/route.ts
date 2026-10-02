@@ -175,10 +175,14 @@ export async function POST(request: NextRequest) {
     // Resolve or create category
     let finalCategory = existingCategory;
     if (!finalCategory) {
-      finalCategory = await db.category.create({
-        data: {
+      const catSlug = categorySlug || `cat-${Date.now()}`;
+      finalCategory = await db.category.upsert({
+        where: { slug: catSlug },
+        update: { isActive: true },
+        create: {
           name: categoryName,
-          slug: categorySlug,
+          slug: catSlug,
+          isActive: true,
         },
         select: { id: true, name: true, slug: true },
       });
@@ -196,6 +200,8 @@ export async function POST(request: NextRequest) {
           showWhatsapp: true,
           showEmail: false,
           isActive: true,
+          applicationStatus: "approved",
+          verificationStatus: "verified",
           providerConsentConfirmed: false,
           providerConsentConfirmedAt: null,
         },
@@ -213,14 +219,20 @@ export async function POST(request: NextRequest) {
     // Resolve or create technologies
     const allTechIds: string[] = existingTechnologies.map((t) => t.id);
     for (const newTechName of newTechNames) {
-      const createdTech = await db.technology.create({
-        data: {
+      const techSlug = slugify(newTechName) || `tech-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const createdTech = await db.technology.upsert({
+        where: { slug: techSlug },
+        update: { isActive: true },
+        create: {
           name: newTechName,
-          slug: slugify(newTechName),
+          slug: techSlug,
+          isActive: true,
         },
         select: { id: true },
       });
-      allTechIds.push(createdTech.id);
+      if (!allTechIds.includes(createdTech.id)) {
+        allTechIds.push(createdTech.id);
+      }
     }
 
     // Normalize images (mainImage + images)
@@ -250,6 +262,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const validOriginalPrice =
+      data.priceMode === "FIXED" &&
+      data.originalPrice != null &&
+      data.price != null &&
+      Number(data.originalPrice) > Number(data.price)
+        ? Number(data.originalPrice)
+        : null;
+
     // Create project as DRAFT
     const project = await db.project.create({
       data: {
@@ -261,6 +281,7 @@ export async function POST(request: NextRequest) {
         demoUrl: data.demoUrl || null,
         priceMode: data.priceMode,
         price: data.price ?? null,
+        originalPrice: validOriginalPrice,
         whatsIncluded: data.whatsIncluded || [],
         status: "DRAFT",
         categoryId: finalCategory.id,

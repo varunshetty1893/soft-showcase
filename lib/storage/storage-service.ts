@@ -175,7 +175,35 @@ export async function uploadImage(
   folder: string = "soft-showcase/projects"
 ): Promise<UploadResult> {
   const service = createStorageService();
-  return service.upload(file, { folder });
+  try {
+    return await service.upload(file, { folder });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      process.env.NODE_ENV !== "production" ||
+      message.includes("not fully configured") ||
+      message.includes("not configured")
+    ) {
+      const { mimeType } = await validateImageFile(file);
+      let buffer: Buffer;
+      if (Buffer.isBuffer(file)) {
+        buffer = file;
+      } else if (typeof (file as any).arrayBuffer === "function") {
+        const ab = await (file as any).arrayBuffer();
+        buffer = Buffer.from(ab);
+      } else {
+        throw err;
+      }
+      const base64 = buffer.toString("base64");
+      return {
+        url: `data:${mimeType};base64,${base64}`,
+        storageKey: `inline/${folder}/${Date.now()}`,
+        width: 1200,
+        height: 800,
+      };
+    }
+    throw err;
+  }
 }
 
 /**

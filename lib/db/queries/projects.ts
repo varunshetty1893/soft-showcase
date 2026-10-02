@@ -119,6 +119,8 @@ export async function getPublishedProjects(options: {
 
   let result: Awaited<ReturnType<typeof queryWithOriginalPrice>>;
 
+  await ensureAdditiveSchema();
+
   try {
     result = await queryWithOriginalPrice();
   } catch (err) {
@@ -203,6 +205,7 @@ export const getProjectBySlug = cache(async (slug: string) => {
     });
 
   let project: Awaited<ReturnType<typeof queryFullProject>>;
+  await ensureAdditiveSchema();
   try {
     project = await queryFullProject();
   } catch (err) {
@@ -293,6 +296,8 @@ export const getRelatedProjects = cache(async (
       select: { url: true, altText: true },
     },
   } as const;
+
+  await ensureAdditiveSchema();
 
   try {
     return await db.project.findMany({

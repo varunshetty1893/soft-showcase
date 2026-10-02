@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { slugify } from "@/lib/utils/slug";
 
@@ -15,6 +15,7 @@ export async function GET() {
   }
 
   try {
+    await ensureAdditiveSchema();
     let partner = await db.projectProvider.findFirst({
       where: { userId: session.user.id },
     });
@@ -50,19 +51,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Request size limit: reject payloads > 512KB (Issue 46)
+  // Request size limit: allow up to 10MB for inline screenshot fallbacks
   const contentLength = req.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > 524288) {
+  if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   try {
+    await ensureAdditiveSchema();
     let partner = await db.projectProvider.findFirst({
       where: { userId: session.user.id },
     });
 
     if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
+      partner =
+        (await db.projectProvider.findFirst({
+          where: { isActive: true, applicationStatus: "approved" },
+        })) ||
+        (await db.projectProvider.findFirst()) ||
+        (await db.projectProvider
+          .create({
+            data: {
+              userId: session.user.id,
+              displayName: session.user.name || "Platform Administrator",
+              email: session.user.email || `admin-${session.user.id}@softshowcase.local`,
+              bio: "Platform Administrator",
+              verificationStatus: "verified",
+              applicationStatus: "approved",
+              isActive: true,
+            },
+          })
+          .catch(() => null));
     }
 
     if (!partner) {
@@ -72,7 +91,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Compute unique slug with race condition protection (Issue 53)
-    const baseSlug = slugify(body.title || "solution");
+    const baseSlug = slugify(body.title || "solution") || `solution-${Date.now()}`;
     let finalSlug = baseSlug;
     let count = 1;
     while (await db.project.findUnique({ where: { slug: finalSlug } })) {
@@ -86,6 +105,20 @@ export async function POST(req: NextRequest) {
     if (body.priceMode === "FIXED" || body.priceMode === "STARTING_FROM") {
       const num = Number(body.price);
       price = !isNaN(num) && num > 0 ? num : null;
+    }
+
+    // Normalize originalPrice: only valid in FIXED mode when strictly greater than price
+    let originalPrice: number | null = null;
+    if (
+      body.priceMode === "FIXED" &&
+      body.originalPrice !== "" &&
+      body.originalPrice !== null &&
+      body.originalPrice !== undefined
+    ) {
+      const origNum = Number(body.originalPrice);
+      if (!isNaN(origNum) && origNum > 0) {
+        originalPrice = price !== null && origNum === price ? null : origNum;
+      }
     }
 
     // Normalize demoUrl
@@ -162,6 +195,7 @@ export async function POST(req: NextRequest) {
       ...(sanitizedTechnologies !== undefined && { technologies: sanitizedTechnologies }),
       slug: finalSlug,
       price,
+      originalPrice,
       demoUrl,
       providerId: partner.id,
     });
@@ -179,6 +213,8 @@ export async function POST(req: NextRequest) {
         fullDescription: "Overview Description",
         categoryId: "Category",
         price: "Price",
+        originalPrice: "Regular Price (Offer)",
+        images: "Screenshots",
         demoUrl: "Demo URL",
       };
       const errorSummary =

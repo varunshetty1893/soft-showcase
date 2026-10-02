@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectUpdateSchema } from "@/lib/validation/project.schema";
 import { getAdminProjectById } from "@/lib/db/queries/admin-projects";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
@@ -37,10 +37,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const session = await requireAdmin();
+    await ensureAdditiveSchema();
 
-    // Request size limit: reject payloads > 512KB (Issue 46)
+    // Request size limit: allow up to 10MB for inline screenshot fallbacks
     const contentLength = req.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 524288) {
+    if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
       return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
@@ -54,6 +55,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // Auto-generate slug from title if title is being changed and slug not supplied
     if (!body.slug && body.title) {
       body.slug = slugify(body.title as string);
+    }
+
+    // Normalize originalPrice when provided
+    if (body.priceMode === "CONTACT" || body.priceMode === "FREE") {
+      body.price = null;
+      body.originalPrice = null;
+    } else if (body.priceMode && body.priceMode !== "FIXED") {
+      body.originalPrice = null;
+    } else if (
+      body.originalPrice === "" ||
+      Number(body.originalPrice) === 0 ||
+      (body.originalPrice != null && body.price != null && Number(body.originalPrice) === Number(body.price))
+    ) {
+      body.originalPrice = null;
+    } else if (body.originalPrice !== undefined && body.originalPrice !== null) {
+      body.originalPrice = Number(body.originalPrice);
     }
 
     const parsed = ProjectUpdateSchema.safeParse(body);
@@ -137,6 +154,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           }).catch(() => null);
           if (newTech) resolvedTechIds.push(newTech.id);
         }
+      }
+    }
+
+    if ((status ?? existing.status) === "PUBLISHED") {
+      const targetProviderId = providerId ?? existing.providerId;
+      if (targetProviderId) {
+        await db.projectProvider
+          .update({
+            where: { id: targetProviderId },
+            data: { isActive: true, applicationStatus: "approved" },
+          })
+          .catch(() => null);
       }
     }
 

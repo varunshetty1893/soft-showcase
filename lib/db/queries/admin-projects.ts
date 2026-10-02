@@ -2,8 +2,49 @@
 // Admin-only database query helpers for project management.
 // Server-side only — never import in client components.
 
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
+
+const DEFAULT_CATEGORIES = [
+  { name: "AI & Machine Learning", slug: "ai-machine-learning", sortOrder: 1 },
+  { name: "SaaS & Web Applications", slug: "saas-web-applications", sortOrder: 2 },
+  { name: "E-Commerce & Retail", slug: "ecommerce-retail", sortOrder: 3 },
+  { name: "Developer Tools & APIs", slug: "developer-tools-apis", sortOrder: 4 },
+  { name: "FinTech & Analytics", slug: "fintech-analytics", sortOrder: 5 },
+  { name: "Enterprise & CRM", slug: "enterprise-crm", sortOrder: 6 },
+  { name: "Mobile Applications", slug: "mobile-applications", sortOrder: 7 },
+];
+
+export async function ensureDefaultCategories() {
+  await ensureAdditiveSchema();
+  const existing = await db.category.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+  if (existing.length > 0) return existing;
+
+  for (const cat of DEFAULT_CATEGORIES) {
+    await db.category
+      .upsert({
+        where: { slug: cat.slug },
+        update: { isActive: true },
+        create: {
+          name: cat.name,
+          slug: cat.slug,
+          sortOrder: cat.sortOrder,
+          isActive: true,
+        },
+      })
+      .catch(() => null);
+  }
+
+  return db.category.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+}
 
 // ─── List ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +57,7 @@ export async function getAdminProjects(options: {
   status?: ProjectStatus;
   search?: string;
 }) {
+  await ensureAdditiveSchema();
   const { page = 1, pageSize = 20, status, search } = options;
   const skip = (page - 1) * pageSize;
 
@@ -72,6 +114,7 @@ export async function getAdminProjects(options: {
  * Returns all relations needed to populate the form.
  */
 export async function getAdminProjectById(id: string) {
+  await ensureAdditiveSchema();
   return db.project.findUnique({
     where: { id },
     include: {
@@ -90,11 +133,7 @@ export async function getAdminProjectById(id: string) {
 
 /** All active categories for the category selector. */
 export async function getAdminCategories() {
-  return db.category.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, name: true, slug: true },
-  });
+  return ensureDefaultCategories();
 }
 
 /** All active technologies for the technology selector. */

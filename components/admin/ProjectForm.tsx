@@ -294,6 +294,36 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const parsedPrice =
+      form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM"
+        ? parseFloat(form.price) || null
+        : null;
+
+    const rawOriginalPrice =
+      form.priceMode === "FIXED" && form.originalPrice && form.originalPrice.trim() !== ""
+        ? parseFloat(form.originalPrice) || null
+        : null;
+
+    const parsedOriginalPrice =
+      rawOriginalPrice !== null && parsedPrice !== null && rawOriginalPrice > parsedPrice
+        ? rawOriginalPrice
+        : null;
+
+    if (
+      form.priceMode === "FIXED" &&
+      rawOriginalPrice !== null &&
+      parsedPrice !== null &&
+      rawOriginalPrice < parsedPrice
+    ) {
+      setErrors({
+        originalPrice: [
+          `Regular price before discount (₹${rawOriginalPrice}) must be higher than the selling price (₹${parsedPrice}).`,
+        ],
+      });
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       title: form.title,
       slug: form.slug,
@@ -302,14 +332,8 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
       status: form.status,
       featured: form.featured,
       priceMode: form.priceMode,
-      price:
-        form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM"
-          ? parseFloat(form.price) || null
-          : null,
-      originalPrice:
-        form.priceMode === "FIXED" && form.originalPrice && form.originalPrice.trim() !== ""
-          ? parseFloat(form.originalPrice) || null
-          : null,
+      price: parsedPrice,
+      originalPrice: parsedOriginalPrice,
       demoUrl: form.demoUrl || null,
       projectType: form.projectType || null,
       categoryId: form.categoryId,
@@ -618,20 +642,29 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
       {/* ── Section: Pricing ────────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-bold text-[#102124]">Pricing</h2>
+        <div>
+          <h2 className="text-base font-bold text-[#102124]">Pricing &amp; Promotional Offer</h2>
+          <p className="text-xs text-[#526267] mt-0.5">
+            Configure the pricing model and optional discount offer for Fixed Price listings.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Price Mode</label>
             <select
               value={form.priceMode}
-              onChange={(e) =>
-                set("priceMode", e.target.value as ProjectFormData["priceMode"])
-              }
+              onChange={(e) => {
+                const nextMode = e.target.value as ProjectFormData["priceMode"];
+                set("priceMode", nextMode);
+                if (nextMode !== "FIXED") {
+                  set("originalPrice", "");
+                }
+              }}
               className={fieldClass}
             >
               <option value="CONTACT">Contact for Price</option>
-              <option value="FIXED">Fixed Price</option>
+              <option value="FIXED">Fixed Price (Supports Discount Offer)</option>
               <option value="STARTING_FROM">Starting From</option>
               <option value="FREE">Free</option>
             </select>
@@ -639,14 +672,20 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
 
           {(form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM") && (
             <div>
-              <label className={labelClass}>Price (₹) *</label>
+              <label className={labelClass}>
+                {form.priceMode === "STARTING_FROM"
+                  ? "Starting Base Price (₹) *"
+                  : form.originalPrice && Number(form.originalPrice) > Number(form.price)
+                  ? "Final Offer / Selling Price (₹ — Buyer Pays) *"
+                  : "Selling Price (₹ — Buyer Pays) *"}
+              </label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 value={form.price}
                 onChange={(e) => set("price", e.target.value)}
-                placeholder="e.g. 4999"
+                placeholder="e.g. 24999"
                 className={fieldClass}
               />
               {errors.price?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
@@ -654,23 +693,131 @@ export default function ProjectForm({ initialData, projectId, initialImages }: P
           )}
 
           {form.priceMode === "FIXED" && (
-            <div>
-              <label className={labelClass}>
-                Original price (only if you really sold/listed at this price before)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.originalPrice}
-                onChange={(e) => set("originalPrice", e.target.value)}
-                placeholder="Must be higher than selling price"
-                className={fieldClass}
-              />
-              <p className="text-[11px] text-gray-500 mt-1">
-                Leave blank if no prior verifiable price exists. Never invent discounts.
-              </p>
-              {errors.originalPrice?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+            <div className="md:col-span-2 p-4 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                      Regular Price Before Discount (₹ — Optional)
+                    </label>
+                    {form.originalPrice && (
+                      <button
+                        type="button"
+                        onClick={() => set("originalPrice", "")}
+                        className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
+                      >
+                        Remove Offer
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.originalPrice}
+                    onChange={(e) => set("originalPrice", e.target.value)}
+                    placeholder="e.g. 49999 (Leave blank for no discount)"
+                    className={fieldClass}
+                  />
+                  <p className="text-[11px] text-[#526267] mt-1">
+                    Displayed with a strikethrough next to the selling price and a % OFF badge.
+                  </p>
+                  {errors.originalPrice?.map((e) => <p key={e} className={errorClass}>{e}</p>)}
+                </div>
+
+                <div className="space-y-2">
+                  <span className="block text-xs font-semibold text-[#102124] uppercase tracking-wider">
+                    Quick Discount Presets (1-Click)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[10, 15, 20, 25, 30, 50].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          const currentReg = Number(form.originalPrice);
+                          const currentSell = Number(form.price);
+                          const baseRegular =
+                            currentReg > 0
+                              ? currentReg
+                              : currentSell > 0
+                              ? currentSell
+                              : 50000;
+                          const discountedSelling = Math.max(
+                            1,
+                            Math.round(baseRegular * (1 - pct / 100))
+                          );
+                          set("originalPrice", String(baseRegular));
+                          set("price", String(discountedSelling));
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#155761] hover:text-white border border-[#D9E2E4] text-xs font-bold text-[#155761] transition-colors cursor-pointer"
+                      >
+                        {pct}% OFF
+                      </button>
+                    ))}
+                    {form.originalPrice && (
+                      <button
+                        type="button"
+                        onClick={() => set("originalPrice", "")}
+                        className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-bold text-rose-700 transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {form.originalPrice &&
+                form.price &&
+                Number(form.originalPrice) > 0 &&
+                Number(form.price) > 0 &&
+                Number(form.originalPrice) < Number(form.price) && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-amber-950">
+                      Regular price (₹{Number(form.originalPrice).toLocaleString("en-IN")}) is lower than Selling price (₹{Number(form.price).toLocaleString("en-IN")}).
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tmp = form.price;
+                        set("price", form.originalPrice);
+                        set("originalPrice", tmp);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-bold cursor-pointer"
+                    >
+                      Swap Prices
+                    </button>
+                  </div>
+                )}
+
+              {Number(form.price) > 0 && (
+                <div className="p-3 rounded-xl bg-white border border-[#D9E2E4] flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#526267]">Storefront Badge Preview:</span>
+                  {form.originalPrice && Number(form.originalPrice) > Number(form.price) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#8A9A9E] line-through">
+                        ₹{Number(form.originalPrice).toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-sm font-extrabold text-[#102124]">
+                        ₹{Number(form.price).toLocaleString("en-IN")}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                        {Math.round(
+                          ((Number(form.originalPrice) - Number(form.price)) /
+                            Number(form.originalPrice)) *
+                            100
+                        )}
+                        % OFF
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-extrabold text-[#102124]">
+                      ₹{Number(form.price).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

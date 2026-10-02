@@ -61,7 +61,7 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
   const isAdmin = isAdminUser(user);
 
   // 2. Query partner profile for this user
-  let partner = null;
+  let partner: Awaited<ReturnType<typeof db.projectProvider.findFirst>> = null;
   try {
     partner = await db.projectProvider.findFirst({
       where: { userId: user.id },
@@ -87,6 +87,33 @@ export async function requirePartner(useRedirect = true): Promise<EffectivePartn
 
   // 3. Admin access bypass: Admins are allowed
   if (isAdmin) {
+    if (!partner) {
+      partner = await db.projectProvider
+        .create({
+          data: {
+            userId: user.id,
+            displayName: user.name || "Platform Administrator",
+            email: userEmail || `admin-${user.id}@softshowcase.local`,
+            bio: "Platform Administrator with full oversight.",
+            avatarUrl: user.image || null,
+            verificationStatus: "verified",
+            applicationStatus: "approved",
+            isActive: true,
+            skills: ["Administration", "Full Oversight"],
+            technologies: ["Next.js", "Prisma", "PostgreSQL"],
+            solutionsOffered: "Platform Management",
+          },
+        })
+        .catch(() => null);
+    } else if (partner.applicationStatus !== "approved" || !partner.isActive) {
+      partner = await db.projectProvider
+        .update({
+          where: { id: partner.id },
+          data: { applicationStatus: "approved", isActive: true },
+        })
+        .catch(() => partner);
+    }
+
     if (partner) {
       return {
         user,

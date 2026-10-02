@@ -74,6 +74,52 @@ export default function ProjectTable() {
 
   // Quick toggle featured status
   const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
+  const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null);
+
+  async function handleQuickPublish(project: ProjectRow) {
+    const nextStatus = project.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
+    setTogglingStatusId(project.id);
+    setError(null);
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        projects: prev.projects.map((p) =>
+          p.id === project.id ? { ...p, status: nextStatus } : p
+        ),
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/admin/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to update project status");
+      }
+      router.refresh();
+    } catch (err: unknown) {
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          projects: prev.projects.map((p) =>
+            p.id === project.id ? { ...p, status: project.status } : p
+          ),
+        };
+      });
+      setError(
+        err instanceof Error ? err.message : "Failed to update project status"
+      );
+    } finally {
+      setTogglingStatusId(null);
+    }
+  }
 
   async function handleToggleFeatured(project: ProjectRow) {
     const nextFeatured = !project.featured;
@@ -366,6 +412,16 @@ export default function ProjectTable() {
                   {/* Actions */}
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {project.status !== "PUBLISHED" && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickPublish(project)}
+                          disabled={togglingStatusId === project.id}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-[#2F7D78] hover:bg-[#24635F] border border-[#2F7D78] px-2.5 py-1 rounded-lg transition cursor-pointer shadow-2xs"
+                        >
+                          {togglingStatusId === project.id ? "Publishing…" : "Publish"}
+                        </button>
+                      )}
                       {project.status === "PUBLISHED" && (
                         <Link
                           href={`/projects/${project.slug}`}

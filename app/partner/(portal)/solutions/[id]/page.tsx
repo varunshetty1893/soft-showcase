@@ -59,6 +59,19 @@ export default async function PartnerSolutionDetailPage({
   const primaryImage = project.images[0]?.url || null;
   const isPublished = project.status === "PUBLISHED";
 
+  const hasOffer =
+    project.priceMode === "FIXED" &&
+    (project as { originalPrice?: unknown }).originalPrice != null &&
+    project.price != null &&
+    Number((project as { originalPrice?: unknown }).originalPrice) > Number(project.price);
+  const discountPct = hasOffer
+    ? Math.round(
+        ((Number((project as { originalPrice?: unknown }).originalPrice) - Number(project.price)) /
+          Number((project as { originalPrice?: unknown }).originalPrice)) *
+          100
+      )
+    : 0;
+
   return (
     <div className="space-y-8 max-w-5xl">
       {/* ── Top Bar / Breadcrumb ────────────────────────────────────── */}
@@ -109,13 +122,27 @@ export default async function PartnerSolutionDetailPage({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 shadow-2xs">
           <span className="text-[11px] font-bold text-[#526267] uppercase tracking-wider block">Pricing Model</span>
-          <p className="text-base font-extrabold text-[#102124] mt-1">
-            {project.priceMode === "FIXED" && project.price
-              ? formatCurrency(Number(project.price))
-              : project.priceMode === "STARTING_FROM" && project.price
-              ? `From ${formatCurrency(Number(project.price))}`
-              : "Contact for Quote"}
-          </p>
+          {hasOffer ? (
+            <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+              <span className="text-xs text-[#8A9A9E] line-through font-medium">
+                {formatCurrency(Number((project as { originalPrice?: unknown }).originalPrice))}
+              </span>
+              <span className="text-base font-extrabold text-[#102124]">
+                {formatCurrency(Number(project.price))}
+              </span>
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+                {discountPct}% OFF
+              </span>
+            </div>
+          ) : (
+            <p className="text-base font-extrabold text-[#102124] mt-1">
+              {project.priceMode === "FIXED" && project.price
+                ? formatCurrency(Number(project.price))
+                : project.priceMode === "STARTING_FROM" && project.price
+                ? `From ${formatCurrency(Number(project.price))}`
+                : "Contact for Quote"}
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 shadow-2xs">

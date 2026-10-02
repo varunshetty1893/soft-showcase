@@ -4,7 +4,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
+import { ensureDefaultCategories } from "@/lib/db/queries/admin-projects";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { ArrowLeft } from "lucide-react";
 import { PartnerSolutionForm } from "@/components/partner/PartnerSolutionForm";
@@ -21,6 +22,7 @@ export default async function EditPartnerSolutionPage({
   params: Promise<{ id: string }>;
 }) {
   const { partner, user } = await getEffectivePartnerContext();
+  await ensureAdditiveSchema();
 
   const { id } = await params;
 
@@ -35,7 +37,7 @@ export default async function EditPartnerSolutionPage({
         technologies: { include: { technology: true } },
       },
     }),
-    db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    ensureDefaultCategories(),
     db.technology.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -79,6 +81,10 @@ export default async function EditPartnerSolutionPage({
           featured: Boolean(project.featured),
           priceMode: project.priceMode,
           price: project.price ? String(project.price) : "",
+          originalPrice:
+            (project as { originalPrice?: unknown }).originalPrice != null
+              ? String((project as { originalPrice?: unknown }).originalPrice)
+              : "",
           projectType: project.projectType || "",
           demoUrl: project.demoUrl || "",
           whatsIncluded: project.whatsIncluded || [],

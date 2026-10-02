@@ -26,6 +26,7 @@ export interface PartnerSolutionItem {
   shortDescription: string;
   priceMode: string;
   price: string | number | null;
+  originalPrice?: string | number | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   featured: boolean;
   category?: { id: string; name: string; slug: string } | null;
@@ -107,6 +108,38 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
         prev.map((p) => (p.id === project.id ? { ...p, featured: project.featured } : p))
       );
       setErrorNotice(err?.message || "Failed to change featured status. Please try again.");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (project: PartnerSolutionItem) => {
+    const nextStatus = project.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
+    setTogglingId(project.id);
+    setErrorNotice(null);
+
+    setProjects((prev) =>
+      prev.map((p) => (p.id === project.id ? { ...p, status: nextStatus } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/partner/solutions/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to update publishing status");
+      }
+
+      router.refresh();
+    } catch (err: any) {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === project.id ? { ...p, status: project.status } : p))
+      );
+      setErrorNotice(err?.message || "Failed to update publishing status. Please try again.");
     } finally {
       setTogglingId(null);
     }
@@ -259,11 +292,37 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
                     >
                       {proj.title}
                     </h3>
-                    <span className="text-xs font-extrabold text-[#155761] shrink-0">
-                      {proj.priceMode === "CONTACT"
-                        ? "Contact"
-                        : formatCurrency(Number(proj.price))}
-                    </span>
+                    <div className="text-right shrink-0">
+                      {proj.priceMode === "FIXED" &&
+                      proj.originalPrice != null &&
+                      proj.price != null &&
+                      Number(proj.originalPrice) > Number(proj.price) ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-[#8A9A9E] line-through font-medium">
+                            {formatCurrency(Number(proj.originalPrice))}
+                          </span>
+                          <span className="text-xs font-extrabold text-[#155761]">
+                            {formatCurrency(Number(proj.price))}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+                            {Math.round(
+                              ((Number(proj.originalPrice) - Number(proj.price)) /
+                                Number(proj.originalPrice)) *
+                                100
+                            )}
+                            % OFF
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-extrabold text-[#155761]">
+                          {proj.priceMode === "CONTACT"
+                            ? "Contact"
+                            : proj.priceMode === "STARTING_FROM"
+                            ? `From ${formatCurrency(Number(proj.price))}`
+                            : formatCurrency(Number(proj.price))}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-[#526267] line-clamp-2 leading-relaxed">
@@ -284,7 +343,19 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
 
               {/* Footer Actions */}
               <div className="px-4 py-2.5 bg-[#F8FAFA] border-t border-[#D9E2E4] flex items-center justify-between gap-2">
-                <div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(proj)}
+                    disabled={isToggling}
+                    className={`h-7 px-2.5 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
+                      proj.status === "PUBLISHED"
+                        ? "bg-white hover:bg-gray-100 text-[#526267] border-[#D9E2E4]"
+                        : "bg-[#2F7D78] hover:bg-[#24635F] text-white border-[#2F7D78] shadow-2xs"
+                    }`}
+                  >
+                    {proj.status === "PUBLISHED" ? "Move to Draft" : "Publish Now"}
+                  </button>
                   {proj.status === "PUBLISHED" && (
                     <Link
                       href={`/projects/${proj.slug}`}

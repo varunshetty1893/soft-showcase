@@ -88,6 +88,7 @@ export const ProjectImportSchema = z
       .enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"])
       .default("CONTACT"),
     price: z.number().positive("Price must be a positive number").nullable().optional(),
+    originalPrice: z.number().positive("Original price must be a positive number").nullable().optional(),
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
 
@@ -182,6 +183,7 @@ export const PartnerSolutionImportSchema = z
       .enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"])
       .default("CONTACT"),
     price: z.number().positive("Price must be a positive number").nullable().optional(),
+    originalPrice: z.number().positive("Original price must be a positive number").nullable().optional(),
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
 

@@ -207,10 +207,13 @@ export async function POST(request: NextRequest) {
     // 1. Resolve Category
     let categoryId = existingCategory?.id;
     if (!categoryId) {
-      const newCat = await db.category.create({
-        data: {
+      const catSlug = categorySlug || `cat-${Date.now()}`;
+      const newCat = await db.category.upsert({
+        where: { slug: catSlug },
+        update: { isActive: true },
+        create: {
           name: categoryName,
-          slug: categorySlug || `cat-${Date.now()}`,
+          slug: catSlug,
           isActive: true,
         },
       });
@@ -220,15 +223,28 @@ export async function POST(request: NextRequest) {
     // 2. Resolve & create missing Technologies
     const techIds: string[] = existingTechnologies.map((t) => t.id);
     for (const newName of newTechNames) {
-      const createdTech = await db.technology.create({
-        data: {
+      const techSlug = slugify(newName) || `tech-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const createdTech = await db.technology.upsert({
+        where: { slug: techSlug },
+        update: { isActive: true },
+        create: {
           name: newName,
-          slug: slugify(newName) || `tech-${Date.now()}`,
+          slug: techSlug,
           isActive: true,
         },
       });
-      techIds.push(createdTech.id);
+      if (!techIds.includes(createdTech.id)) {
+        techIds.push(createdTech.id);
+      }
     }
+
+    const validOriginalPrice =
+      data.priceMode === "FIXED" &&
+      data.originalPrice != null &&
+      data.price != null &&
+      Number(data.originalPrice) > Number(data.price)
+        ? Number(data.originalPrice)
+        : null;
 
     // 3. Create Project with native Prisma nested writes
     const imported = await db.project.create({
@@ -241,6 +257,7 @@ export async function POST(request: NextRequest) {
         demoUrl: data.demoUrl || null,
         priceMode: data.priceMode,
         price: data.price ?? null,
+        originalPrice: validOriginalPrice,
         status: data.status || "PUBLISHED",
         featured: Boolean(data.featured),
         whatsIncluded: data.whatsIncluded || [],

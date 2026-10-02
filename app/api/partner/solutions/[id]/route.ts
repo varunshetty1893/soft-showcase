@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { slugify } from "@/lib/utils/slug";
 
@@ -75,15 +75,16 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Request size limit: reject payloads > 512KB (Issue 46)
+  // Request size limit: allow up to 10MB for inline screenshot fallbacks
   const contentLength = req.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > 524288) {
+  if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const { id } = await params;
 
   try {
+    await ensureAdditiveSchema();
     let partner = await db.projectProvider.findFirst({
       where: { userId: session.user.id },
     });
@@ -115,6 +116,20 @@ export async function PUT(
     if (body.priceMode === "FIXED" || body.priceMode === "STARTING_FROM") {
       const num = Number(body.price);
       price = !isNaN(num) && num > 0 ? num : null;
+    }
+
+    // Normalize originalPrice: only valid in FIXED mode when strictly greater than price
+    let originalPrice: number | null = null;
+    if (
+      body.priceMode === "FIXED" &&
+      body.originalPrice !== "" &&
+      body.originalPrice !== null &&
+      body.originalPrice !== undefined
+    ) {
+      const origNum = Number(body.originalPrice);
+      if (!isNaN(origNum) && origNum > 0) {
+        originalPrice = price !== null && origNum === price ? null : origNum;
+      }
     }
 
     // Normalize demoUrl
@@ -191,6 +206,7 @@ export async function PUT(
       ...(sanitizedTechnologies !== undefined && { technologies: sanitizedTechnologies }),
       slug,
       price,
+      originalPrice,
       demoUrl,
       providerId: partner.id,
     });
@@ -208,6 +224,8 @@ export async function PUT(
         fullDescription: "Overview Description",
         categoryId: "Category",
         price: "Price",
+        originalPrice: "Regular Price (Offer)",
+        images: "Screenshots",
         demoUrl: "Demo URL",
       };
       const errorSummary =
@@ -525,6 +543,19 @@ export async function PATCH(
     }
 
     if (body.status && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(body.status)) {
+      if (
+        body.status === "PUBLISHED" &&
+        !session.user.isAdmin &&
+        (!partner.isActive || partner.applicationStatus !== "approved")
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Your partner profile is not yet active or approved. Solutions can only be saved as Draft until approved.",
+          },
+          { status: 403 }
+        );
+      }
       updateData.status = body.status;
     }
 

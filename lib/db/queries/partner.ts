@@ -1,10 +1,11 @@
 // lib/db/queries/partner.ts
 // Database queries for Solution Partner Portal.
 
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 
 export async function getPartnerProfileByUserId(userId: string) {
   try {
+    await ensureAdditiveSchema();
     return await db.projectProvider.findFirst({
       where: {
         OR: [{ userId }, { id: userId }],
@@ -29,6 +30,7 @@ export async function getPartnerProfileById(partnerId: string) {
 
 export async function getPartnerDashboardStats(partnerId: string, requesterUserId: string) {
   try {
+    await ensureAdditiveSchema();
     const [
       totalSolutions,
       publishedSolutions,
@@ -98,6 +100,7 @@ export async function getPartnerDashboardStats(partnerId: string, requesterUserI
 
 export async function getPartnerProjects(partnerId: string) {
   try {
+    await ensureAdditiveSchema();
     return await db.project.findMany({
       where: { providerId: partnerId },
       include: {

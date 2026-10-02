@@ -107,8 +107,8 @@ const projectFields = {
   images: z
     .array(
       z.object({
-        url: z.string().url("Please provide a valid image URL").max(500),
-        storageKey: z.string().max(120).optional(),
+        url: z.string().url("Please provide a valid image URL").max(2_000_000, "Image URL is too large"),
+        storageKey: z.string().max(250).optional(),
         altText: z.string().max(200).optional(),
         isPrimary: z.boolean().optional(),
         sortOrder: z.number().optional(),

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { getAdminProjects } from "@/lib/db/queries/admin-projects";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
@@ -46,10 +46,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireAdmin();
+    await ensureAdditiveSchema();
 
-    // Request size limit: reject payloads > 512KB (Issue 46)
+    // Request size limit: allow up to 10MB for inline screenshot fallbacks
     const contentLength = req.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 524288) {
+    if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
       return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
@@ -61,6 +62,24 @@ export async function POST(req: NextRequest) {
     // Auto-generate slug from title if not provided
     if (!body.slug && body.title) {
       body.slug = slugify(body.title as string);
+    }
+
+    // Normalize price & originalPrice before validation
+    if (body.priceMode === "CONTACT" || body.priceMode === "FREE") {
+      body.price = null;
+      body.originalPrice = null;
+    } else if (body.priceMode !== "FIXED") {
+      body.originalPrice = null;
+    } else if (
+      body.originalPrice === "" ||
+      body.originalPrice === undefined ||
+      body.originalPrice === null ||
+      Number(body.originalPrice) === 0 ||
+      (body.price != null && Number(body.originalPrice) === Number(body.price))
+    ) {
+      body.originalPrice = null;
+    } else {
+      body.originalPrice = Number(body.originalPrice);
     }
 
     const parsed = ProjectSchema.safeParse(body);
@@ -105,6 +124,13 @@ export async function POST(req: NextRequest) {
     const technologyIds: string[] = Array.isArray(body.technologyIds)
       ? body.technologyIds
       : [];
+    const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] =
+      Array.isArray(body.images)
+        ? body.images.filter((img: any) => img && typeof img.url === "string" && img.url.trim()).slice(0, 15)
+        : [];
+    if (rawImages.length > 0 && !rawImages.some((img) => img.isPrimary)) {
+      rawImages[0].isPrimary = true;
+    }
 
     const resolvedTechIds: string[] = [];
     for (const item of technologyIds) {
@@ -139,6 +165,15 @@ export async function POST(req: NextRequest) {
         { error: "A project with this slug already exists" },
         { status: 409 }
       );
+    }
+
+    if (status === "PUBLISHED" && providerId) {
+      await db.projectProvider
+        .update({
+          where: { id: providerId },
+          data: { isActive: true, applicationStatus: "approved" },
+        })
+        .catch(() => null);
     }
 
     const project = await db.project.create({
@@ -180,6 +215,17 @@ export async function POST(req: NextRequest) {
         technologies: {
           create: resolvedTechIds.map((technologyId) => ({ technologyId })),
         },
+        ...(rawImages.length > 0 && {
+          images: {
+            create: rawImages.map((img, i) => ({
+              url: img.url.trim(),
+              storageKey: img.storageKey || `admin-img-${Date.now()}-${i}`,
+              altText: img.altText || title,
+              isPrimary: img.isPrimary ?? (i === 0),
+              sortOrder: img.sortOrder ?? i,
+            })),
+          },
+        }),
       },
     });
 

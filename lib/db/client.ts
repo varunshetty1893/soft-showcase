@@ -75,6 +75,9 @@ function getClient(): PrismaClient {
             ? ["query", "error", "warn"]
             : ["error"],
       });
+      if (!isBuildPhase && !isVitest) {
+        void ensureAdditiveSchema();
+      }
     } catch (err) {
       if (process.env.NODE_ENV !== "production") {
         console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
@@ -129,11 +132,33 @@ export function ensureAdditiveSchema(): Promise<void> {
         CONSTRAINT "pending_registrations_pkey" PRIMARY KEY ("id")
       );`,
       `CREATE UNIQUE INDEX IF NOT EXISTS "pending_registrations_email_key" ON "pending_registrations"("email");`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "role" TEXT NOT NULL DEFAULT 'CUSTOMER';`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER NOT NULL DEFAULT 0;`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "whatsapp" TEXT;`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "contactEmail" TEXT;`,
       `ALTER TABLE "verification_tokens" ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0;`,
       `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "originalPrice" DECIMAL(10,2);`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "userId" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "applicationStatus" TEXT NOT NULL DEFAULT 'approved';`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "skills" TEXT[] DEFAULT ARRAY[]::TEXT[];`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "technologies" TEXT[] DEFAULT ARRAY[]::TEXT[];`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "experience" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "portfolioUrl" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "githubUrl" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "linkedinUrl" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "solutionsOffered" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "expertiseAreas" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "location" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "approvedAt" TIMESTAMP(3);`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "approvedBy" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "verificationStatus" TEXT NOT NULL DEFAULT 'not_required';`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "verifiedAt" TIMESTAMP(3);`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "verifiedBy" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "verificationNotes" TEXT;`,
+      `ALTER TABLE "project_providers" ADD COLUMN IF NOT EXISTS "verificationDocumentUrl" TEXT;`,
       `ALTER TYPE "NotificationStatus" ADD VALUE IF NOT EXISTS 'THROTTLED';`,
       `ALTER TABLE "custom_project_requests" ADD COLUMN IF NOT EXISTS "customerId" TEXT;`,
       `ALTER TABLE "custom_project_requests" ADD COLUMN IF NOT EXISTS "linkedAt" TIMESTAMP(3);`,

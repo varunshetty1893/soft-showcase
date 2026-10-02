@@ -3,7 +3,8 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
+import { ensureDefaultCategories } from "@/lib/db/queries/admin-projects";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { ArrowLeft, FileCode, Sparkles, ArrowRight } from "lucide-react";
 import { PartnerSolutionForm } from "@/components/partner/PartnerSolutionForm";
@@ -16,9 +17,10 @@ export const metadata: Metadata = {
 
 export default async function NewPartnerSolutionPage() {
   await getEffectivePartnerContext();
+  await ensureAdditiveSchema();
 
   const [categories, technologies] = await Promise.all([
-    db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    ensureDefaultCategories(),
     db.technology.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
