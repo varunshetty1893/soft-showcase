@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "projects" ADD COLUMN "originalPrice" DECIMAL(10,2);
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "originalPrice" DECIMAL(10,2);

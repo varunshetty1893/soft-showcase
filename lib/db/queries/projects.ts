@@ -3,9 +3,15 @@
 // These are server-side only — never import in client components.
 
 import { cache } from "react";
-import { db } from "@/lib/db/client";
+import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE } from "@/config/constants";
+
+function isMissingColumnError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  const msg = String((err as { message?: string })?.message || "");
+  return code === "P2022" || msg.includes("originalPrice") || msg.includes("does not exist");
+}
 
 /**
  * Fetch published projects for the catalog page.
@@ -70,41 +76,71 @@ export async function getPublishedProjects(options: {
     })()),
   };
 
-  const [projects, total] = await Promise.all([
-    db.project.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        shortDescription: true,
-        status: true,
-        featured: true,
-        priceMode: true,
-        price: true,
-        originalPrice: true,
-        projectType: true,
-        createdAt: true,
-        category: { select: { id: true, name: true, slug: true } },
-        provider: {
-          select: { id: true, displayName: true, avatarUrl: true },
+  const baseSelect = {
+    id: true,
+    title: true,
+    slug: true,
+    shortDescription: true,
+    status: true,
+    featured: true,
+    priceMode: true,
+    price: true,
+    projectType: true,
+    createdAt: true,
+    category: { select: { id: true, name: true, slug: true } },
+    provider: {
+      select: { id: true, displayName: true, avatarUrl: true },
+    },
+    images: {
+      where: { isPrimary: true },
+      take: 1,
+      select: { url: true, altText: true },
+    },
+    technologies: {
+      take: 3,
+      include: { technology: { select: { id: true, name: true, slug: true } } },
+    },
+  } as const;
+
+  const queryWithOriginalPrice = () =>
+    Promise.all([
+      db.project.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        select: {
+          ...baseSelect,
+          originalPrice: true,
         },
-        images: {
-          where: { isPrimary: true },
-          take: 1,
-          select: { url: true, altText: true },
-        },
-        technologies: {
-          take: 3,
-          include: { technology: { select: { id: true, name: true, slug: true } } },
-        },
-      },
-    }),
-    db.project.count({ where }),
-  ]);
+      }),
+      db.project.count({ where }),
+    ]);
+
+  let result: Awaited<ReturnType<typeof queryWithOriginalPrice>>;
+
+  try {
+    result = await queryWithOriginalPrice();
+  } catch (err) {
+    if (!isMissingColumnError(err)) throw err;
+    await ensureAdditiveSchema();
+    const [fallbackProjects, fallbackTotal] = await Promise.all([
+      db.project.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        select: baseSelect,
+      }),
+      db.project.count({ where }),
+    ]);
+    result = [
+      fallbackProjects.map((p) => ({ ...p, originalPrice: null })),
+      fallbackTotal,
+    ];
+  }
+
+  const [projects, total] = result;
 
   return {
     projects,
@@ -121,50 +157,86 @@ export async function getPublishedProjects(options: {
  */
 export const getProjectBySlug = cache(async (slug: string) => {
   const trimmed = slug.trim();
-  const project = await db.project.findFirst({
-    where: {
-      OR: [
-        { slug: trimmed },
-        { slug: { equals: trimmed, mode: "insensitive" } },
-      ],
-      status: "PUBLISHED",
-      provider: {
-        isActive: true,
-        applicationStatus: "approved",
+  const whereClause = {
+    OR: [
+      { slug: trimmed },
+      { slug: { equals: trimmed, mode: "insensitive" as const } },
+    ],
+    status: "PUBLISHED" as ProjectStatus,
+    provider: {
+      isActive: true,
+      applicationStatus: "approved",
+    },
+  };
+
+  const relationsSelect = {
+    category: true,
+    provider: {
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        whatsappNumber: true,
+        bio: true,
+        avatarUrl: true,
+        location: true,
+        portfolioUrl: true,
+        githubUrl: true,
+        linkedinUrl: true,
+        showEmail: true,
+        showWhatsapp: true,
       },
     },
-    include: {
-      category: true,
-      provider: {
-        select: {
-          id: true,
-          displayName: true,
-          email: true,
-          whatsappNumber: true,
-          bio: true,
-          avatarUrl: true,
-          location: true,
-          portfolioUrl: true,
-          githubUrl: true,
-          linkedinUrl: true,
-          showEmail: true,
-          showWhatsapp: true,
-        },
-      },
-      images: { orderBy: { sortOrder: "asc" } },
-      features: { orderBy: { sortOrder: "asc" } },
-      specifications: { orderBy: { sortOrder: "asc" } },
-      faqs: { orderBy: { sortOrder: "asc" } },
-      technologies: {
-        include: { technology: true },
-      },
+    images: { orderBy: { sortOrder: "asc" as const } },
+    features: { orderBy: { sortOrder: "asc" as const } },
+    specifications: { orderBy: { sortOrder: "asc" as const } },
+    faqs: { orderBy: { sortOrder: "asc" as const } },
+    technologies: {
+      include: { technology: true },
     },
-  });
+  };
+
+  const queryFullProject = () =>
+    db.project.findFirst({
+      where: whereClause,
+      include: relationsSelect,
+    });
+
+  let project: Awaited<ReturnType<typeof queryFullProject>>;
+  try {
+    project = await queryFullProject();
+  } catch (err) {
+    if (!isMissingColumnError(err)) throw err;
+    await ensureAdditiveSchema();
+    const fallback = await db.project.findFirst({
+      where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        shortDescription: true,
+        fullDescription: true,
+        status: true,
+        featured: true,
+        priceMode: true,
+        price: true,
+        demoUrl: true,
+        projectType: true,
+        whatsIncluded: true,
+        categoryId: true,
+        providerId: true,
+        createdAt: true,
+        updatedAt: true,
+        ...relationsSelect,
+      },
+    });
+    project = fallback ? ({ ...fallback, originalPrice: null } as Awaited<ReturnType<typeof queryFullProject>>) : null;
+  }
 
   if (!project) return null;
 
   const hasConfiguredEmail =
-    project.provider?. email !== undefined
+    project.provider?.email !== undefined
       ? Boolean(project.provider?.email)
       : true;
   const hasConfiguredWhatsapp =
@@ -196,35 +268,53 @@ export const getRelatedProjects = cache(async (
   excludeProjectId: string,
   limit = 3
 ) => {
-  return db.project.findMany({
-    where: {
-      categoryId,
-      status: "PUBLISHED",
-      id: { not: excludeProjectId },
-      provider: {
-        isActive: true,
-        applicationStatus: "approved",
-      },
+  const whereClause = {
+    categoryId,
+    status: "PUBLISHED" as ProjectStatus,
+    id: { not: excludeProjectId },
+    provider: {
+      isActive: true,
+      applicationStatus: "approved",
     },
-    take: limit,
-    orderBy: { featured: "desc" },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      shortDescription: true,
-      priceMode: true,
-      price: true,
-      originalPrice: true,
-      category: { select: { id: true, name: true, slug: true } },
-      provider: { select: { id: true, displayName: true, avatarUrl: true } },
-      images: {
-        where: { isPrimary: true },
-        take: 1,
-        select: { url: true, altText: true },
-      },
+  };
+
+  const baseSelect = {
+    id: true,
+    title: true,
+    slug: true,
+    shortDescription: true,
+    priceMode: true,
+    price: true,
+    category: { select: { id: true, name: true, slug: true } },
+    provider: { select: { id: true, displayName: true, avatarUrl: true } },
+    images: {
+      where: { isPrimary: true },
+      take: 1,
+      select: { url: true, altText: true },
     },
-  });
+  } as const;
+
+  try {
+    return await db.project.findMany({
+      where: whereClause,
+      take: limit,
+      orderBy: { featured: "desc" },
+      select: {
+        ...baseSelect,
+        originalPrice: true,
+      },
+    });
+  } catch (err) {
+    if (!isMissingColumnError(err)) throw err;
+    await ensureAdditiveSchema();
+    const fallback = await db.project.findMany({
+      where: whereClause,
+      take: limit,
+      orderBy: { featured: "desc" },
+      select: baseSelect,
+    });
+    return fallback.map((p) => ({ ...p, originalPrice: null }));
+  }
 });
 
 /**

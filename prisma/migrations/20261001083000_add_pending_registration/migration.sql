@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "pending_registrations" (
+CREATE TABLE IF NOT EXISTS "pending_registrations" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -13,4 +13,4 @@ CREATE TABLE "pending_registrations" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "pending_registrations_email_key" ON "pending_registrations"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "pending_registrations_email_key" ON "pending_registrations"("email");

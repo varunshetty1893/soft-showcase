@@ -101,4 +101,56 @@ export const db: PrismaClient = new Proxy({} as PrismaClient, {
   },
 });
 
+let schemaSyncPromise: Promise<void> | null = null;
+
+/**
+ * Idempotently ensures additive columns, tables, and enum values exist in PostgreSQL.
+ * Safe to call on P2022/P2021 errors when an existing database has not yet run latest migrations.
+ */
+export function ensureAdditiveSchema(): Promise<void> {
+  if (schemaSyncPromise) return schemaSyncPromise;
+
+  schemaSyncPromise = (async () => {
+    const client = getClient() as unknown as {
+      $executeRawUnsafe?: (sql: string) => Promise<unknown>;
+    };
+    if (typeof client.$executeRawUnsafe !== "function") return;
+
+    const statements = [
+      `CREATE TABLE IF NOT EXISTS "pending_registrations" (
+        "id" TEXT NOT NULL,
+        "email" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "passwordHash" TEXT NOT NULL,
+        "codeHash" TEXT NOT NULL,
+        "attempts" INTEGER NOT NULL DEFAULT 0,
+        "expiresAt" TIMESTAMP(3) NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "pending_registrations_pkey" PRIMARY KEY ("id")
+      );`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "pending_registrations_email_key" ON "pending_registrations"("email");`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "whatsapp" TEXT;`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "contactEmail" TEXT;`,
+      `ALTER TABLE "verification_tokens" ADD COLUMN IF NOT EXISTS "attempts" INTEGER NOT NULL DEFAULT 0;`,
+      `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "originalPrice" DECIMAL(10,2);`,
+      `ALTER TYPE "NotificationStatus" ADD VALUE IF NOT EXISTS 'THROTTLED';`,
+      `ALTER TABLE "custom_project_requests" ADD COLUMN IF NOT EXISTS "customerId" TEXT;`,
+      `ALTER TABLE "custom_project_requests" ADD COLUMN IF NOT EXISTS "linkedAt" TIMESTAMP(3);`,
+      `ALTER TABLE "custom_project_requests" ADD COLUMN IF NOT EXISTS "notificationStatus" "NotificationStatus" NOT NULL DEFAULT 'PENDING';`,
+      `CREATE INDEX IF NOT EXISTS "custom_project_requests_customerId_idx" ON "custom_project_requests"("customerId");`,
+    ];
+
+    for (const sql of statements) {
+      try {
+        await client.$executeRawUnsafe(sql);
+      } catch {
+        // Ignore individual statement errors (e.g. read-only replica or already applied)
+      }
+    }
+  })();
+
+  return schemaSyncPromise;
+}
+
 export default db;
