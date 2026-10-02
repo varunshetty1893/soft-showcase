@@ -5,8 +5,11 @@
 
 import type { ProjectStatus } from "@prisma/client";
 
-export function publicProviderWhere() {
+export function publicProviderWhere<T extends Record<string, unknown> = Record<string, unknown>>(
+  extra?: T
+) {
   return {
+    ...(extra || ({} as T)),
     isActive: true,
     applicationStatus: "approved",
     removedAt: null,

@@ -115,6 +115,8 @@ export interface EffectivePricingResult {
   /** Rounded percentage saved (1..99) when discounted */
   discountPercent: number | null;
   /** Alias for discountPercent */
+  discountPercentage: number | null;
+  /** Alias for discountPercent */
   savingsPercent: number | null;
   /** Price qualifier enum */
   priceQualifier: PriceQualifierValue;
@@ -122,6 +124,8 @@ export interface EffectivePricingResult {
   qualifierText: string | null;
   /** Formatted effective price (e.g. "₹4,999", "Starting from ₹4,999", "Free", "Contact for Price") */
   formattedPrice: string;
+  /** Alias for formattedPrice */
+  formattedEffectivePrice: string;
   /** Formatted regular price when discounted */
   formattedRegularPrice: string | null;
   /** Formatted savings amount (e.g. "₹3,000") */
@@ -134,6 +138,8 @@ export interface EffectivePricingResult {
   remainingMs: number | null;
   /** Formatted countdown string (e.g. "Ends in 2d 4h") ONLY when dealEndsAt exists */
   countdownText: string | null;
+  /** Alias for countdownText */
+  countdownLabel: string | null;
 }
 
 function toFiniteNumber(
@@ -278,16 +284,19 @@ export function getEffectivePricing(
       badgeLabel: null,
       savingsAmount: null,
       discountPercent: null,
+      discountPercentage: null,
       savingsPercent: null,
       priceQualifier: "NONE",
       qualifierText: null,
       formattedPrice: "Free",
+      formattedEffectivePrice: "Free",
       formattedRegularPrice: null,
       formattedSavings: null,
       dealEndsAtIso: null,
       dealStartsAtIso: null,
       remainingMs: null,
       countdownText: null,
+      countdownLabel: null,
     };
   }
 
@@ -305,23 +314,27 @@ export function getEffectivePricing(
       badgeLabel: null,
       savingsAmount: null,
       discountPercent: null,
+      discountPercentage: null,
       savingsPercent: null,
       priceQualifier,
       qualifierText:
         priceQualifier === "NEGOTIABLE" ? "Price negotiable" : null,
       formattedPrice: "Contact for Price",
+      formattedEffectivePrice: "Contact for Price",
       formattedRegularPrice: null,
       formattedSavings: null,
       dealEndsAtIso: null,
       dealStartsAtIso: null,
       remainingMs: null,
       countdownText: null,
+      countdownLabel: null,
     };
   }
 
   // Legacy STARTING_FROM priceMode maps cleanly to qualifier STARTING_FROM
   if (priceMode === "STARTING_FROM") {
     const formattedAmount = formatInrAmount(rawPrice);
+    const formattedPrice = `Starting from ${formattedAmount}`;
     return {
       priceMode,
       effectivePrice: rawPrice,
@@ -335,16 +348,19 @@ export function getEffectivePricing(
       badgeLabel: null,
       savingsAmount: null,
       discountPercent: null,
+      discountPercentage: null,
       savingsPercent: null,
       priceQualifier: "STARTING_FROM",
       qualifierText: "Starting from",
-      formattedPrice: `Starting from ${formattedAmount}`,
+      formattedPrice,
+      formattedEffectivePrice: formattedPrice,
       formattedRegularPrice: null,
       formattedSavings: null,
       dealEndsAtIso: null,
       dealStartsAtIso: null,
       remainingMs: null,
       countdownText: null,
+      countdownLabel: null,
     };
   }
 
@@ -393,16 +409,19 @@ export function getEffectivePricing(
       badgeLabel: null,
       savingsAmount: null,
       discountPercent: null,
+      discountPercentage: null,
       savingsPercent: null,
       priceQualifier,
       qualifierText,
       formattedPrice,
+      formattedEffectivePrice: formattedPrice,
       formattedRegularPrice: null,
       formattedSavings: null,
       dealEndsAtIso: endsAt ? endsAt.toISOString() : null,
       dealStartsAtIso: startsAt ? startsAt.toISOString() : null,
       remainingMs: null,
       countdownText: null,
+      countdownLabel: null,
     };
   }
 
@@ -444,16 +463,19 @@ export function getEffectivePricing(
       badgeLabel,
       savingsAmount,
       discountPercent,
+      discountPercentage: discountPercent,
       savingsPercent: discountPercent,
       priceQualifier,
       qualifierText,
       formattedPrice,
+      formattedEffectivePrice: formattedPrice,
       formattedRegularPrice: formatInrAmount(rawOriginalPrice!),
       formattedSavings: formatInrAmount(savingsAmount),
       dealEndsAtIso: endsAt ? endsAt.toISOString() : null,
       dealStartsAtIso: startsAt ? startsAt.toISOString() : null,
       remainingMs,
       countdownText,
+      countdownLabel: countdownText,
     };
   }
 
@@ -477,16 +499,19 @@ export function getEffectivePricing(
     badgeLabel: null,
     savingsAmount: null,
     discountPercent: null,
+    discountPercentage: null,
     savingsPercent: null,
     priceQualifier,
     qualifierText,
     formattedPrice,
+    formattedEffectivePrice: formattedPrice,
     formattedRegularPrice: null,
     formattedSavings: null,
     dealEndsAtIso: null,
     dealStartsAtIso: null,
     remainingMs: null,
     countdownText: null,
+    countdownLabel: null,
   };
 }
 

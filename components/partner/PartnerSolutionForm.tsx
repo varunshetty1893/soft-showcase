@@ -30,6 +30,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import { hasAdminModerationHold } from "@/lib/auth/project-permissions";
+import {
+  PricingOffersFields,
+  type PricingOffersFormState,
+} from "@/components/projects/PricingOffersFields";
+import {
+  toIstDatetimeLocal,
+  fromIstDatetimeLocal,
+  type DealTypeValue,
+  type PriceQualifierValue,
+} from "@/lib/utils/pricing";
 
 interface Category {
   id: string;
@@ -281,6 +293,8 @@ export function PartnerSolutionForm({
   isEditing = false,
 }: PartnerSolutionFormProps) {
   const router = useRouter();
+  const toast = useToast();
+  const moderationHold = hasAdminModerationHold(initialData);
 
   const [title, setTitle] = React.useState(initialData?.title || "");
   const [categoryId, setCategoryId] = React.useState(
@@ -292,17 +306,32 @@ export function PartnerSolutionForm({
   const [fullDescription, setFullDescription] = React.useState(
     initialData?.fullDescription || ""
   );
-  const [priceMode, setPriceMode] = React.useState<"FIXED" | "STARTING_FROM" | "CONTACT">(
-    initialData?.priceMode || "FIXED"
-  );
+  const [priceMode, setPriceMode] = React.useState<
+    "FIXED" | "STARTING_FROM" | "CONTACT" | "FREE"
+  >(initialData?.priceMode || "FIXED");
   const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "");
   const [originalPrice, setOriginalPrice] = React.useState(
     initialData?.originalPrice ? String(initialData.originalPrice) : ""
   );
+  const [priceQualifier, setPriceQualifier] = React.useState<PriceQualifierValue>(
+    (initialData?.priceQualifier as PriceQualifierValue) || "NONE"
+  );
+  const [dealType, setDealType] = React.useState<DealTypeValue>(
+    (initialData?.dealType as DealTypeValue) || "NONE"
+  );
+  const [dealLabel, setDealLabel] = React.useState<string>(
+    initialData?.dealLabel || ""
+  );
+  const [dealStartsAt, setDealStartsAt] = React.useState<string>(
+    initialData?.dealStartsAt ? toIstDatetimeLocal(initialData.dealStartsAt) : ""
+  );
+  const [dealEndsAt, setDealEndsAt] = React.useState<string>(
+    initialData?.dealEndsAt ? toIstDatetimeLocal(initialData.dealEndsAt) : ""
+  );
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
-    initialData?.status || "PUBLISHED"
+    moderationHold ? "DRAFT" : initialData?.status || "PUBLISHED"
   );
   const [featured, setFeatured] = React.useState<boolean>(
     Boolean(initialData?.featured)
@@ -579,7 +608,7 @@ export function PartnerSolutionForm({
       }
 
       setIsImportModalOpen(false);
-      setSuccessNotice("Project details successfully populated from JSON!");
+      toast.success("Project details successfully populated from JSON!");
     } catch (err: any) {
       setImportError(err?.message || "Failed to parse JSON. Please check syntax.");
     }
@@ -589,22 +618,21 @@ export function PartnerSolutionForm({
   const [error, setError] = React.useState<string | null>(null);
   const [errorItems, setErrorItems] = React.useState<SolutionErrorItem[]>([]);
   const [showErrorModal, setShowErrorModal] = React.useState(false);
-  const [successNotice, setSuccessNotice] = React.useState<string | null>(null);
 
   // ── Trimming & Auto-Fix Helpers ───────────────────────────────────────────
   const handleTrimField = (field: string) => {
     if (field === "whatsIncluded") {
       setWhatsIncluded((prev) => prev.slice(0, 20));
-      setSuccessNotice("What's Included has been trimmed to 20 items.");
+      toast.info("What's Included has been trimmed to 20 items.");
     } else if (field === "features") {
       setFeatures((prev) => prev.slice(0, 25));
-      setSuccessNotice("Key Features has been trimmed to 25 features.");
+      toast.info("Key Features has been trimmed to 25 features.");
     } else if (field === "specifications") {
       setSpecifications((prev) => prev.slice(0, 25));
-      setSuccessNotice("Technical specifications trimmed to 25 items.");
+      toast.info("Technical specifications trimmed to 25 items.");
     } else if (field === "faqs") {
       setFaqs((prev) => prev.slice(0, 20));
-      setSuccessNotice("FAQs trimmed to 20 questions.");
+      toast.info("FAQs trimmed to 20 questions.");
     }
 
     setErrorItems((prev) => {
@@ -634,7 +662,9 @@ export function PartnerSolutionForm({
     setErrorItems([]);
     setError(null);
     setShowErrorModal(false);
-    setSuccessNotice("All items have been trimmed to platform limits. You can now save your solution!");
+    toast.success(
+      "All items have been trimmed to platform limits. You can now save your solution!"
+    );
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -1070,6 +1100,15 @@ export function PartnerSolutionForm({
         })
         .filter((name): name is string => Boolean(name));
 
+      const startsAtUtc =
+        priceMode === "FIXED" && dealStartsAt
+          ? fromIstDatetimeLocal(dealStartsAt)?.toISOString() ?? null
+          : null;
+      const endsAtUtc =
+        priceMode === "FIXED" && dealEndsAt
+          ? fromIstDatetimeLocal(dealEndsAt)?.toISOString() ?? null
+          : null;
+
       const payload = {
         title: title.trim(),
         slug: initialData?.slug || undefined,
@@ -1079,9 +1118,17 @@ export function PartnerSolutionForm({
         priceMode,
         price: computedPrice,
         originalPrice: computedOriginalPrice,
+        priceQualifier,
+        dealType: priceMode === "FIXED" ? dealType : "NONE",
+        dealLabel:
+          priceMode === "FIXED" && dealType === "CUSTOM"
+            ? dealLabel.trim() || null
+            : null,
+        dealStartsAt: startsAtUtc,
+        dealEndsAt: endsAtUtc,
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
-        status,
+        status: moderationHold ? "DRAFT" : status,
         featured: Boolean(featured),
         whatsIncluded: activeWhatsIncluded,
         features: activeFeatures,
@@ -1122,17 +1169,24 @@ export function PartnerSolutionForm({
         setErrorItems(parsed);
         setError("Please review and adjust the highlighted items below before saving.");
         setShowErrorModal(true);
+        toast.error(resData.error || "Please check the highlighted validation errors.");
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
         return;
       }
 
+      toast.success(
+        isEditing
+          ? `Solution "${title.trim()}" updated successfully.`
+          : `Solution "${title.trim()}" created successfully.`
+      );
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred while saving.";
       setError(msg);
+      toast.error(msg);
       setErrorItems([
         {
           field: "general",
@@ -1168,10 +1222,13 @@ export function PartnerSolutionForm({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || "Failed to delete solution");
       }
+      toast.success(`Solution "${title.trim()}" deleted successfully.`);
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: any) {
-      setError(err?.message || "Failed to delete solution. Please try again.");
+      const msg = err?.message || "Failed to delete solution. Please try again.";
+      setError(msg);
+      toast.error(msg);
       setShowDeleteModal(false);
       setDeleting(false);
     }
@@ -1179,20 +1236,30 @@ export function PartnerSolutionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
-      {/* ── Success Notice Banner ────────────────────────────────────── */}
-      {successNotice && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span className="font-semibold">{successNotice}</span>
+      {/* ── Phase 3: Admin Moderation Note / Hold Banner ──────────────── */}
+      {(initialData?.moderationNote || moderationHold) && (
+        <div
+          className="p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm flex items-start gap-3.5 shadow-2xs"
+          data-testid="partner-form-moderation-banner"
+        >
+          <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-amber-950">
+              {moderationHold
+                ? "Administrator Moderation Hold Active"
+                : "Administrator Moderation Note / Requested Changes"}
+            </p>
+            {initialData?.moderationNote && (
+              <p className="text-amber-900 leading-relaxed">
+                <strong>Reason / Note:</strong> {initialData.moderationNote}
+              </p>
+            )}
+            {moderationHold && (
+              <p className="text-xs text-amber-800">
+                You can freely edit and save all content, pricing, and screenshots below. Publishing status will remain in Draft until an administrator lifts the hold.
+              </p>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setSuccessNotice(null)}
-            className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 rounded-lg hover:bg-emerald-100 transition cursor-pointer"
-          >
-            Dismiss
-          </button>
         </div>
       )}
 
@@ -1413,225 +1480,59 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-xs font-semibold text-[#102124]">Pricing Mode</Label>
-            <select
-              value={priceMode}
-              onChange={(e) => {
-                const nextMode = e.target.value as "FIXED" | "STARTING_FROM" | "CONTACT";
-                setPriceMode(nextMode);
-                if (nextMode !== "FIXED") {
-                  setOriginalPrice("");
-                }
-              }}
-              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
-            >
-              <option value="FIXED">Fixed Price (₹) — Supports Discount Offers</option>
-              <option value="STARTING_FROM">Starting From (₹) — Custom Scope Base Price</option>
-              <option value="CONTACT">Contact for Quote — Hide Price</option>
-            </select>
-          </div>
+        {/* Shared Phase 4 PricingOffersFields */}
+        <PricingOffersFields
+          value={{
+            priceMode,
+            price,
+            originalPrice,
+            priceQualifier,
+            dealType,
+            dealLabel,
+            dealStartsAt,
+            dealEndsAt,
+          }}
+          onChange={(patch: Partial<PricingOffersFormState>) => {
+            if (patch.priceMode !== undefined) setPriceMode(patch.priceMode);
+            if (patch.price !== undefined) setPrice(patch.price);
+            if (patch.originalPrice !== undefined)
+              setOriginalPrice(patch.originalPrice);
+            if (patch.priceQualifier !== undefined)
+              setPriceQualifier(patch.priceQualifier);
+            if (patch.dealType !== undefined) setDealType(patch.dealType);
+            if (patch.dealLabel !== undefined) setDealLabel(patch.dealLabel);
+            if (patch.dealStartsAt !== undefined)
+              setDealStartsAt(patch.dealStartsAt);
+            if (patch.dealEndsAt !== undefined) setDealEndsAt(patch.dealEndsAt);
+          }}
+        />
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F3F7F7]">
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">Publishing Status</Label>
+            <Label className="text-xs font-semibold text-[#102124]">
+              Publishing Status
+            </Label>
             <select
-              value={status}
+              value={moderationHold ? "DRAFT" : status}
+              disabled={moderationHold}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
+              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="PUBLISHED">Published (Live on Public Showcase)</option>
-              <option value="DRAFT">Draft (Saved Privately)</option>
+              <option value="PUBLISHED" disabled={moderationHold}>
+                Published (Live on Public Showcase)
+              </option>
+              <option value="DRAFT">
+                {moderationHold
+                  ? "Draft (Locked by Admin Moderation Hold)"
+                  : "Draft (Saved Privately)"}
+              </option>
             </select>
           </div>
-        </div>
 
-        {priceMode !== "CONTACT" && (
-          <div className="p-5 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-              <div>
-                <Label className="text-xs font-bold text-[#102124]">
-                  {priceMode === "STARTING_FROM"
-                    ? "Starting Base Price (₹ INR) *"
-                    : originalPrice && Number(originalPrice) > Number(price)
-                    ? "Final Offer / Selling Price (₹ INR — Buyer Pays) *"
-                    : "Selling Price (₹ INR — Buyer Pays) *"}
-                </Label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#526267]">
-                    ₹
-                  </span>
-                  <Input
-                    type="number"
-                    min="1"
-                    step="any"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="24999"
-                    required
-                    className="pl-7 bg-white font-semibold"
-                  />
-                </div>
-                <p className="text-[11px] text-[#526267] mt-1">
-                  {priceMode === "STARTING_FROM"
-                    ? "Displayed as 'From ₹...' on your listing card."
-                    : "The actual price customers pay to purchase this solution."}
-                </p>
-              </div>
-
-              {priceMode === "FIXED" && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-[#102124]">
-                      Regular / List Price Before Discount (₹ INR — Optional)
-                    </Label>
-                    {originalPrice && (
-                      <button
-                        type="button"
-                        onClick={() => setOriginalPrice("")}
-                        className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline cursor-pointer"
-                      >
-                        Remove Offer
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#526267]">
-                      ₹
-                    </span>
-                    <Input
-                      type="number"
-                      min="1"
-                      step="any"
-                      value={originalPrice}
-                      onChange={(e) => setOriginalPrice(e.target.value)}
-                      placeholder="e.g. 49999 (Leave blank for no discount)"
-                      className="pl-7 bg-white"
-                    />
-                  </div>
-                  <p className="text-[11px] text-[#526267] mt-1">
-                    Shown with a strikethrough (e.g. <span className="line-through">₹49,999</span>) and a % OFF badge.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Discount Calculator & Live Offer Preview for FIXED mode */}
-            {priceMode === "FIXED" && (
-              <div className="pt-3 border-t border-[#D9E2E4] space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#102124]">
-                    Quick Discount Presets (1-Click Offer):
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {[10, 15, 20, 25, 30, 50].map((pct) => (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => {
-                          const currentReg = Number(originalPrice);
-                          const currentSell = Number(price);
-                          const baseRegular =
-                            currentReg > 0
-                              ? currentReg
-                              : currentSell > 0
-                              ? currentSell
-                              : 50000;
-                          const discountedSelling = Math.max(
-                            1,
-                            Math.round(baseRegular * (1 - pct / 100))
-                          );
-                          setOriginalPrice(String(baseRegular));
-                          setPrice(String(discountedSelling));
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#155761] hover:text-white border border-[#D9E2E4] text-[11px] font-bold text-[#155761] transition-colors cursor-pointer shadow-2xs"
-                      >
-                        Apply {pct}% OFF
-                      </button>
-                    ))}
-                    {originalPrice && (
-                      <button
-                        type="button"
-                        onClick={() => setOriginalPrice("")}
-                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-[11px] font-bold text-rose-700 transition-colors cursor-pointer"
-                      >
-                        No Discount
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Smart helper if user entered Regular Price < Selling Price */}
-                {originalPrice &&
-                  price &&
-                  Number(originalPrice) > 0 &&
-                  Number(price) > 0 &&
-                  Number(originalPrice) < Number(price) && (
-                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="text-xs text-amber-950">
-                        <p className="font-bold">
-                          Regular price (₹{Number(originalPrice).toLocaleString("en-IN")}) is lower than Selling price (₹{Number(price).toLocaleString("en-IN")}).
-                        </p>
-                        <p className="text-[11px] text-amber-800 mt-0.5">
-                          Did you mean for ₹{Number(originalPrice).toLocaleString("en-IN")} to be the discounted offer price?
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const temp = price;
-                          setPrice(originalPrice);
-                          setOriginalPrice(temp);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs font-extrabold shrink-0 cursor-pointer shadow-2xs"
-                      >
-                        Swap Prices (₹{Number(originalPrice).toLocaleString("en-IN")} Offer)
-                      </button>
-                    </div>
-                  )}
-
-                {/* Live Storefront Preview */}
-                {Number(price) > 0 && (
-                  <div className="p-3.5 rounded-xl bg-white border border-[#D9E2E4] flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs font-semibold text-[#526267]">
-                      Storefront Price Badge Preview:
-                    </span>
-                    {originalPrice && Number(originalPrice) > Number(price) ? (
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="text-xs text-[#8A9A9E] line-through font-medium">
-                          ₹{Number(originalPrice).toLocaleString("en-IN")}
-                        </span>
-                        <span className="text-base font-extrabold text-[#102124]">
-                          ₹{Number(price).toLocaleString("en-IN")}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold">
-                          {Math.round(
-                            ((Number(originalPrice) - Number(price)) / Number(originalPrice)) * 100
-                          )}
-                          % OFF
-                        </span>
-                        <span className="text-[11px] font-semibold text-emerald-700">
-                          (Buyer saves ₹{(Number(originalPrice) - Number(price)).toLocaleString("en-IN")})
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-extrabold text-[#102124]">
-                          ₹{Number(price).toLocaleString("en-IN")}
-                        </span>
-                        <span className="text-[11px] text-[#526267]">(Standard fixed price — no discount badge)</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="sm:col-span-3">
-            <Label className="text-xs font-semibold text-[#102124]">Live Demo URL (Optional)</Label>
+          <div>
+            <Label className="text-xs font-semibold text-[#102124]">
+              Live Demo URL (Optional)
+            </Label>
             <Input
               type="url"
               value={demoUrl}
@@ -1640,6 +1541,9 @@ export function PartnerSolutionForm({
               className="mt-1"
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
           {/* Featured Solution Toggle Card */}
           <div className="sm:col-span-6 pt-1">

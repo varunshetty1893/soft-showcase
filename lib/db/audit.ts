@@ -7,10 +7,12 @@ import { Prisma } from "@prisma/client";
 
 export interface AuditOptions {
   userId?: string | null;
+  actorId?: string | null;
   action: string;
   entityType: string;
   entityId?: string | null;
   details?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -19,13 +21,17 @@ export interface AuditOptions {
  */
 export async function createAuditLog(options: AuditOptions): Promise<void> {
   try {
+    const resolvedUserId = options.userId ?? options.actorId ?? undefined;
+    const resolvedDetails = options.details ?? options.metadata ?? null;
     await db.auditLog.create({
       data: {
-        userId: options.userId ?? undefined,
+        userId: resolvedUserId,
         action: options.action,
         entityType: options.entityType,
         entityId: options.entityId ?? undefined,
-        details: options.details ? (options.details as Prisma.InputJsonValue) : Prisma.JsonNull,
+        details: resolvedDetails
+          ? (resolvedDetails as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
   } catch (error) {
@@ -35,6 +41,7 @@ export async function createAuditLog(options: AuditOptions): Promise<void> {
 }
 
 export const recordAuditLog = createAuditLog;
+export const writeAuditLog = createAuditLog;
 
 /**
  * Query audit logs for the admin panel with filtering and pagination.

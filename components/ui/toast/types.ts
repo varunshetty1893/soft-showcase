@@ -88,6 +88,40 @@ export function upsertToastList(
   return [nextRecord, ...withoutDuplicate].slice(0, MAX_VISIBLE_TOASTS);
 }
 
+/**
+ * Pure helper to pause a toast timer and compute remaining milliseconds.
+ */
+export function pauseToastRecord(
+  toast: ToastRecord,
+  now: number = Date.now()
+): ToastRecord {
+  if (toast.paused || toast.duration === null || toast.remainingMs === null) {
+    return { ...toast, paused: true };
+  }
+  const elapsed = Math.max(0, now - toast.lastResumedAt);
+  const remainingMs = Math.max(0, toast.remainingMs - elapsed);
+  return {
+    ...toast,
+    paused: true,
+    remainingMs,
+  };
+}
+
+/**
+ * Pure helper to resume a paused toast timer from its remaining milliseconds.
+ */
+export function resumeToastRecord(
+  toast: ToastRecord,
+  now: number = Date.now()
+): ToastRecord {
+  if (!toast.paused) return toast;
+  return {
+    ...toast,
+    paused: false,
+    lastResumedAt: now,
+  };
+}
+
 export const FEEDBACK_QUERY_PARAMS = [
   "success",
   "error",

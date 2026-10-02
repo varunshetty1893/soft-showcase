@@ -85,6 +85,20 @@ export default async function EditPartnerSolutionPage({
             (project as { originalPrice?: unknown }).originalPrice != null
               ? String((project as { originalPrice?: unknown }).originalPrice)
               : "",
+          priceQualifier: (project as any).priceQualifier ?? "NONE",
+          dealType: (project as any).dealType ?? "NONE",
+          dealLabel: (project as any).dealLabel ?? "",
+          dealStartsAt: (project as any).dealStartsAt
+            ? new Date((project as any).dealStartsAt).toISOString()
+            : "",
+          dealEndsAt: (project as any).dealEndsAt
+            ? new Date((project as any).dealEndsAt).toISOString()
+            : "",
+          moderationNote: (project as any).moderationNote ?? null,
+          moderatedAt: (project as any).moderatedAt
+            ? new Date((project as any).moderatedAt).toISOString()
+            : null,
+          moderatedById: (project as any).moderatedById ?? null,
           projectType: project.projectType || "",
           demoUrl: project.demoUrl || "",
           whatsIncluded: project.whatsIncluded || [],

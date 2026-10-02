@@ -117,7 +117,7 @@ export default async function EditProjectPage({ params }: Props) {
         initialData={initialData}
         projectId={project.id}
         initialImages={initialImages}
-        isPartnerOwned={ownership.isPartnerOwned}
+        isPartnerOwned={ownership === "partner_owned"}
         partnerDisplayName={project.provider?.displayName}
       />
     </div>

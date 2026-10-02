@@ -18,6 +18,7 @@ import {
   ListChecks,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 const SAMPLE_IMPORT_JSON = JSON.stringify(
   {
@@ -124,6 +125,7 @@ interface PreviewData {
 }
 
 export default function ProjectImportPage() {
+  const toast = useToast();
   const [jsonText, setJsonText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
@@ -165,13 +167,16 @@ export default function ProjectImportPage() {
         if (data.details) {
           setFieldErrors(data.details);
           setErrorBanner("Validation failed. Please correct the highlighted errors.");
+          toast.error("Validation failed. Please correct the highlighted errors.");
         } else {
           setErrorBanner(data.error || "Failed to validate import payload");
+          toast.error(data.error || "Failed to validate import payload");
         }
         return;
       }
 
       setPreviewData(data);
+      toast.success("JSON validated successfully. Review the preview below.");
     } catch (err) {
       console.error("Preview error:", err);
       setErrorBanner("An unexpected error occurred during validation.");
@@ -198,11 +203,13 @@ export default function ProjectImportPage() {
 
       if (!res.ok) {
         setErrorBanner(data.error || "Failed to import project.");
+        toast.error(data.error || "Failed to import project.");
         setImporting(false);
         return;
       }
 
       setImportedProject(data.data);
+      toast.success(`Project "${data.data?.title || "Draft"}" imported successfully.`);
     } catch (err) {
       console.error("Import error:", err);
       setErrorBanner("Network error during import. Please try again.");

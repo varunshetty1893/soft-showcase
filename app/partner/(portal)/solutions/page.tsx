@@ -31,6 +31,30 @@ export default async function PartnerSolutionsPage() {
       (p as { originalPrice?: unknown }).originalPrice != null
         ? String((p as { originalPrice?: unknown }).originalPrice)
         : null,
+    priceQualifier: ((p as any).priceQualifier ?? "NONE") as
+      | "NONE"
+      | "STARTING_FROM"
+      | "NEGOTIABLE",
+    dealType: ((p as any).dealType ?? "NONE") as
+      | "NONE"
+      | "LIMITED_DEAL"
+      | "LAUNCH_OFFER"
+      | "FESTIVE_SALE"
+      | "EARLY_BIRD"
+      | "CLEARANCE"
+      | "CUSTOM",
+    dealLabel: (p as any).dealLabel ?? null,
+    dealStartsAt: (p as any).dealStartsAt
+      ? new Date((p as any).dealStartsAt).toISOString()
+      : null,
+    dealEndsAt: (p as any).dealEndsAt
+      ? new Date((p as any).dealEndsAt).toISOString()
+      : null,
+    moderationNote: (p as any).moderationNote ?? null,
+    moderatedAt: (p as any).moderatedAt
+      ? new Date((p as any).moderatedAt).toISOString()
+      : null,
+    moderatedById: (p as any).moderatedById ?? null,
     status: p.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
     featured: Boolean(p.featured),
     category: p.category ? { id: p.category.id, name: p.category.name, slug: p.category.slug } : null,

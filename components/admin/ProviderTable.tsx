@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { getProviderStatusButtonSpec } from "@/lib/providers/provider-lifecycle";
+import { getProviderStatusButtonSpec } from "@/lib/providers/provider-state";
 
 export type ProviderTableRow = {
   id: string;

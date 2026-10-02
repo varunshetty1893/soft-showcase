@@ -53,6 +53,14 @@ export const ADMIN_EDITABLE_FIELDS_PARTNER_OWNED = new Set<string>([
 // Backward-compatible alias
 export const ADMIN_PARTNER_PROJECT_ALLOWED_FIELDS = ADMIN_EDITABLE_FIELDS_PARTNER_OWNED;
 
+export type ActingAdminIdentifier = string | { id?: string | null } | null | undefined;
+
+function resolveAdminId(actor: ActingAdminIdentifier): string | null {
+  if (!actor) return null;
+  if (typeof actor === "string") return actor;
+  return actor.id || null;
+}
+
 /**
  * Derive project ownership from provider -> user link.
  * Returns "partner_owned" when the project's provider is linked to a non-admin user
@@ -60,12 +68,14 @@ export const ADMIN_PARTNER_PROJECT_ALLOWED_FIELDS = ADMIN_EDITABLE_FIELDS_PARTNE
  */
 export function getProjectOwnership(
   project: ProjectOwnershipContext | null | undefined,
-  actingAdminUserId?: string | null
+  actingAdmin?: ActingAdminIdentifier
 ): ProjectOwnership {
   if (!project?.provider) return "admin_managed";
 
   const providerUserId = project.provider.userId || project.provider.user?.id || null;
   if (!providerUserId) return "admin_managed";
+
+  const actingAdminUserId = resolveAdminId(actingAdmin);
 
   // If the provider belongs to the acting admin themselves, it is admin-managed
   if (actingAdminUserId && providerUserId === actingAdminUserId) {
@@ -93,9 +103,9 @@ export function getProjectOwnership(
  */
 export function isPartnerOwnedProject(
   project: ProjectOwnershipContext | null | undefined,
-  actingAdminUserId?: string | null
+  actingAdmin?: ActingAdminIdentifier
 ): boolean {
-  return getProjectOwnership(project, actingAdminUserId) === "partner_owned";
+  return getProjectOwnership(project, actingAdmin) === "partner_owned";
 }
 
 /**
@@ -145,9 +155,9 @@ export class ProjectOwnershipError extends Error {
 export function assertAdminCanUpdate(
   project: ProjectOwnershipContext | null | undefined,
   patch: Record<string, unknown>,
-  actingAdminUserId?: string | null
+  actingAdmin?: ActingAdminIdentifier
 ): void {
-  if (!isPartnerOwnedProject(project, actingAdminUserId)) {
+  if (!isPartnerOwnedProject(project, actingAdmin)) {
     return;
   }
 
@@ -194,6 +204,19 @@ export function assertAdminCanUpdate(
 export const assertAdminCanModifyProject = assertAdminCanUpdate;
 
 /**
+ * Enforce Phase 3 policy across a batch of projects before any bulk admin write.
+ */
+export function assertAdminCanBulkUpdate(
+  projects: Array<ProjectOwnershipContext | null | undefined>,
+  patch: Record<string, unknown>,
+  actingAdmin?: ActingAdminIdentifier
+): void {
+  for (const project of projects) {
+    assertAdminCanUpdate(project, patch, actingAdmin);
+  }
+}
+
+/**
  * Determine whether a project currently has an active admin moderation hold.
  * A moderation hold exists when an admin unpublished/rejected the project
  * (moderatedAt is set and status is not PUBLISHED).
@@ -206,6 +229,8 @@ export function hasModerationHold(
   const isUnpublishedHold = project.status !== "PUBLISHED";
   return hasModeratorAction && isUnpublishedHold && Boolean(project.moderationNote);
 }
+
+export const hasAdminModerationHold = hasModerationHold;
 
 /**
  * Verify whether a partner is allowed to set `nextStatus` on their own project.
