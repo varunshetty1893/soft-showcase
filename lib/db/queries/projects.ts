@@ -326,6 +326,9 @@ export const getRelatedProjects = cache(async (
  * Fetch all published project slugs — used for static generation.
  */
 export async function getAllPublishedSlugs(): Promise<string[]> {
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL?.trim()) {
+    return [];
+  }
   try {
     const projects = await db.project.findMany({
       where: {
@@ -338,8 +341,7 @@ export async function getAllPublishedSlugs(): Promise<string[]> {
       select: { slug: true },
     });
     return projects.map((p) => p.slug);
-  } catch (err) {
-    console.warn("Could not query published slugs for static generation:", err);
+  } catch {
     return [];
   }
 }

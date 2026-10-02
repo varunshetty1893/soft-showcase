@@ -71,7 +71,9 @@ function getClient(): PrismaClient {
       globalForPrisma.prisma = new PrismaClient({
         datasources: { db: { url: resolvedUrl } },
         log:
-          process.env.DEBUG_PRISMA === "true"
+          isBuildPhase && (!databaseUrl || !databaseUrl.trim())
+            ? []
+            : process.env.DEBUG_PRISMA === "true"
             ? ["query", "error", "warn"]
             : ["error"],
       });

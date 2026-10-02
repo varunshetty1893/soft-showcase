@@ -61,26 +61,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Dynamic project pages — only PUBLISHED projects with approved active providers
   let projectRoutes: MetadataRoute.Sitemap = [];
-  try {
-    const projects = await db.project.findMany({
-      where: {
-        status: "PUBLISHED",
-        provider: {
-          isActive: true,
-          applicationStatus: "approved",
+  if (process.env.NODE_ENV !== "production" || process.env.DATABASE_URL?.trim()) {
+    try {
+      const projects = await db.project.findMany({
+        where: {
+          status: "PUBLISHED",
+          provider: {
+            isActive: true,
+            applicationStatus: "approved",
+          },
         },
-      },
-      select: { slug: true, updatedAt: true },
-    });
+        select: { slug: true, updatedAt: true },
+      });
 
-    projectRoutes = projects.map((project) => ({
-      url: `${baseUrl}/projects/${project.slug}`,
-      lastModified: project.updatedAt ? new Date(project.updatedAt) : STATIC_PAGE_DATE,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    }));
-  } catch (err) {
-    console.warn("Sitemap: Could not fetch projects from database:", err);
+      projectRoutes = projects.map((project) => ({
+        url: `${baseUrl}/projects/${project.slug}`,
+        lastModified: project.updatedAt ? new Date(project.updatedAt) : STATIC_PAGE_DATE,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      }));
+    } catch {
+      // Gracefully fallback to static routes when DB is unreachable during build
+    }
   }
 
   return [...staticRoutes, ...projectRoutes];
