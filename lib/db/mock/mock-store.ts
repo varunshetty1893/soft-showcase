@@ -217,7 +217,52 @@ export class InMemoryStore {
   accounts: any[] = [];
   sessions: any[] = [];
   verificationTokens: any[] = [];
-  auditLogs: any[] = [];
+  auditLogs: any[] = [
+    {
+      id: "audit-seed-1",
+      userId: "user-admin",
+      action: "PROJECT_PUBLISHED",
+      entityType: "Project",
+      entityId: "proj-1",
+      details: {
+        title: "SmartDoc AI Medical Analysis Platform",
+        slug: "smartdoc-ai-medical-platform",
+        providerId: "prov-1",
+      },
+      searchText:
+        "project_published project proj-1 user-admin administrator admin@example.com smartdoc ai medical analysis platform slug smartdoc-ai-medical-platform providerid prov-1",
+      createdAt: new Date("2025-01-03T10:00:00.000Z"),
+    },
+    {
+      id: "audit-seed-2",
+      userId: "user-admin",
+      action: "PARTNER_ACTIVATED",
+      entityType: "ProjectProvider",
+      entityId: "prov-2",
+      details: {
+        displayName: "Marcus Chen",
+        previousState: { isActive: false, applicationStatus: "deactivated" },
+        newState: { isActive: true, applicationStatus: "approved" },
+      },
+      searchText:
+        "partner_activated projectprovider prov-2 user-admin administrator admin@example.com marcus chen",
+      createdAt: new Date("2025-01-02T14:30:00.000Z"),
+    },
+    {
+      id: "audit-seed-3",
+      userId: null,
+      action: "INQUIRY_RECEIVED",
+      entityType: "Inquiry",
+      entityId: "inq-1",
+      details: {
+        projectTitle: "OmniCart Multi-Vendor Marketplace",
+        contactMethod: "EMAIL",
+      },
+      searchText:
+        "inquiry_received inquiry inq-1 system omnicart multi-vendor marketplace contactmethod email",
+      createdAt: new Date("2025-01-01T09:15:00.000Z"),
+    },
+  ];
   siteSettings: any[] = [];
 
   constructor() {
@@ -299,6 +344,9 @@ function matchesProviderWhere(pr: any, where: any): boolean {
   if (!where) return true;
   if ("id" in where && where.id !== undefined) {
     if (typeof where.id === "string" && pr.id !== where.id) return false;
+    if (where.id && typeof where.id === "object" && Array.isArray(where.id.in)) {
+      if (!where.id.in.includes(pr.id)) return false;
+    }
   }
   if ("userId" in where && where.userId !== undefined) {
     if ((pr.userId ?? null) !== where.userId) return false;
@@ -331,6 +379,9 @@ function matchesProjectWhere(proj: any, where: any): boolean {
   if ("id" in where && where.id !== undefined) {
     if (typeof where.id === "string" && proj.id !== where.id) return false;
     if (where.id && typeof where.id === "object" && "not" in where.id && proj.id === where.id.not) return false;
+    if (where.id && typeof where.id === "object" && Array.isArray(where.id.in)) {
+      if (!where.id.in.includes(proj.id)) return false;
+    }
   }
   if ("slug" in where && where.slug !== undefined) {
     const targetSlug = typeof where.slug === "string" ? where.slug : where.slug?.equals;
@@ -359,6 +410,72 @@ function matchesProjectWhere(proj: any, where: any): boolean {
     if (!anyOr) return false;
   }
   return true;
+}
+
+function matchesStringFilter(actual: string | null | undefined, filter: any): boolean {
+  if (filter === null) return actual === null || actual === undefined;
+  if (typeof filter === "string") return actual === filter;
+  if (filter && typeof filter === "object") {
+    if (Array.isArray(filter.in)) {
+      return filter.in.includes(actual);
+    }
+    if (typeof filter.contains === "string") {
+      if (!actual) return false;
+      return actual.toLowerCase().includes(filter.contains.toLowerCase());
+    }
+  }
+  return true;
+}
+
+function matchesAuditLogWhere(log: any, where: any): boolean {
+  if (!where) return true;
+  if (Array.isArray(where.AND)) {
+    if (!where.AND.every((sub: any) => matchesAuditLogWhere(log, sub))) return false;
+  }
+  if (Array.isArray(where.OR)) {
+    if (!where.OR.some((sub: any) => matchesAuditLogWhere(log, sub))) return false;
+  }
+  if ("action" in where && where.action !== undefined) {
+    if (!matchesStringFilter(log.action, where.action)) return false;
+  }
+  if ("entityType" in where && where.entityType !== undefined) {
+    if (!matchesStringFilter(log.entityType, where.entityType)) return false;
+  }
+  if ("entityId" in where && where.entityId !== undefined) {
+    if (!matchesStringFilter(log.entityId ?? null, where.entityId)) return false;
+  }
+  if ("userId" in where && where.userId !== undefined) {
+    if (!matchesStringFilter(log.userId ?? null, where.userId)) return false;
+  }
+  if ("searchText" in where && where.searchText !== undefined) {
+    const fallbackSearchText =
+      log.searchText ||
+      [
+        log.action || "",
+        log.entityType || "",
+        log.entityId || "",
+        log.userId || "system",
+        log.details ? JSON.stringify(log.details) : "",
+      ]
+        .join(" ")
+        .toLowerCase();
+    if (!matchesStringFilter(fallbackSearchText, where.searchText)) return false;
+  }
+  if (where.createdAt && typeof where.createdAt === "object") {
+    const ts = new Date(log.createdAt).getTime();
+    if (where.createdAt.gte && ts < new Date(where.createdAt.gte).getTime()) return false;
+    if (where.createdAt.lte && ts > new Date(where.createdAt.lte).getTime()) return false;
+  }
+  return true;
+}
+
+function filterByIdIn(items: any[], where: any): any[] {
+  if (!where) return [...items];
+  if (where.id) {
+    if (typeof where.id === "string") return items.filter((i) => i.id === where.id);
+    if (Array.isArray(where.id.in)) return items.filter((i) => where.id.in.includes(i.id));
+  }
+  return [...items];
 }
 
 export const memoryStore = new InMemoryStore();
@@ -401,7 +518,26 @@ export function createMockPrismaClient(): any {
                 .map((pr) => memoryStore.resolveProvider(pr))
                 .filter((pr) => matchesProviderWhere(pr, args?.where));
             }
-            if (modelName === "user") return [...memoryStore.users];
+            if (modelName === "user") {
+              let list = filterByIdIn(memoryStore.users, args?.where);
+              if (args?.where?.isAdmin !== undefined) {
+                list = list.filter((u) => Boolean(u.isAdmin) === Boolean(args.where.isAdmin));
+              }
+              if (Array.isArray(args?.where?.OR)) {
+                list = list.filter((u) =>
+                  args.where.OR.some((clause: any) => {
+                    if (clause.name?.contains) {
+                      return (u.name || "").toLowerCase().includes(clause.name.contains.toLowerCase());
+                    }
+                    if (clause.email?.contains) {
+                      return (u.email || "").toLowerCase().includes(clause.email.contains.toLowerCase());
+                    }
+                    return false;
+                  })
+                );
+              }
+              return list;
+            }
             if (modelName === "pendingRegistration") return [...memoryStore.pendingRegistrations];
             if (modelName === "verificationToken") {
               if (args?.where?.identifier) {
@@ -411,10 +547,25 @@ export function createMockPrismaClient(): any {
               }
               return [...memoryStore.verificationTokens];
             }
-            if (modelName === "inquiry") return [...memoryStore.inquiries];
-            if (modelName === "transaction") return [...memoryStore.transactions];
-            if (modelName === "supportTicket") return [...memoryStore.supportTickets];
-            if (modelName === "auditLog") return [...memoryStore.auditLogs];
+            if (modelName === "customProjectRequest") return filterByIdIn(memoryStore.customRequests, args?.where);
+            if (modelName === "inquiry") return filterByIdIn(memoryStore.inquiries, args?.where);
+            if (modelName === "transaction") return filterByIdIn(memoryStore.transactions, args?.where);
+            if (modelName === "supportTicket") return filterByIdIn(memoryStore.supportTickets, args?.where);
+            if (modelName === "auditLog") {
+              let list = memoryStore.auditLogs.filter((log) => matchesAuditLogWhere(log, args?.where));
+              const sortDir = args?.orderBy?.createdAt === "asc" ? "asc" : "desc";
+              list.sort((a, b) => {
+                const ta = new Date(a.createdAt).getTime();
+                const tb = new Date(b.createdAt).getTime();
+                return sortDir === "asc" ? ta - tb : tb - ta;
+              });
+              const skip = typeof args?.skip === "number" && args.skip > 0 ? args.skip : 0;
+              const take = typeof args?.take === "number" && args.take > 0 ? args.take : undefined;
+              if (skip > 0 || take !== undefined) {
+                list = list.slice(skip, take !== undefined ? skip + take : undefined);
+              }
+              return list;
+            }
             return [];
           },
 
@@ -510,6 +661,9 @@ export function createMockPrismaClient(): any {
               }
               return memoryStore.supportTickets.length;
             }
+            if (modelName === "auditLog") {
+              return memoryStore.auditLogs.filter((log) => matchesAuditLogWhere(log, args?.where)).length;
+            }
             return 0;
           },
 
@@ -584,7 +738,28 @@ export function createMockPrismaClient(): any {
             } else if (modelName === "supportTicket") {
               memoryStore.supportTickets.unshift(data);
             } else if (modelName === "auditLog") {
-              memoryStore.auditLogs.unshift(data);
+              const actor = data.userId
+                ? memoryStore.users.find((u) => u.id === data.userId)
+                : null;
+              const computedSearchText =
+                data.searchText ||
+                [
+                  data.action || "",
+                  data.entityType || "",
+                  data.entityId || "",
+                  data.userId || "system",
+                  actor?.name || "",
+                  actor?.email || "",
+                  data.details ? JSON.stringify(data.details) : "",
+                ]
+                  .join(" ")
+                  .toLowerCase();
+              memoryStore.auditLogs.unshift({
+                ...data,
+                userId: data.userId ?? null,
+                entityId: data.entityId ?? null,
+                searchText: computedSearchText,
+              });
             }
 
             memoryStore.saveToDisk();
@@ -623,6 +798,9 @@ export function createMockPrismaClient(): any {
           },
 
           async update(args?: any) {
+            if (modelName === "auditLog") {
+              throw new Error("AuditLog rows are immutable and cannot be updated.");
+            }
             const targetId = args?.where?.id;
             const targetEmail = args?.where?.email?.toLowerCase();
             const targetIdentifier = args?.where?.identifier?.toLowerCase();
@@ -657,6 +835,9 @@ export function createMockPrismaClient(): any {
           },
 
           async updateMany(args?: any) {
+            if (modelName === "auditLog") {
+              throw new Error("AuditLog rows are immutable and cannot be updated.");
+            }
             let coll: any[] | null = null;
             if (modelName === "user") coll = memoryStore.users;
             if (modelName === "pendingRegistration") coll = memoryStore.pendingRegistrations;
@@ -742,6 +923,9 @@ export function createMockPrismaClient(): any {
           },
 
           async delete(args?: any) {
+            if (modelName === "auditLog") {
+              throw new Error("AuditLog rows are immutable and cannot be deleted.");
+            }
             const targetEmail = args?.where?.email?.toLowerCase();
             const targetId = args?.where?.id;
             if (modelName === "pendingRegistration" && targetEmail) {
@@ -760,6 +944,9 @@ export function createMockPrismaClient(): any {
           },
 
           async deleteMany(args?: any) {
+            if (modelName === "auditLog") {
+              throw new Error("AuditLog rows are immutable and cannot be deleted.");
+            }
             let count = 0;
             if (modelName === "user") {
               const targetEmail = args?.where?.email?.toLowerCase();

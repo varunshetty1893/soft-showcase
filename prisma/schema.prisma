@@ -466,16 +466,20 @@ model SiteSetting {
 // =============================================================================
 
 model AuditLog {
-  id         String  @id @default(cuid())
-  userId     String? // ID of the admin who performed the action; null for system actions
-  action     String  // Action constant (see docs/32-audit-logging.md)
-  entityType String  // "Project", "ProjectProvider", "Inquiry", etc.
-  entityId   String? // ID of the affected entity
-  details    Json?   // Additional context specific to the action
+  id         String   @id @default(cuid())
+  userId     String?  // ID of the admin who performed the action; null for system actions
+  action     String   // Action constant (see docs/32-audit-logging.md)
+  entityType String   // "Project", "ProjectProvider", "Inquiry", etc.
+  entityId   String?  // ID of the affected entity
+  details    Json?    // Additional context specific to the action
+  searchText String?  @db.Text // Lowercased searchable text (Phase 5)
 
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([userId])
   @@map("audit_logs")
 }
 

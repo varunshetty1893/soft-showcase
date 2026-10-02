@@ -260,6 +260,12 @@ export function ensureAdditiveSchema(): Promise<void> {
       `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "dealLabel" TEXT;`,
       `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "dealStartsAt" TIMESTAMP(3);`,
       `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "dealEndsAt" TIMESTAMP(3);`,
+      `ALTER TABLE "audit_logs" ADD COLUMN IF NOT EXISTS "searchText" TEXT;`,
+      `CREATE INDEX IF NOT EXISTS "audit_logs_createdAt_idx" ON "audit_logs"("createdAt");`,
+      `CREATE INDEX IF NOT EXISTS "audit_logs_action_idx" ON "audit_logs"("action");`,
+      `CREATE INDEX IF NOT EXISTS "audit_logs_entityType_entityId_idx" ON "audit_logs"("entityType", "entityId");`,
+      `CREATE INDEX IF NOT EXISTS "audit_logs_userId_idx" ON "audit_logs"("userId");`,
+      `UPDATE "audit_logs" SET "searchText" = LOWER(CONCAT_WS(' ', COALESCE("action", ''), COALESCE("entityType", ''), COALESCE("entityId", ''), COALESCE("userId", 'system'), COALESCE("details"::text, ''))) WHERE "searchText" IS NULL;`,
     ];
 
     for (const sql of statements) {

@@ -418,18 +418,22 @@ model AuditLog {
 
 ---
 
-## Price Validation Rules
+## Price & Promotional Offer Validation Rules (Phase 4)
 
-The `price` field is conditional on `priceMode`. These rules are enforced server-side with Zod:
+The `price` and promotional offer fields (`originalPrice`, `priceQualifier`, `dealType`, `dealLabel`, `dealStartsAt`, `dealEndsAt`) are conditional on `priceMode` and enforced server-side via Zod (`lib/validation/project.schema.ts` & `lib/pricing/offers.ts`):
 
-| priceMode | price required? | Rule |
-|---|---|---|
-| `CONTACT` | No | `price` must be `null` |
-| `FIXED` | **Yes** | `price` must be a positive number |
-| `STARTING_FROM` | **Yes** | `price` must be a positive number (the starting value) |
-| `FREE` | No | `price` must be `null` |
+| priceMode | price required? | Promotional Offers (`dealType != NONE`) | Rule |
+|---|---|---|---|
+| `CONTACT` | No (`null`) | Not allowed (`dealType = NONE`) | `price` and `originalPrice` are cleared to `null` |
+| `FREE` | No (`null`) | Not allowed (`dealType = NONE`) | `price` and `originalPrice` are cleared to `null` |
+| `STARTING_FROM` | **Yes** (`> 0`) | Not allowed (`dealType = NONE`) | `price` is the starting value; `originalPrice` must be `null` or `> price` |
+| `FIXED` | **Yes** (`> 0`, `<= 10,000,000`) | **Supported** (`LIMITED_DEAL`, `LAUNCH_OFFER`, `FESTIVE_SALE`, `EARLY_BIRD`, `CLEARANCE`, `CUSTOM`) | When `dealType != NONE`: `originalPrice` is required and must be strictly greater than `price` (`1%`–`95%` discount); `CUSTOM` requires `dealLabel` (2–30 chars); time-bound deals (`LIMITED_DEAL`, `LAUNCH_OFFER`, `FESTIVE_SALE`, `EARLY_BIRD`) require a future `dealEndsAt` (`dealStartsAt < dealEndsAt` when both set) |
 
-A `FIXED` or `STARTING_FROM` project with `price = null` must be rejected by the server.
+### Effective Pricing Resolution (`getEffectivePricing(project, now)`)
+All public cards, detail pages, related projects, quick-edit dialogs, and JSON-LD structured data compute display pricing from a single pure helper (`getEffectivePricing` in `lib/utils/pricing.ts` / `lib/pricing/effective-pricing.ts`) without requiring a background cron job:
+1. **Scheduled (`now < dealStartsAt`):** Offer is not active yet (`offerStatus = "SCHEDULED"`). Public pages display the regular price (`originalPrice`).
+2. **Active (`dealStartsAt <= now <= dealEndsAt`):** Offer is live (`offerStatus = "ACTIVE"`). Public pages display the discounted selling `price`, strike-through `originalPrice`, `% OFF` + `Save ₹X` badge, deal badge (`Limited time deal`, etc.), and a live countdown when ending within 7 days.
+3. **Expired (`now > dealEndsAt`):** Offer has automatically expired (`offerStatus = "EXPIRED"`). Public pages immediately revert to displaying the regular price (`originalPrice`) with no deal badge or strike-through.
 
 ---
 

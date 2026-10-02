@@ -202,23 +202,36 @@ The database schema is designed to support future provider accounts. The `projec
 
 ## Role Permission Matrix
 
-| Feature | Visitor | Customer | Admin |
-|---|---|---|---|
-| Browse projects | ✅ | ✅ | ✅ |
-| View project detail | ✅ | ✅ | ✅ |
-| WhatsApp contact | ✅ | ✅ | ✅ |
-| Email inquiry | ✅ | ✅ | ✅ |
-| Custom project request | ✅ | ✅ | ✅ |
-| View own inquiries | ❌ | ✅ | ✅ (all) |
-| View all inquiries | ❌ | ❌ | ✅ |
-| View own requests | ❌ | ✅ | ✅ (all) |
-| Create projects | ❌ | ❌ | ✅ |
-| Edit projects | ❌ | ❌ | ✅ |
-| Publish projects | ❌ | ❌ | ✅ |
-| Import projects | ❌ | ❌ | ✅ |
-| Manage providers | ❌ | ❌ | ✅ |
-| Manage categories | ❌ | ❌ | ✅ |
-| Manage technologies | ❌ | ❌ | ✅ |
-| View admin dashboard | ❌ | ❌ | ✅ |
-| Access site settings | ❌ | ❌ | ✅ |
-| View audit logs | ❌ | ❌ | ✅ |
+| Feature | Visitor | Customer | Solution Partner | Admin |
+|---|---|---|---|---|
+| Browse projects | ✅ | ✅ | ✅ | ✅ |
+| View project detail | ✅ | ✅ | ✅ | ✅ |
+| WhatsApp contact | ✅ | ✅ | ✅ | ✅ |
+| Email inquiry | ✅ | ✅ | ✅ | ✅ |
+| Custom project request | ✅ | ✅ | ✅ | ✅ |
+| View own inquiries | ❌ | ✅ | ✅ (assigned) | ✅ (all) |
+| View all inquiries | ❌ | ❌ | ❌ | ✅ |
+| View own requests | ❌ | ✅ | ❌ | ✅ (all) |
+| Create projects | ❌ | ❌ | ✅ (own solutions) | ✅ (admin-managed) |
+| Edit own project content & pricing | ❌ | ❌ | ✅ | ✅ (admin-managed only) |
+| Moderate partner-owned projects (`status`, `featured`, `featuredOrder`, `categoryId`, `moderationNote`) | ❌ | ❌ | ❌ | ✅ |
+| Edit partner-owned project content, price, deals, or tech stack | ❌ | ❌ | ✅ (owner only) | ❌ (`403 ADMIN_EDIT_DENIED`) |
+| Import projects | ❌ | ❌ | ❌ | ✅ (admin-managed providers only) |
+| Manage providers (activate, deactivate, remove, restore) | ❌ | ❌ | ❌ | ✅ |
+| Manage categories & technologies | ❌ | ❌ | ❌ | ✅ |
+| View admin dashboard & audit logs | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+## 5. Admin Moderation vs. Partner-Owned Project Boundary (Phase 3)
+
+### Ownership Derivation (`getProjectOwnership`)
+- **Partner-owned (`"partner_owned"`):** `project.provider.userId` is non-null, linked `user.role === "solution_partner"`, and `userId` is not the acting admin.
+- **Admin-managed (`"admin_managed"`):** `project.provider.userId` is `null` or belongs to an admin account.
+
+### Server & UI Enforcement (`assertAdminCanUpdate`)
+- For **admin-managed** projects, admins have full edit access to all content, pricing, promotional offers, images, and relations.
+- For **partner-owned** projects, admins may **only** update moderation and catalog placement fields:
+  - `featured`, `featuredOrder`, `status` (`DRAFT` | `PUBLISHED` | `ARCHIVED`), `categoryId`, and `moderationNote`.
+  - Any attempt by an admin to modify partner-owned content or commercial fields (`title`, `slug`, `shortDescription`, `fullDescription`, `priceMode`, `price`, `originalPrice`, `priceQualifier`, `dealType`, `dealLabel`, `dealStartsAt`, `dealEndsAt`, `demoUrl`, `projectType`, `whatsIncluded`, `providerId`, `technologyIds`, `features`, `specifications`, `faqs`, `images`) via UI or API (`PATCH /api/admin/projects/[id]`, `PATCH /api/admin/projects/bulk`, image upload/delete, or JSON import) is rejected with `403 Forbidden` and logged as `ADMIN_EDIT_DENIED`.
+- **Moderation Hold (`hasModerationHold`):** When an admin moves a partner-owned project to `DRAFT` or `ARCHIVED` with a `moderationNote`, the partner sees the admin feedback banner and must click **"Submit for Review"** (which clears the hold while keeping `status = DRAFT` for admin approval) rather than directly self-publishing.

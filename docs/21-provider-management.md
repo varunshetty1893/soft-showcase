@@ -163,31 +163,30 @@ When the admin creates or edits a project and selects a provider:
 
 ---
 
-## Admin Audit Logging for Providers
+## Admin Audit Logging & Lifecycle Rules for Providers (Phase 2A & 2B)
 
-Every provider operation is recorded in `audit_logs`:
+### 1. Single State-Aware Status Toggle Button (Phase 2A)
+Each non-removed provider row renders **at most one** status button based on `(isActive, applicationStatus)`:
+- `isActive: true, applicationStatus: "approved"` → **Deactivate** (destructive outline, requires confirmation dialog). Sets `isActive = false`, `applicationStatus = "deactivated"`, and logs `PARTNER_DEACTIVATED`.
+- `isActive: false, applicationStatus: "approved" | "deactivated" | "suspended" | "rejected"` → **Activate** (primary). Sets `isActive = true`, `applicationStatus = "approved"`, and logs `PARTNER_ACTIVATED`.
+- `applicationStatus: "pending"` → Status toggle is hidden; row renders **Approve / Reject** review actions instead.
+- **Compare-and-Set & Self-Lockout Guards:** `PATCH /api/admin/providers/[id]` validates `expectedIsActive` (returning `409 Conflict` on stale state) and blocks an admin from deactivating or removing their own linked provider record (`400 Bad Request`).
+
+### 2. Soft Removal, Restore & Permanent Delete (Phase 2B)
+- **Soft Remove (`POST /api/admin/providers/[id]/remove`):** Requires typed confirmation (provider's exact `displayName` or `email`) and an optional reason (max 500 chars). Atomically sets `removedAt = now()`, `removedById`, `removalReason`, `isActive = false`, `applicationStatus = "deactivated"`, unpublishes all `PUBLISHED` projects (`status = DRAFT`), increments `User.tokenVersion` and deletes active `Session` rows, writes `PROVIDER_REMOVED`, and sends a transactional notification email.
+- **Public Visibility Exclusion:** All public queries (`publicProviderWhere()` and `publicProjectWhere()`) require `removedAt: null`, `isActive: true`, and `applicationStatus: "approved"`. Projects belonging to a removed or inactive provider return `404` publicly and reject new inquiries.
+- **Removed Tab & Restore (`POST /api/admin/providers/[id]/restore`):** `/admin/providers` provides **Active** (`removedAt IS NULL`) and **Removed** (`removedAt IS NOT NULL`) tabs. Restoring clears `removedAt`, `removedById`, `removalReason`, sets `isActive = true`, `applicationStatus = "approved"`, and logs `PROVIDER_RESTORED`. Projects remain `DRAFT` so they can be reviewed before republishing.
+- **Permanent Delete (`DELETE /api/admin/providers/[id]`):** Allowed **only** when the provider is already soft-removed (`removedAt != null`) **and** has `0` projects, `0` inquiries, and `0` transactions (otherwise returns `409 Conflict`). Logs `PROVIDER_PERMANENTLY_DELETED`.
 
 | Action | Description |
 |---|---|
 | `PROVIDER_CREATED` | New provider added |
 | `PROVIDER_UPDATED` | Provider details changed |
-| `PROVIDER_DEACTIVATED` | Provider set inactive |
-| `PROVIDER_REACTIVATED` | Provider set active again |
-
-Log format:
-
-```json
-{
-  "userId": "admin-user-id",
-  "action": "PROVIDER_DEACTIVATED",
-  "entityType": "ProjectProvider",
-  "entityId": "provider-cuid",
-  "details": {
-    "displayName": "Rahul",
-    "affectedProjects": 3
-  }
-}
-```
+| `PARTNER_ACTIVATED` / `PROVIDER_REACTIVATED` | Provider activated |
+| `PARTNER_DEACTIVATED` / `PROVIDER_DEACTIVATED` | Provider deactivated |
+| `PROVIDER_REMOVED` | Provider soft-removed |
+| `PROVIDER_RESTORED` | Soft-removed provider restored |
+| `PROVIDER_PERMANENTLY_DELETED` | Eligible removed provider permanently deleted |
 
 ---
 
