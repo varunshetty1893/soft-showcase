@@ -13,6 +13,8 @@ interface ProfileEditFormProps {
     id: string;
     name: string | null;
     email: string;
+    whatsapp?: string | null;
+    contactEmail?: string | null;
     image: string | null;
     isAdmin: boolean;
     createdAt: Date;
@@ -22,18 +24,23 @@ interface ProfileEditFormProps {
 export function ProfileEditForm({ user }: ProfileEditFormProps) {
   const router = useRouter();
   const [name, setName] = React.useState(user.name || "");
-  const [whatsapp, setWhatsapp] = React.useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(`customer_whatsapp_${user.id}`) || "";
+  const [whatsapp, setWhatsapp] = React.useState(user.whatsapp || "");
+  const [contactEmail, setContactEmail] = React.useState(
+    user.contactEmail || user.email
+  );
+
+  // One-time migration from legacy localStorage if DB fields are empty
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!user.whatsapp) {
+      const legacyWa = localStorage.getItem(`customer_whatsapp_${user.id}`);
+      if (legacyWa) setWhatsapp(legacyWa);
     }
-    return "";
-  });
-  const [contactEmail, setContactEmail] = React.useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(`customer_contact_email_${user.id}`) || user.email;
+    if (!user.contactEmail) {
+      const legacyEmail = localStorage.getItem(`customer_contact_email_${user.id}`);
+      if (legacyEmail) setContactEmail(legacyEmail);
     }
-    return user.email;
-  });
+  }, [user.id, user.whatsapp, user.contactEmail]);
 
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -52,19 +59,32 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          whatsapp: whatsapp.trim() || null,
+          contactEmail: contactEmail.trim() || null,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to update profile");
+        const fieldError =
+          data?.details &&
+          Object.values(data.details as Record<string, string[]>)[0]?.[0];
+        throw new Error(fieldError || data.error || "Failed to update profile");
       }
 
-      // Persist contact details for auto-filling inquiry & custom request forms
+      if (data.user) {
+        setName(data.user.name || "");
+        setWhatsapp(data.user.whatsapp || "");
+        setContactEmail(data.user.contactEmail || data.user.email || user.email);
+      }
+
+      // Clean up legacy localStorage keys once persisted to DB
       if (typeof window !== "undefined") {
-        localStorage.setItem(`customer_whatsapp_${user.id}`, whatsapp.trim());
-        localStorage.setItem(`customer_contact_email_${user.id}`, contactEmail.trim());
+        localStorage.removeItem(`customer_whatsapp_${user.id}`);
+        localStorage.removeItem(`customer_contact_email_${user.id}`);
       }
 
       setMessage({ type: "success", text: "Your profile details and contact preferences have been saved." });

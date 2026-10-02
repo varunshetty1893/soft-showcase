@@ -153,11 +153,13 @@ export function CartPageContent() {
                   <div className="mt-2 text-xs font-bold text-[#155761]">
                     {item.priceMode === "FREE"
                       ? "Free / Open Source"
-                      : item.priceMode === "CONTACT_FOR_PRICE"
-                      ? "Contact for Pricing"
+                      : item.priceMode === "CONTACT" || item.priceMode === "CONTACT_FOR_PRICE"
+                      ? "Price on Request"
+                      : item.priceMode === "STARTING_FROM" && item.price
+                      ? `From ${formatPrice(item.price)}`
                       : item.price
                       ? formatPrice(item.price)
-                      : "Fixed Price"}
+                      : "Price on Request"}
                   </div>
                 </div>
 

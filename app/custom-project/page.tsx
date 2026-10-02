@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
+import { getCustomerProfile } from "@/lib/db/queries/customer";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { CustomProjectForm } from "@/components/custom-project/CustomProjectForm";
@@ -46,9 +47,16 @@ export const metadata: Metadata = {
 
 export default async function CustomProjectPage() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login?callbackUrl=/custom-project");
   }
+
+  const profile = await getCustomerProfile(session.user.id).catch(() => null);
+  const initialContact = {
+    name: profile?.name || session.user.name || "",
+    email: profile?.contactEmail || profile?.email || session.user.email || "",
+    whatsapp: profile?.whatsapp || "",
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
@@ -97,7 +105,7 @@ export default async function CustomProjectPage() {
           </div>
 
           {/* Form */}
-          <CustomProjectForm />
+          <CustomProjectForm initialContact={initialContact} />
         </div>
       </main>
 

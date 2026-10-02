@@ -2,7 +2,7 @@
 // Zod validation schema for creating and editing project providers.
 
 import { z } from "zod";
-import { isValidPhone } from "@/lib/utils/phone";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const ProviderSchema = z.object({
   displayName: z
@@ -27,7 +27,8 @@ export const ProviderSchema = z.object({
     .refine(
       (val) => !val || isValidPhone(val),
       "Please enter a valid phone number with country code (e.g. +91 98765 43210)"
-    ),
+    )
+    .transform((val) => (val ? normalizeToE164(val) ?? val : val)),
 
   bio: z
     .string()

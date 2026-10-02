@@ -2,6 +2,7 @@
 // Zod schemas for recording transactions, submitting payment evidence, and admin verification.
 
 import { z } from "zod";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const CreateTransactionSchema = z.object({
   customerName: z.string().trim().min(2, "Customer name is required").max(100),
@@ -9,8 +10,12 @@ export const CreateTransactionSchema = z.object({
   customerWhatsapp: z
     .string()
     .trim()
-    .max(20)
-    .regex(/^\+?[1-9]\d{7,14}$/, "Please provide a valid phone number with country code")
+    .max(25)
+    .refine(
+      (val) => !val || isValidPhone(val),
+      "Please provide a valid phone number with country code"
+    )
+    .transform((val) => (val ? normalizeToE164(val) ?? val : val))
     .optional()
     .nullable()
     .or(z.literal("")),

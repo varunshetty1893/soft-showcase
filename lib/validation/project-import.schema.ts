@@ -3,11 +3,23 @@
 // Source of truth: docs/22-project-import.md & docs/23-project-import-template.md
 
 import { z } from "zod";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const ImportProviderSchema = z.object({
   name: z.string().min(2, "Provider name must be at least 2 characters").max(100).trim(),
   email: z.string().email("Invalid provider email address").trim().toLowerCase(),
-  whatsapp: z.string().max(25).trim().optional().or(z.literal("")).nullable(),
+  whatsapp: z
+    .string()
+    .max(25)
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .nullable()
+    .refine(
+      (val) => !val || isValidPhone(val),
+      "Please enter a valid phone number with country code (e.g. +91 98765 43210)"
+    )
+    .transform((val) => (val ? normalizeToE164(val) ?? val : val)),
 });
 
 export const ImportFaqItemSchema = z.object({

@@ -13,19 +13,12 @@ export async function GET() {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
+    const partner = await db.projectProvider.findFirst({
       where: { userId: session.user.id },
     });
 
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
-
-    if (!partner && !session.user.isAdmin) {
-      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
-    }
-
-    if (!session.user.isAdmin && partner && (!partner.isActive || partner.applicationStatus !== "approved")) {
+    const isPartnerRole = session.user.role === "solution_partner" || Boolean(partner);
+    if (!session.user.isAdmin && isPartnerRole && partner && (!partner.isActive || partner.applicationStatus !== "approved")) {
       return NextResponse.json(
         { error: "Partner account is not active or approved" },
         { status: 403 }
@@ -42,7 +35,7 @@ export async function GET() {
 
     return NextResponse.json({ tickets });
   } catch (err) {
-    console.error("Failed to list partner tickets:", err);
+    console.error("Failed to list support tickets:", err);
     return NextResponse.json({ error: "Failed to load tickets" }, { status: 500 });
   }
 }
@@ -60,24 +53,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    let partner = await db.projectProvider.findFirst({
+    const partner = await db.projectProvider.findFirst({
       where: { userId: session.user.id },
     });
-
-    if (!partner && session.user.isAdmin) {
-      partner = await db.projectProvider.findFirst();
-    }
-
-    if (!partner && !session.user.isAdmin) {
-      return NextResponse.json({ error: "Partner profile not found" }, { status: 404 });
-    }
-
-    if (!session.user.isAdmin && partner && (!partner.isActive || partner.applicationStatus !== "approved")) {
-      return NextResponse.json(
-        { error: "Partner account is not active or approved" },
-        { status: 403 }
-      );
-    }
 
     const body = await req.json();
     const parsed = CreateTicketSchema.safeParse(body);
@@ -91,6 +69,12 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
     const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
+    const requesterRole =
+      session.user.role ||
+      (partner ? "solution_partner" : "customer");
+    const senderName =
+      session.user.name ||
+      (requesterRole === "solution_partner" ? "Partner" : "Customer");
 
     // Create ticket and initial message atomically
     const ticket = await db.$transaction(async (tx) => {
@@ -98,7 +82,7 @@ export async function POST(req: NextRequest) {
         data: {
           ticketNumber,
           requesterId: session.user.id,
-          requesterRole: session.user.role || "solution_partner",
+          requesterRole,
           subject: data.subject,
           category: data.category,
           priority: data.priority,
@@ -107,8 +91,8 @@ export async function POST(req: NextRequest) {
           messages: {
             create: {
               senderId: session.user.id,
-              senderName: session.user.name || "Partner",
-              senderRole: session.user.role || "solution_partner",
+              senderName,
+              senderRole: requesterRole,
               message: data.description,
             },
           },

@@ -17,6 +17,7 @@ interface ProviderData {
   hasWhatsapp?: boolean;
   hasEmail?: boolean;
   showWhatsapp?: boolean;
+  showEmail?: boolean;
 }
 
 interface ProviderCardProps {
@@ -36,6 +37,8 @@ export function ProviderCard({
   const session = sessionContext?.data;
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const hasWhatsApp = Boolean(provider.hasWhatsapp ?? (provider.showWhatsapp !== false));
+  const hasEmail = Boolean(provider.hasEmail ?? (provider.showEmail !== false));
+  const hasAnyContact = hasWhatsApp || hasEmail;
 
   return (
     <>
@@ -77,7 +80,11 @@ export function ProviderCard({
         )}
 
         {/* Action buttons */}
-        {!session?.user ? (
+        {!hasAnyContact ? (
+          <div className="p-3.5 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267] text-center leading-relaxed">
+            Contact information for this project is currently unavailable. Please check back later or submit a custom build request.
+          </div>
+        ) : !session?.user ? (
           <div className="space-y-3 pt-2">
             <div className="p-3.5 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267] text-center space-y-2">
               <div className="flex items-center justify-center gap-1.5 font-bold text-[#102124]">
@@ -105,16 +112,18 @@ export function ProviderCard({
               <WhatsAppButton projectSlug={projectSlug} projectId={projectId} />
             )}
 
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={() => setIsModalOpen(true)}
-              className="w-full gap-2 text-sm font-semibold cursor-pointer"
-            >
-              <Mail className="w-4 h-4 text-[#155761]" />
-              Send Email Inquiry
-            </Button>
+            {hasEmail && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={() => setIsModalOpen(true)}
+                className="w-full gap-2 text-sm font-semibold cursor-pointer"
+              >
+                <Mail className="w-4 h-4 text-[#155761]" />
+                Send Email Inquiry
+              </Button>
+            )}
           </div>
         )}
 

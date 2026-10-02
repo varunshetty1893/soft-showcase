@@ -1,7 +1,27 @@
 import { describe, it, expect } from "vitest";
 import { generateWhatsAppUrl, normalizeWhatsAppNumber } from "@/lib/whatsapp/whatsapp";
+import { normalizeToE164, isValidPhone, parsePhone } from "@/lib/utils/phone";
 
-describe("WhatsApp Utilities", () => {
+describe("WhatsApp & Phone Utilities", () => {
+  describe("normalizeToE164 (libphonenumber-js)", () => {
+    it("normalizes Indian 10-digit numbers with default IN country", () => {
+      expect(normalizeToE164("98765 43210")).toBe("+919876543210");
+      expect(normalizeToE164("09876543210")).toBe("+919876543210");
+      expect(normalizeToE164("919876543210")).toBe("+919876543210");
+    });
+
+    it("normalizes international numbers with + or 00 prefix", () => {
+      expect(normalizeToE164("+1 (650) 253-0000")).toBe("+16502530000");
+      expect(normalizeToE164("0044 7911 123456")).toBe("+447911123456");
+    });
+
+    it("rejects invalid phone numbers", () => {
+      expect(isValidPhone("12345")).toBe(false);
+      expect(normalizeToE164("not-a-phone")).toBeNull();
+      expect(parsePhone("0000000000").isValid).toBe(false);
+    });
+  });
+
   describe("normalizeWhatsAppNumber", () => {
     it("should remove non-digit characters (+, spaces, hyphens, parentheses)", () => {
       expect(normalizeWhatsAppNumber("+91 98765-43210")).toBe("919876543210");

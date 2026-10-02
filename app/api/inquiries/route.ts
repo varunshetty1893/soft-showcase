@@ -140,10 +140,17 @@ export async function POST(request: NextRequest) {
 
     // 5. Resolve provider & verify contact availability
     const provider = project.provider;
-    if (!provider || !provider.isActive) {
+    if (!provider || !provider.isActive || (provider.applicationStatus && provider.applicationStatus !== "approved")) {
       return NextResponse.json(
         { error: "Project provider is currently unavailable" },
         { status: 400 }
+      );
+    }
+
+    if (provider.showEmail === false) {
+      return NextResponse.json(
+        { error: "Email inquiries are not enabled for this project." },
+        { status: 403 }
       );
     }
 

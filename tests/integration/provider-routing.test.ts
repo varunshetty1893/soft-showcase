@@ -327,4 +327,75 @@ describe("Provider Contact Routing Integration Tests (Critical)", () => {
     const inqRes = await postInquiryRoute(inqReq);
     expect(inqRes.status).toBe(404);
   });
+
+  // Critical Test 9: Unapproved provider (e.g. pending/suspended) cannot receive inquiries or WhatsApp redirects
+  it("Rejects inquiry and WhatsApp redirect when provider applicationStatus is not approved", async () => {
+    const pendingProviderProject = {
+      ...projectA,
+      provider: {
+        ...providerA,
+        applicationStatus: "pending",
+      },
+    };
+
+    vi.mocked(db.project.findFirst).mockResolvedValueOnce(pendingProviderProject as any);
+
+    const inqReq = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-forwarded-for": "10.0.0.10",
+      },
+      body: JSON.stringify({
+        projectId: projectA.id,
+        name: "Test Customer",
+        email: "customer@test.com",
+        message: "Attempting to contact pending provider.",
+      }),
+    });
+
+    const inqRes = await postInquiryRoute(inqReq);
+    expect(inqRes.status).toBe(400);
+    expect(db.inquiry.create).not.toHaveBeenCalled();
+
+    vi.mocked(db.project.findFirst).mockResolvedValueOnce(pendingProviderProject as any);
+    const waReq = new NextRequest("http://localhost:3000/api/projects/project-alpha/whatsapp", {
+      headers: { "x-forwarded-for": "10.0.0.11" },
+    });
+    const waRes = await getWhatsAppRoute(waReq, {
+      params: Promise.resolve({ slug: "project-alpha" }),
+    });
+    expect(waRes.status).toBe(403);
+  });
+
+  // Critical Test 10: Provider with showEmail: false rejects email inquiries with 403
+  it("Rejects email inquiry when provider has showEmail: false", async () => {
+    const noEmailProject = {
+      ...projectA,
+      provider: {
+        ...providerA,
+        showEmail: false,
+      },
+    };
+
+    vi.mocked(db.project.findFirst).mockResolvedValueOnce(noEmailProject as any);
+
+    const inqReq = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-forwarded-for": "10.0.0.12",
+      },
+      body: JSON.stringify({
+        projectId: projectA.id,
+        name: "Test Customer",
+        email: "customer@test.com",
+        message: "Attempting to send email inquiry when showEmail is false.",
+      }),
+    });
+
+    const inqRes = await postInquiryRoute(inqReq);
+    expect(inqRes.status).toBe(403);
+    expect(db.inquiry.create).not.toHaveBeenCalled();
+  });
 });

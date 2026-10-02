@@ -32,7 +32,7 @@ export default async function MyInquiriesPage() {
     redirect("/login");
   }
 
-  const inquiries = await getCustomerInquiries(session.user.id, session.user.email);
+  const inquiries = await getCustomerInquiries(session.user.id);
 
   return (
     <div>

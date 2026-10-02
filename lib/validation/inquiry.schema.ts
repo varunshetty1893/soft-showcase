@@ -3,7 +3,7 @@
 // This schema runs SERVER-SIDE only. The client never sends provider_id or email.
 
 import { z } from "zod";
-import { isValidPhone } from "@/lib/utils/phone";
+import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const InquirySchema = z
   .object({
@@ -30,7 +30,8 @@ export const InquirySchema = z
       .refine(
         (val) => !val || isValidPhone(val),
         "Please enter a valid phone number with country code (e.g. +91 98765 43210)"
-      ),
+      )
+      .transform((val) => (val ? normalizeToE164(val) ?? val : val)),
 
     message: z
       .string()

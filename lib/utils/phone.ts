@@ -54,7 +54,18 @@ export function parsePhone(
 
   // Attempt parse with libphonenumber-js
   try {
-    const phoneNumber = parsePhoneNumberFromString(cleaned, country);
+    let phoneNumber = parsePhoneNumberFromString(cleaned, country);
+
+    // Fallback: if input had no '+' but includes a valid country calling code prefix (e.g. "919876543210")
+    if ((!phoneNumber || !phoneNumber.isValid()) && !cleaned.startsWith("+")) {
+      const digits = cleaned.replace(/\D/g, "");
+      if (digits.length >= 10 && digits.length <= 15) {
+        const withPlus = parsePhoneNumberFromString(`+${digits}`);
+        if (withPlus && withPlus.isValid()) {
+          phoneNumber = withPlus;
+        }
+      }
+    }
 
     if (phoneNumber && phoneNumber.isValid()) {
       const e164 = phoneNumber.format("E.164"); // e.g. "+919876543210"

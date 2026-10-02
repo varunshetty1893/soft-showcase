@@ -15,6 +15,7 @@ import { LoginSchema } from "@/lib/validation/auth.schema";
 import { authLoginLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 import { getEnv } from "@/lib/config/env";
 import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
+import { linkVerifiedUserRecords } from "@/lib/db/queries/customer";
 import { getSafeCallbackUrl } from "@/lib/utils/safe-redirect";
 
 export class LoginRateLimitError extends CredentialsSignin {
@@ -136,6 +137,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/login",
   },
 
+  // ── Events ────────────────────────────────────────────────────────────────
+  events: {
+    async createUser({ user }) {
+      if (user.id && user.email) {
+        const normalizedEmail = user.email.toLowerCase().trim();
+        await bootstrapAdminOnVerification(user.id, normalizedEmail);
+        await linkVerifiedUserRecords(user.id, normalizedEmail);
+      }
+    },
+  },
+
   // ── Callbacks ─────────────────────────────────────────────────────────────
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -175,8 +187,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               });
             }
 
-            // Run verified-email admin bootstrap hook
+            // Run verified-email admin bootstrap hook and guest record linking
             await bootstrapAdminOnVerification(existingUser.id, normalizedEmail);
+            await linkVerifiedUserRecords(existingUser.id, normalizedEmail);
           }
         }
       }

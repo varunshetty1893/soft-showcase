@@ -12,7 +12,6 @@ import { db } from "@/lib/db/client";
  */
 export async function getCustomerInquiries(
   userId: string,
-  _deprecatedEmail?: string | null,
   options?: { page?: number; pageSize?: number }
 ) {
   const page = options?.page || 1;
@@ -118,7 +117,7 @@ export async function getCustomerProfile(userId: string) {
  * Get summary counts for the customer area badges and profile overview.
  * Scoped strictly by customerId.
  */
-export async function getCustomerStats(userId: string, _deprecatedEmail?: string) {
+export async function getCustomerStats(userId: string) {
   const [inquiryCount, requestCount] = await Promise.all([
     db.inquiry.count({
       where: { customerId: userId },
@@ -132,7 +131,7 @@ export async function getCustomerStats(userId: string, _deprecatedEmail?: string
 }
 
 /**
- * Link guest inquiries and custom requests to a verified user account.
+ * Link guest inquiries, custom requests, and transactions to a verified user account.
  * Executed strictly once upon verified sign-in.
  */
 export async function linkVerifiedUserRecords(userId: string, email: string) {
@@ -148,5 +147,9 @@ export async function linkVerifiedUserRecords(userId: string, email: string) {
       where: { email: { equals: normalizedEmail, mode: "insensitive" }, customerId: null },
       data: { customerId: userId, linkedAt: new Date() },
     }).catch((err) => console.error("[Linking] Failed to link guest custom requests:", err)),
+    db.transaction.updateMany({
+      where: { customerEmail: normalizedEmail, customerId: null },
+      data: { customerId: userId },
+    }).catch((err) => console.error("[Linking] Failed to link guest transactions:", err)),
   ]);
 }

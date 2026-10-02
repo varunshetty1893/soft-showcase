@@ -39,6 +39,7 @@ export default async function EditProjectPage({ params }: Props) {
     featured: project.featured,
     priceMode: project.priceMode as "CONTACT" | "FIXED" | "STARTING_FROM" | "FREE",
     price: project.price?.toString() ?? "",
+    originalPrice: project.originalPrice?.toString() ?? "",
     demoUrl: project.demoUrl ?? "",
     projectType: project.projectType ?? "",
     categoryId: project.categoryId,

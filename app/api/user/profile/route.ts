@@ -26,6 +26,40 @@ const ProfileUpdateSchema = z.object({
     .or(z.literal("")),
 });
 
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await db.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        whatsapp: true,
+        contactEmail: true,
+        image: true,
+        isAdmin: true,
+      },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ user: dbUser });
+  } catch (error) {
+    console.error("[API] Error fetching profile:", error);
+    return NextResponse.json(
+      { error: "Failed to load profile" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser();

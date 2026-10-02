@@ -12,6 +12,22 @@ export async function getProviderById(id: string) {
 }
 
 /**
+ * Verify if a provider is active and approved to receive customer inquiries/leads.
+ */
+export function isProviderEligibleForRouting(
+  provider: {
+    isActive?: boolean | null;
+    applicationStatus?: string | null;
+  } | null | undefined
+): boolean {
+  if (!provider || !provider.isActive) return false;
+  if (provider.applicationStatus && provider.applicationStatus !== "approved") {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Get the provider assigned to a project.
  * Used by server-side contact routing — never expose to client directly.
  */
@@ -28,6 +44,7 @@ export async function getProviderForProject(projectId: string) {
           showEmail: true,
           showWhatsapp: true,
           isActive: true,
+          applicationStatus: true,
           providerConsentConfirmed: true,
         },
       },

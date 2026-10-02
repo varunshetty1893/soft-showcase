@@ -26,13 +26,23 @@ const POPULAR_TECHNOLOGIES = [
   "OpenAI / LLM",
 ];
 
-export function CustomProjectForm() {
+export interface CustomProjectInitialContact {
+  name?: string;
+  email?: string;
+  whatsapp?: string;
+}
+
+export function CustomProjectForm({
+  initialContact,
+}: {
+  initialContact?: CustomProjectInitialContact;
+} = {}) {
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const [formData, setFormData] = React.useState({
-    name: "",
-    email: "",
-    whatsapp: "",
+    name: initialContact?.name || "",
+    email: initialContact?.email || "",
+    whatsapp: initialContact?.whatsapp || "",
     projectTitle: "",
     category: "web-application",
     technologyPreferences: [] as string[],
@@ -54,6 +64,23 @@ export function CustomProjectForm() {
         name: prev.name || session.user?.name || "",
         email: prev.email || session.user?.email || "",
       }));
+
+      fetch("/api/user/profile")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            setFormData((prev) => ({
+              ...prev,
+              name: prev.name || data.user.name || session.user?.name || "",
+              email:
+                prev.email === "" || prev.email === session.user?.email
+                  ? data.user.contactEmail || data.user.email || prev.email
+                  : prev.email,
+              whatsapp: prev.whatsapp || data.user.whatsapp || "",
+            }));
+          }
+        })
+        .catch(() => null);
     }
   }, [session]);
 

@@ -65,20 +65,10 @@ export async function getTransactionById(id: string) {
 
 export async function getCustomerTransactions(
   userId: string,
-  email: string,
+  _email?: string,
   options?: { page?: number; pageSize?: number }
 ) {
   try {
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Link any legacy unlinked transactions to the stable user identity (Issue 43)
-    if (normalizedEmail) {
-      await db.transaction.updateMany({
-        where: { customerEmail: normalizedEmail, customerId: null },
-        data: { customerId: userId },
-      }).catch(() => null);
-    }
-
     const page = options?.page || 1;
     const pageSize = options?.pageSize || 50;
     const skip = (page - 1) * pageSize;

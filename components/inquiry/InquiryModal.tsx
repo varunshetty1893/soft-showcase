@@ -13,6 +13,11 @@ interface InquiryModalProps {
   onClose: () => void;
   projectId: string;
   projectTitle: string;
+  initialContact?: {
+    name?: string;
+    email?: string;
+    whatsapp?: string;
+  };
 }
 
 export function InquiryModal({
@@ -20,6 +25,7 @@ export function InquiryModal({
   onClose,
   projectId,
   projectTitle,
+  initialContact,
 }: InquiryModalProps) {
   // Close on Escape key press
   React.useEffect(() => {
@@ -87,6 +93,7 @@ export function InquiryModal({
             projectId={projectId}
             projectTitle={projectTitle}
             onCancel={onClose}
+            initialContact={initialContact}
           />
         </div>
       </div>

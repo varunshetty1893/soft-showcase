@@ -18,6 +18,11 @@ interface InquiryFormProps {
   projectTitle: string;
   onSuccess?: () => void;
   onCancel?: () => void;
+  initialContact?: {
+    name?: string;
+    email?: string;
+    whatsapp?: string;
+  };
 }
 
 export function InquiryForm({
@@ -25,13 +30,14 @@ export function InquiryForm({
   projectTitle,
   onSuccess,
   onCancel,
+  initialContact,
 }: InquiryFormProps) {
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const [formData, setFormData] = React.useState({
-    name: "",
-    email: "",
-    whatsapp: "",
+    name: initialContact?.name || "",
+    email: initialContact?.email || "",
+    whatsapp: initialContact?.whatsapp || "",
     contactMethod: "EMAIL" as "EMAIL" | "WHATSAPP",
     message: "",
   });
@@ -43,6 +49,23 @@ export function InquiryForm({
         name: prev.name || session.user.name || "",
         email: prev.email || session.user.email || "",
       }));
+
+      fetch("/api/user/profile")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            setFormData((prev) => ({
+              ...prev,
+              name: prev.name || data.user.name || session.user.name || "",
+              email:
+                prev.email === "" || prev.email === session.user.email
+                  ? data.user.contactEmail || data.user.email || prev.email
+                  : prev.email,
+              whatsapp: prev.whatsapp || data.user.whatsapp || "",
+            }));
+          }
+        })
+        .catch(() => null);
     }
   }, [session]);
 
@@ -224,13 +247,19 @@ export function InquiryForm({
 
         <div className="space-y-1.5">
           <Label htmlFor="inquiry-whatsapp" className="text-xs font-semibold text-[#102124]">
-            WhatsApp Number <span className="text-[#526267] font-normal">(Optional)</span>
+            WhatsApp Number{" "}
+            {formData.contactMethod === "WHATSAPP" ? (
+              <span className="text-red-500">*</span>
+            ) : (
+              <span className="text-[#526267] font-normal">(Optional)</span>
+            )}
           </Label>
           <Input
             id="inquiry-whatsapp"
             name="whatsapp"
             type="tel"
-            placeholder="+1 234 567 8900"
+            required={formData.contactMethod === "WHATSAPP"}
+            placeholder="+91 98765 43210"
             value={formData.whatsapp}
             onChange={handleChange}
             disabled={loading}

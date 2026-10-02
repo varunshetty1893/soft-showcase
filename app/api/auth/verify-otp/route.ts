@@ -7,6 +7,7 @@ import { VerifyOtpSchema } from "@/lib/validation/auth.schema";
 import { verifySecretToken } from "@/lib/utils/crypto";
 import { otpVerifyLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
+import { linkVerifiedUserRecords } from "@/lib/db/queries/customer";
 
 export async function POST(req: Request) {
   try {
@@ -125,6 +126,8 @@ export async function POST(req: Request) {
 
       // Run H2 bootstrap hook: check if verified email matches configured ADMIN_EMAILS
       await bootstrapAdminOnVerification(finalUser.id, normalizedEmail);
+      // Link any prior guest records to the verified user account (Issue B5)
+      await linkVerifiedUserRecords(finalUser.id, normalizedEmail);
 
       const isPartner = finalUser?.role === "solution_partner";
       return Response.json({
@@ -190,6 +193,8 @@ export async function POST(req: Request) {
 
     // Run H2 bootstrap hook
     await bootstrapAdminOnVerification(updatedUser.id, normalizedEmail);
+    // Link any prior guest records to the verified user account (Issue B5)
+    await linkVerifiedUserRecords(updatedUser.id, normalizedEmail);
 
     const isPartner = updatedUser?.role === "solution_partner";
     return Response.json({

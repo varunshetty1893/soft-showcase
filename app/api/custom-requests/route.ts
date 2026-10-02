@@ -131,6 +131,8 @@ export async function POST(request: Request) {
     // 5. Database Insertion
     const customRequest = await db.customProjectRequest.create({
       data: {
+        customerId,
+        linkedAt: customerId ? new Date() : null,
         name: data.name,
         email: data.email,
         whatsapp: data.whatsapp || null,
