@@ -50,18 +50,16 @@ const nextConfig: NextConfig = {
   // ─── Security headers ───────────────────────────────────────────────────────
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";
-    const isAIStudioPreview = Boolean(
-      process.env.VERCEL !== "1" ||
-      process.env.NEXT_PUBLIC_APP_URL?.includes("run.app") ||
-      process.env.NEXT_PUBLIC_APP_URL?.includes("google")
-    );
+    const allowAIStudioPreview =
+      !isProduction && process.env.ALLOW_AI_STUDIO_PREVIEW === "true";
 
     const scriptSrc = isProduction
       ? "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com"
       : "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://challenges.cloudflare.com";
 
-    const frameAncestors = isAIStudioPreview
-      ? "frame-ancestors 'self' https://*.run.app https://*.google.com https://*.google.dev *"
+    // N11: In production ALWAYS use frame-ancestors 'none'. Allow preview origins only in non-prod when ALLOW_AI_STUDIO_PREVIEW === "true", never bare *.
+    const frameAncestors = allowAIStudioPreview
+      ? "frame-ancestors 'self' https://*.run.app https://*.google.com https://*.google.dev"
       : "frame-ancestors 'none'";
 
     const headersList: { key: string; value: string }[] = [
@@ -91,7 +89,7 @@ const nextConfig: NextConfig = {
       },
     ];
 
-    if (!isAIStudioPreview) {
+    if (!allowAIStudioPreview) {
       headersList.push({ key: "X-Frame-Options", value: "DENY" });
       headersList.push({
         key: "Strict-Transport-Security",

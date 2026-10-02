@@ -5,13 +5,16 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { CheckCircle2, AlertCircle, Send, Lock } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { CheckCircle2, AlertCircle, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/security/TurnstileWidget";
 
 interface InquiryFormProps {
   projectId: string;
@@ -34,6 +37,8 @@ export function InquiryForm({
 }: InquiryFormProps) {
   const sessionContext = useSession();
   const session = sessionContext?.data;
+  const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
+
   const [formData, setFormData] = React.useState({
     name: initialContact?.name || "",
     email: initialContact?.email || "",
@@ -41,6 +46,12 @@ export function InquiryForm({
     contactMethod: "EMAIL" as "EMAIL" | "WHATSAPP",
     message: "",
   });
+
+  // Anti-spam fields (N1): honeypot, mount timestamp, and Turnstile token
+  const [website, setWebsite] = React.useState("");
+  const [formSubmittedAt] = React.useState<number>(() => Date.now());
+  const [turnstileToken, setTurnstileToken] = React.useState<string>("");
+  const turnstileRef = React.useRef<TurnstileWidgetHandle | null>(null);
 
   React.useEffect(() => {
     if (session?.user) {
@@ -74,33 +85,9 @@ export function InquiryForm({
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const [isSuccess, setIsSuccess] = React.useState(false);
 
-  if (!session?.user) {
-    return (
-      <div className="py-6 text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center mx-auto">
-          <Lock className="w-6 h-6" />
-        </div>
-        <div className="space-y-1">
-          <h3 className="text-lg font-bold text-[#102124]">Sign In Required</h3>
-          <p className="text-xs text-[#526267] max-w-sm mx-auto leading-relaxed">
-            Please sign in to send an inquiry and communicate directly with Solution Partners.
-          </p>
-        </div>
-        <div className="pt-2 flex items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className={buttonVariants({ variant: "primary", size: "md" })}
-          >
-            Sign In to Inquire
-          </Link>
-          {onCancel && (
-            <Button type="button" variant="outline" size="md" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-        </div>
-      </div>
-    );
+  function resetTurnstile() {
+    setTurnstileToken("");
+    turnstileRef.current?.reset();
   }
 
   function handleChange(
@@ -119,6 +106,11 @@ export function InquiryForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isVerifiedUser && !turnstileToken) {
+      setErrorMessage("Please complete the security verification before submitting.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
     setFieldErrors({});
@@ -134,12 +126,16 @@ export function InquiryForm({
           whatsapp: formData.whatsapp.trim() || undefined,
           contactMethod: formData.contactMethod,
           message: formData.message.trim(),
+          website,
+          formSubmittedAt,
+          turnstileToken: !isVerifiedUser ? turnstileToken : undefined,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        resetTurnstile();
         if (res.status === 429) {
           setErrorMessage("Too many inquiries sent. Please wait a few minutes before trying again.");
         } else if (data.details) {
@@ -157,6 +153,7 @@ export function InquiryForm({
       }
     } catch (err) {
       console.error("Inquiry submission error:", err);
+      resetTurnstile();
       setErrorMessage("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
@@ -181,12 +178,13 @@ export function InquiryForm({
             onClick={() => {
               setIsSuccess(false);
               setFormData({
-                name: "",
-                email: "",
-                whatsapp: "",
+                name: initialContact?.name || session?.user?.name || "",
+                email: initialContact?.email || session?.user?.email || "",
+                whatsapp: initialContact?.whatsapp || "",
                 contactMethod: "EMAIL",
                 message: "",
               });
+              resetTurnstile();
               if (onCancel) onCancel();
             }}
           >
@@ -197,6 +195,8 @@ export function InquiryForm({
     );
   }
 
+  const isSubmitDisabled = loading || (!isVerifiedUser && !turnstileToken);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {errorMessage && (
@@ -205,6 +205,23 @@ export function InquiryForm({
           <span>{errorMessage}</span>
         </div>
       )}
+
+      {/* Honeypot field: hidden from sighted users and assistive technologies */}
+      <div
+        aria-hidden="true"
+        className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden opacity-0 pointer-events-none"
+      >
+        <label htmlFor="inquiry-website">Website</label>
+        <input
+          id="inquiry-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="inquiry-name" className="text-xs font-semibold text-[#102124]">
@@ -325,6 +342,19 @@ export function InquiryForm({
         )}
       </div>
 
+      {/* Turnstile widget shown only to visitors not signed in with a verified email (N1) */}
+      {!isVerifiedUser && (
+        <div className="pt-1">
+          <TurnstileWidget
+            ref={turnstileRef}
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken("")}
+            onError={() => setTurnstileToken("")}
+            theme="light"
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#D9E2E4]">
         {onCancel && (
           <Button
@@ -342,7 +372,7 @@ export function InquiryForm({
           variant="primary"
           size="md"
           isLoading={loading}
-          disabled={loading}
+          disabled={isSubmitDisabled}
           className="gap-2"
         >
           <Send className="w-4 h-4" />

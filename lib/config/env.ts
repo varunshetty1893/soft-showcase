@@ -23,6 +23,7 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   TRUSTED_PROXY_COUNT: z.coerce.number().min(0).default(1),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
   ADMIN_EMAIL: z.string().optional(),
@@ -41,9 +42,10 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
   const source = overrideEnv || process.env;
   const isProd = (source.NODE_ENV || process.env.NODE_ENV) === "production";
   const isBuildPhase =
-    source.NEXT_PHASE === "phase-production-build" ||
-    process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.npm_lifecycle_event === "build";
+    !overrideEnv &&
+    (source.NEXT_PHASE === "phase-production-build" ||
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      process.env.npm_lifecycle_event === "build");
 
   let authSecret = source.AUTH_SECRET || source.NEXTAUTH_SECRET;
 
@@ -58,6 +60,9 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
     }
   }
 
+  const nextPublicTurnstileSiteKey =
+    source.NEXT_PUBLIC_TURNSTILE_SITE_KEY || source.TURNSTILE_SITE_KEY;
+
   const raw = {
     NODE_ENV: source.NODE_ENV || "development",
     AUTH_SECRET: authSecret,
@@ -68,7 +73,8 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
     UPSTASH_REDIS_REST_URL: source.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: source.UPSTASH_REDIS_REST_TOKEN,
     TRUSTED_PROXY_COUNT: source.TRUSTED_PROXY_COUNT,
-    TURNSTILE_SITE_KEY: source.TURNSTILE_SITE_KEY || source.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: nextPublicTurnstileSiteKey,
+    TURNSTILE_SITE_KEY: nextPublicTurnstileSiteKey,
     TURNSTILE_SECRET_KEY: source.TURNSTILE_SECRET_KEY,
     ADMIN_EMAIL: source.ADMIN_EMAIL,
     ADMIN_EMAILS: source.ADMIN_EMAILS,
@@ -83,27 +89,39 @@ export function getEnv(overrideEnv?: Record<string, string | undefined>): AppEnv
     }
   }
 
-  // Stricter production runtime checks (if not building)
+  // Strict production runtime checks (N1 & N4)
   if (isProd && !isBuildPhase) {
-    if (!raw.DATABASE_URL) {
+    if (!raw.DATABASE_URL || !raw.DATABASE_URL.trim()) {
       throw new Error("[Config] Production error: DATABASE_URL is required at runtime.");
     }
     const hasAppUrl = Boolean(raw.AUTH_URL || raw.NEXTAUTH_URL || raw.NEXT_PUBLIC_APP_URL);
     if (!hasAppUrl) {
       throw new Error("[Config] Production error: NEXTAUTH_URL, AUTH_URL, or NEXT_PUBLIC_APP_URL is required.");
     }
-    if (!raw.UPSTASH_REDIS_REST_URL || !raw.UPSTASH_REDIS_REST_TOKEN) {
-      if (typeof console !== "undefined" && console.warn) {
-        console.warn("[Config] Production warning: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are not set. Memory fallback will be used.");
-      }
+    if (!raw.UPSTASH_REDIS_REST_URL || !raw.UPSTASH_REDIS_REST_URL.trim()) {
+      throw new Error("[Config] Production error: UPSTASH_REDIS_REST_URL is required at runtime.");
+    }
+    if (!raw.UPSTASH_REDIS_REST_TOKEN || !raw.UPSTASH_REDIS_REST_TOKEN.trim()) {
+      throw new Error("[Config] Production error: UPSTASH_REDIS_REST_TOKEN is required at runtime.");
+    }
+    if (!raw.TURNSTILE_SECRET_KEY || !raw.TURNSTILE_SECRET_KEY.trim()) {
+      throw new Error("[Config] Production error: TURNSTILE_SECRET_KEY is required at runtime.");
+    }
+    if (!raw.NEXT_PUBLIC_TURNSTILE_SITE_KEY || !raw.NEXT_PUBLIC_TURNSTILE_SITE_KEY.trim()) {
+      throw new Error("[Config] Production error: NEXT_PUBLIC_TURNSTILE_SITE_KEY is required at runtime.");
     }
   }
 
-  const resolved = (parsed.success ? parsed.data : (raw as unknown as AppEnv));
+  const resolved = parsed.success ? parsed.data : (raw as unknown as AppEnv);
   if (!overrideEnv) {
     memoizedEnv = resolved;
   }
   return resolved;
 }
 
-export const env = getEnv();
+export const env: AppEnv = new Proxy({} as AppEnv, {
+  get(_target, prop) {
+    const resolved = getEnv();
+    return (resolved as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});

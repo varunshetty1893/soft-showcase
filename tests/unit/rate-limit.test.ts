@@ -3,7 +3,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   extractClientIpOrFingerprint,
   createRateLimiter,
+  authLoginLimiter,
+  authRegisterLimiter,
+  otpVerifyLimiter,
 } from "@/lib/utils/rate-limit";
+
+const mockResetUsedTokens = vi.fn().mockResolvedValue(undefined);
+const mockLimit = vi.fn();
+
+vi.mock("@upstash/ratelimit", () => {
+  return {
+    Ratelimit: class MockRatelimit {
+      static slidingWindow = vi.fn();
+      limit = mockLimit;
+      resetUsedTokens = mockResetUsedTokens;
+    },
+  };
+});
 
 describe("Client IP Extraction & Spoofing Defense (M2)", () => {
   const originalEnv = process.env;
@@ -102,20 +118,11 @@ describe("Rate Limiter Reliability & Fail Modes (M3)", () => {
   });
 
   it("fail-closed mode returns success=false and error=true when backing store throws", async () => {
-    // Force upstash rate limiting with a broken mock
     process.env.UPSTASH_REDIS_REST_URL = "https://mock.upstash.io";
     process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
     process.env.RATE_LIMIT_PROVIDER = "upstash";
 
-    // Mock upstash ratelimit to simulate a store outage
-    vi.mock("@upstash/ratelimit", () => {
-      return {
-        Ratelimit: class MockRatelimit {
-          static slidingWindow = vi.fn();
-          limit = vi.fn().mockRejectedValue(new Error("Redis connection timeout"));
-        },
-      };
-    });
+    mockLimit.mockRejectedValueOnce(new Error("Redis connection timeout"));
 
     const closedLimiter = createRateLimiter(
       { limit: 5, windowMs: 60 * 1000, failMode: "closed" },
@@ -133,6 +140,8 @@ describe("Rate Limiter Reliability & Fail Modes (M3)", () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
     process.env.RATE_LIMIT_PROVIDER = "upstash";
 
+    mockLimit.mockRejectedValueOnce(new Error("Redis connection timeout"));
+
     const openLimiter = createRateLimiter(
       { limit: 5, windowMs: 60 * 1000, failMode: "open" },
       "test_open_error"
@@ -141,5 +150,114 @@ describe("Rate Limiter Reliability & Fail Modes (M3)", () => {
     const res = await openLimiter.check("key-1");
     expect(res.success).toBe(true);
     expect(res.error).toBe(true);
+  });
+
+  it("N4: throws in production runtime when UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is missing", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    (process.env as any).NODE_ENV = "production";
+    delete process.env.NEXT_PHASE;
+    delete process.env.npm_lifecycle_event;
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    const prodLimiter = createRateLimiter(
+      { limit: 5, windowMs: 60_000, failMode: "closed" },
+      "test_prod_no_redis"
+    );
+
+    await expect(prodLimiter.check("user-1")).rejects.toThrow(
+      /UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production runtime/
+    );
+
+    (process.env as any).NODE_ENV = prevNodeEnv;
+  });
+
+  it("N7: reset(key) invokes upstashRatelimit.resetUsedTokens(key) and clears memory store", async () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://mock.upstash.io";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "mock-token";
+    process.env.RATE_LIMIT_PROVIDER = "upstash";
+
+    mockLimit.mockResolvedValue({
+      success: true,
+      remaining: 4,
+      reset: Date.now() + 60_000,
+    });
+    mockResetUsedTokens.mockClear();
+
+    const limiter = createRateLimiter(
+      { limit: 5, windowMs: 60_000, failMode: "closed" },
+      "test_reset_upstash"
+    );
+
+    await limiter.check("email:alice@example.com");
+    await limiter.reset("email:alice@example.com");
+
+    expect(mockResetUsedTokens).toHaveBeenCalledWith("email:alice@example.com");
+    delete process.env.RATE_LIMIT_PROVIDER;
+  });
+
+  it("N7 & N8: resetting email/email_ip keys on login success does NOT reset IP limiter; victim can still log in from another IP when attacker is locked", async () => {
+    delete process.env.RATE_LIMIT_PROVIDER;
+    const attackerIp = "198.51.100.200";
+    const victimIp = "203.0.113.55";
+    const victimEmail = "victim-login@example.com";
+
+    await authLoginLimiter.reset(`ip:${attackerIp}`);
+    await authLoginLimiter.reset(`ip:${victimIp}`);
+    await authLoginLimiter.reset(`email:${victimEmail}`);
+    await authLoginLimiter.reset(`email_ip:${victimEmail}:${attackerIp}`);
+    await authLoginLimiter.reset(`email_ip:${victimEmail}:${victimIp}`);
+
+    // Attacker makes 5 failed login attempts against victimEmail from attackerIp
+    for (let i = 0; i < 5; i++) {
+      expect((await authLoginLimiter.check(`ip:${attackerIp}`)).success).toBe(true);
+      expect((await authLoginLimiter.check(`email_ip:${victimEmail}:${attackerIp}`)).success).toBe(true);
+      expect((await authLoginLimiter.check(`email:${victimEmail}`)).success).toBe(true);
+    }
+
+    // 6th attempt from attackerIp for victimEmail is locked out by email_ip (5/15m)
+    const attackerSixth = await authLoginLimiter.check(`email_ip:${victimEmail}:${attackerIp}`);
+    expect(attackerSixth.success).toBe(false);
+
+    // Victim logging in from victimIp is NOT locked out!
+    expect((await authLoginLimiter.check(`ip:${victimIp}`)).success).toBe(true);
+    expect((await authLoginLimiter.check(`email_ip:${victimEmail}:${victimIp}`)).success).toBe(true);
+    expect((await authLoginLimiter.check(`email:${victimEmail}`)).success).toBe(true);
+
+    // On successful login, only email-scoped keys are reset, never ip:${attackerIp}
+    await authLoginLimiter.reset(`email_ip:${victimEmail}:${victimIp}`);
+    await authLoginLimiter.reset(`email:${victimEmail}`);
+
+    // Exhaust remaining 25 attempts on attackerIp (5 already used + 25 = 30 IP ceiling)
+    for (let i = 0; i < 25; i++) {
+      await authLoginLimiter.check(`ip:${attackerIp}`);
+    }
+    // Even if attacker logs into their own account and resets their own email key, ip:${attackerIp} remains locked!
+    await authLoginLimiter.reset(`email:attacker-own@example.com`);
+    await authLoginLimiter.reset(`email_ip:attacker-own@example.com:${attackerIp}`);
+    const ipStillLocked = await authLoginLimiter.check(`ip:${attackerIp}`);
+    expect(ipStillLocked.success).toBe(false);
+  });
+
+  it("N9: shared-IP two-key model allows 5 attempts per email while allowing up to 20 registrations / 40 OTP verifications across a shared office/carrier IP", async () => {
+    delete process.env.RATE_LIMIT_PROVIDER;
+    const sharedCarrierIp = "198.51.100.88";
+    await authRegisterLimiter.reset(`ip:${sharedCarrierIp}`);
+    await otpVerifyLimiter.reset(`ip:${sharedCarrierIp}`);
+
+    // User A exhausts their 5/15m per-email registration limit on sharedCarrierIp
+    const userA = "user-a@campus.edu";
+    await authRegisterLimiter.reset(`email:${userA}`);
+    for (let i = 0; i < 5; i++) {
+      expect((await authRegisterLimiter.check(`ip:${sharedCarrierIp}`)).success).toBe(true);
+      expect((await authRegisterLimiter.check(`email:${userA}`)).success).toBe(true);
+    }
+    expect((await authRegisterLimiter.check(`email:${userA}`)).success).toBe(false);
+
+    // User B on the SAME shared IP can still register because IP ceiling is 20/15m
+    const userB = "user-b@campus.edu";
+    await authRegisterLimiter.reset(`email:${userB}`);
+    expect((await authRegisterLimiter.check(`ip:${sharedCarrierIp}`)).success).toBe(true);
+    expect((await authRegisterLimiter.check(`email:${userB}`)).success).toBe(true);
   });
 });

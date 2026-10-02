@@ -38,12 +38,22 @@ vi.mock("@/lib/utils/turnstile", () => {
 import { db } from "@/lib/db/client";
 import { POST as postInquiryRoute } from "@/app/api/inquiries/route";
 import { verifyTurnstileToken } from "@/lib/utils/turnstile";
+import {
+  sendProviderInquiryEmail,
+  sendCustomerConfirmationEmail,
+} from "@/lib/email/email-service";
+import {
+  providerGlobalBurstLimiter,
+  dailyOutboundEmailLimiter,
+} from "@/lib/utils/rate-limit";
 
-describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
+describe("Inquiry Anti-Abuse & Three-Layer Lead Protection (M4 / N1 / N2 / N3)", () => {
   const sampleProvider = {
     id: "provider-1",
     displayName: "Sample Provider",
     email: "provider@example.com",
+    showEmail: true,
+    showWhatsapp: true,
     isActive: true,
     applicationStatus: "approved",
   };
@@ -57,10 +67,13 @@ describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
     provider: sampleProvider,
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.mocked(db.project.findFirst).mockResolvedValue(sampleProject as any);
+    vi.mocked(db.inquiry.update).mockResolvedValue({ id: "inq-1" } as any);
     vi.mocked(verifyTurnstileToken).mockResolvedValue({ success: true });
+    await providerGlobalBurstLimiter.reset(sampleProvider.id);
+    await dailyOutboundEmailLimiter.reset("global_daily_email");
   });
 
   const validPayload = {
@@ -70,7 +83,7 @@ describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
     message: "I am interested in this production software solution.",
     contactMethod: "EMAIL",
     turnstileToken: "valid-turnstile-token",
-    formSubmittedAt: Date.now() - 5000, // 5 seconds ago (passes fill-time check)
+    formSubmittedAt: Date.now() - 5000,
   };
 
   it("rejects bot submission when honeypot field is filled", async () => {
@@ -95,7 +108,7 @@ describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
   it("rejects rapid bot submissions completed faster than 2 seconds", async () => {
     const rapidPayload = {
       ...validPayload,
-      formSubmittedAt: Date.now() - 500, // Only 500ms elapsed
+      formSubmittedAt: Date.now() - 500,
     };
 
     const req = new NextRequest("http://localhost:3000/api/inquiries", {
@@ -111,7 +124,7 @@ describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
     expect(db.inquiry.create).not.toHaveBeenCalled();
   });
 
-  it("rejects unauthenticated submissions when Turnstile verification fails", async () => {
+  it("rejects unauthenticated submissions when Turnstile verification fails (400) or is unreachable (503)", async () => {
     vi.mocked(verifyTurnstileToken).mockResolvedValueOnce({
       success: false,
       errorCodes: ["invalid-input-response"],
@@ -131,39 +144,166 @@ describe("Inquiry Anti-Abuse & Anti-Relay Protections (M4)", () => {
     const data = await res.json();
     expect(data.error).toContain("Security verification failed");
     expect(db.inquiry.create).not.toHaveBeenCalled();
+
+    // Unreachable Turnstile returns 503
+    vi.mocked(verifyTurnstileToken).mockResolvedValueOnce({
+      success: false,
+      errorCodes: ["network-error"],
+      unreachable: true,
+    });
+
+    const req503 = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "10.0.0.4" },
+      body: JSON.stringify(validPayload),
+    });
+    const res503 = await postInquiryRoute(req503);
+    expect(res503.status).toBe(503);
   });
 
-  it("enforces per-recipient rate limit (max 3/hour) with 429 and Retry-After", async () => {
-    vi.mocked(db.inquiry.create).mockResolvedValue({ id: "inq-1" } as any);
+  it("N1: passes turnstileToken from request body to verifyTurnstileToken and strips anti-spam fields before Zod validation", async () => {
+    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+      id: "inq-turnstile-ok",
+      ...args.data,
+    }));
 
-    // Send 3 allowed inquiries to sampleProvider.email
+    const req = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "10.0.0.99" },
+      body: JSON.stringify({
+        ...validPayload,
+        website: "",
+        formSubmittedAt: Date.now() - 4000,
+        turnstileToken: "widget-token-xyz-987",
+      }),
+    });
+
+    const res = await postInquiryRoute(req);
+    expect(res.status).toBe(201);
+    expect(verifyTurnstileToken).toHaveBeenCalledWith("widget-token-xyz-987", "10.0.0.99");
+  });
+
+  it("N2: one abuser hitting 3/hr per provider+IP cannot block other legitimate visitors", async () => {
+    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+      id: "inq-abuser-test",
+      ...args.data,
+    }));
+
+    const abuserIp = "198.51.100.77";
+
+    // Abuser sends 3 inquiries from same IP to sampleProvider
     for (let i = 0; i < 3; i++) {
       const req = new NextRequest("http://localhost:3000/api/inquiries", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-forwarded-for": `10.0.1.${i}` },
+        headers: { "Content-Type": "application/json", "x-forwarded-for": abuserIp },
         body: JSON.stringify({
           ...validPayload,
-          email: `user${i}@example.com`,
+          email: `abuser-${i}@example.com`,
         }),
       });
       const res = await postInquiryRoute(req);
       expect(res.status).toBe(201);
     }
 
-    // 4th inquiry to same provider email should trigger recipient rate limit
-    const fourthReq = new NextRequest("http://localhost:3000/api/inquiries", {
+    // Abuser's 4th inquiry from the same IP is blocked with 429
+    const fourthAbuserReq = new NextRequest("http://localhost:3000/api/inquiries", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-forwarded-for": "10.0.1.99" },
+      headers: { "Content-Type": "application/json", "x-forwarded-for": abuserIp },
       body: JSON.stringify({
         ...validPayload,
-        email: "user99@example.com",
+        email: "abuser-4@example.com",
+      }),
+    });
+    const fourthAbuserRes = await postInquiryRoute(fourthAbuserReq);
+    expect(fourthAbuserRes.status).toBe(429);
+    expect(fourthAbuserRes.headers.get("Retry-After")).toBeDefined();
+
+    // Legitimate visitor from a different IP is NOT blocked!
+    const legitReq = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "203.0.113.50" },
+      body: JSON.stringify({
+        ...validPayload,
+        email: "real-buyer@company.com",
+      }),
+    });
+    const legitRes = await postInquiryRoute(legitReq);
+    expect(legitRes.status).toBe(201);
+  });
+
+  it("N2: global burst limit (40/hr) still saves the inquiry with notificationStatus=THROTTLED and skips email without rejecting customer", async () => {
+    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+      id: "inq-burst",
+      ...args.data,
+    }));
+
+    // Exhaust the 40/hr provider global burst bucket
+    for (let i = 0; i < 40; i++) {
+      await providerGlobalBurstLimiter.check(sampleProvider.id);
+    }
+
+    vi.mocked(sendProviderInquiryEmail).mockClear();
+
+    const req = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "203.0.113.88" },
+      body: JSON.stringify({
+        ...validPayload,
+        email: "burst-buyer@company.com",
       }),
     });
 
-    const fourthRes = await postInquiryRoute(fourthReq);
-    expect(fourthRes.status).toBe(429);
-    expect(fourthRes.headers.get("Retry-After")).toBeDefined();
-    const data = await fourthRes.json();
-    expect(data.error).toContain("high volume of inquiries");
+    const res = await postInquiryRoute(req);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.notificationStatus).toBe("THROTTLED");
+    expect(body.data.emailDispatched).toBe(false);
+    expect(sendProviderInquiryEmail).not.toHaveBeenCalled();
+    expect(db.inquiry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          notificationStatus: "THROTTLED",
+        }),
+      })
+    );
+  });
+
+  it("N3: daily outbound email cap boundary saves inquiry with notificationStatus=THROTTLED and skips sending when cap is reached", async () => {
+    vi.mocked(db.inquiry.create).mockImplementation(async (args: any) => ({
+      id: "inq-cap",
+      ...args.data,
+    }));
+
+    // Exhaust the 500/day global email cap except 1 remaining slot
+    await dailyOutboundEmailLimiter.reset("global_daily_email");
+    for (let i = 0; i < 500; i++) {
+      await dailyOutboundEmailLimiter.check("global_daily_email");
+    }
+
+    vi.mocked(sendProviderInquiryEmail).mockClear();
+    vi.mocked(sendCustomerConfirmationEmail).mockClear();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const req = new NextRequest("http://localhost:3000/api/inquiries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": "203.0.113.199" },
+      body: JSON.stringify({
+        ...validPayload,
+        email: "cap-buyer@company.com",
+      }),
+    });
+
+    const res = await postInquiryRoute(req);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.notificationStatus).toBe("THROTTLED");
+    expect(sendProviderInquiryEmail).not.toHaveBeenCalled();
+    expect(sendCustomerConfirmationEmail).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[ALERT][EmailCap]")
+    );
+
+    errorSpy.mockRestore();
   });
 });

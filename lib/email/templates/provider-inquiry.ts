@@ -2,6 +2,8 @@
 // Email notification sent to provider when a customer submits an inquiry.
 // Source of truth: docs/18-email-architecture.md & docs/27-security.md
 
+import { escapeHtml } from "@/lib/email/escape";
+
 export interface ProviderInquiryTemplateData {
   providerName: string;
   projectTitle: string;
@@ -10,15 +12,6 @@ export interface ProviderInquiryTemplateData {
   customerEmail: string;
   customerWhatsapp?: string | null;
   message: string;
-}
-
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export function renderProviderInquiryEmail(data: ProviderInquiryTemplateData) {
@@ -33,13 +26,14 @@ export function renderProviderInquiryEmail(data: ProviderInquiryTemplateData) {
   const projectUrl = escapeHtml(data.projectUrl);
 
   const subject = `New Inquiry for ${data.projectTitle} — Soft Showcase`;
+  const safeSubject = escapeHtml(subject);
 
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }

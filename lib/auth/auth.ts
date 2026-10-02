@@ -26,6 +26,10 @@ export class EmailNotVerifiedError extends CredentialsSignin {
   code = "EMAIL_NOT_VERIFIED";
 }
 
+// Module-level cost-10 bcrypt dummy hash to equalize timing when user does not exist (N8)
+const DUMMY_PASSWORD_HASH =
+  "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
 if (!process.env.AUTH_URL && !process.env.NEXTAUTH_URL) {
   const envUrl =
     process.env.APP_URL ||
@@ -73,16 +77,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { email, password } = parsed.data;
         const normalizedEmail = email.trim().toLowerCase();
 
-        // ── TASK 2: Login Brute-Force Rate Limiting (by IP and by email) ───────
-        // Max 5 attempts per 15 minutes window
+        // ── N8: Three-Layer Login Brute-Force Rate Limiting ────────────────────
+        // - Per IP: 30 / 15 min (prevents shared-IP lockout)
+        // - Per Email+IP: 5 / 15 min (locks only the attacker's IP for that victim email)
+        // - Per Email (global): 25 / 15 min (distributed credential-stuffing ceiling)
         const ip = await getRequestIp(request as Request);
         const ipKey = `ip:${ip}`;
+        const emailIpKey = `email_ip:${normalizedEmail}:${ip}`;
         const emailKey = `email:${normalizedEmail}`;
 
-        const ipCheck = await authLoginLimiter.check(ipKey);
-        const emailCheck = await authLoginLimiter.check(emailKey);
+        const [ipCheck, emailIpCheck, emailCheck] = await Promise.all([
+          authLoginLimiter.check(ipKey),
+          authLoginLimiter.check(emailIpKey),
+          authLoginLimiter.check(emailKey),
+        ]);
 
-        if (!ipCheck.success || !emailCheck.success) {
+        if (!ipCheck.success || !emailIpCheck.success || !emailCheck.success) {
           console.warn(`[Auth] Credentials login rate limit exceeded (IP: ${ip})`);
           throw new LoginRateLimitError();
         }
@@ -92,6 +102,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user || !user.passwordHash) {
+          // Always execute bcrypt.compare against dummy hash to prevent timing enumeration (N8)
+          await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
           console.warn("[Auth] Invalid login attempt (user not found or no password)");
           return null;
         }
@@ -107,9 +119,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new EmailNotVerifiedError();
         }
 
-        // Reset rate limiter on successful authentication
-        await authLoginLimiter.reset(ipKey);
-        await authLoginLimiter.reset(emailKey);
+        // N7: Reset ONLY email-scoped keys on successful authentication — NEVER reset ipKey!
+        await Promise.all([
+          authLoginLimiter.reset(emailIpKey),
+          authLoginLimiter.reset(emailKey),
+        ]);
 
         const userRole = (user as { role?: "admin" | "customer" | "solution_partner" }).role;
         return {

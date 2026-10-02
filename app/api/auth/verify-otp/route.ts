@@ -1,6 +1,7 @@
 // app/api/auth/verify-otp/route.ts
 // Verifies OTP codes from PendingRegistration staging or legacy verification tokens.
-// Safely creates verified users, triggers H2 admin bootstrap hook, and removes staging rows.
+// Implements atomic attempt claiming (N6), verified-user password protection (N5),
+// two-key shared-IP rate limiting (N9), and email-only limiter reset (N7).
 
 import { db } from "@/lib/db/client";
 import { VerifyOtpSchema } from "@/lib/validation/auth.schema";
@@ -8,6 +9,82 @@ import { verifySecretToken } from "@/lib/utils/crypto";
 import { otpVerifyLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 import { bootstrapAdminOnVerification } from "@/lib/auth/admin-bootstrap";
 import { linkVerifiedUserRecords } from "@/lib/db/queries/customer";
+
+interface MaterializeResult {
+  alreadyVerified: boolean;
+  user: {
+    id: string;
+    role?: string | null;
+  };
+}
+
+async function materializePendingUserAtomically(
+  normalizedEmail: string,
+  pending: { name: string; passwordHash: string }
+): Promise<MaterializeResult> {
+  const runTransaction = async (): Promise<MaterializeResult> => {
+    return db.$transaction(async (tx) => {
+      const existingUser = await tx.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      // N5: If user already has emailVerified set, NEVER overwrite their password or name!
+      if (existingUser && existingUser.emailVerified !== null) {
+        await tx.pendingRegistration
+          .delete({ where: { email: normalizedEmail } })
+          .catch(() => null);
+        return {
+          alreadyVerified: true,
+          user: existingUser,
+        };
+      }
+
+      let finalUser;
+      if (existingUser) {
+        // Only an existing user with emailVerified === null may receive the pending password
+        finalUser = await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            name: pending.name,
+            passwordHash: pending.passwordHash,
+            emailVerified: new Date(),
+          },
+        });
+      } else {
+        finalUser = await tx.user.create({
+          data: {
+            name: pending.name,
+            email: normalizedEmail,
+            passwordHash: pending.passwordHash,
+            emailVerified: new Date(),
+            role: "customer",
+            isAdmin: false,
+          },
+        });
+      }
+
+      await tx.pendingRegistration
+        .delete({ where: { email: normalizedEmail } })
+        .catch(() => null);
+
+      return {
+        alreadyVerified: false,
+        user: finalUser,
+      };
+    });
+  };
+
+  try {
+    return await runTransaction();
+  } catch (err: unknown) {
+    // Handle unique-violation race (P2002) by retrying as an update with the same N5 rules
+    const code = (err as { code?: string })?.code;
+    if (code === "P2002") {
+      return await runTransaction();
+    }
+    throw err;
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +100,7 @@ export async function POST(req: Request) {
     const { email, otp } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Rate limiting per email and IP
+    // Two-key rate limiting (N9): email (5/15m) + IP ceiling (40/15m)
     const emailAttemptCheck = await otpVerifyLimiter.check(`email:${normalizedEmail}`);
     const ipAttemptCheck = await otpVerifyLimiter.check(`ip:${ip}`);
 
@@ -48,36 +125,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // ── Flow 1: Check PendingRegistration Staging ────────────────────────────
-    const pending = await db.pendingRegistration.findUnique({
-      where: { email: normalizedEmail },
+    const now = new Date();
+
+    // ── Flow 1: Atomic Claim on PendingRegistration Staging (N6) ─────────────
+    const claimedPending = await db.pendingRegistration.updateMany({
+      where: {
+        email: normalizedEmail,
+        expiresAt: { gt: now },
+        attempts: { lt: 5 },
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
     });
 
-    if (pending) {
-      if (new Date() > pending.expiresAt) {
-        await db.pendingRegistration.delete({ where: { email: normalizedEmail } }).catch(() => null);
-        return Response.json(
-          { error: "Verification code has expired. Please request a new code." },
-          { status: 400 }
-        );
-      }
+    if (claimedPending.count > 0) {
+      const pending = await db.pendingRegistration.findUnique({
+        where: { email: normalizedEmail },
+      });
 
-      if (pending.attempts >= 5) {
-        await db.pendingRegistration.delete({ where: { email: normalizedEmail } }).catch(() => null);
+      if (!pending) {
         return Response.json(
-          { error: "Too many failed attempts. Code has been invalidated. Please register again." },
+          { error: "Verification code has expired or was not found. Please request a new code." },
           { status: 400 }
         );
       }
 
       const isValid = verifySecretToken(otp, pending.codeHash);
       if (!isValid) {
-        await db.pendingRegistration.update({
-          where: { email: normalizedEmail },
-          data: { attempts: { increment: 1 } },
-        }).catch(() => null);
-
-        const remaining = Math.max(0, 4 - pending.attempts);
+        const remaining = Math.max(0, 5 - pending.attempts);
         return Response.json(
           {
             error: `Invalid verification code. ${remaining} attempt${
@@ -88,48 +164,26 @@ export async function POST(req: Request) {
         );
       }
 
-      // Valid OTP: Atomically materialize User, delete pending row
-      const existingUser = await db.user.findUnique({
-        where: { email: normalizedEmail },
-      });
+      // Valid OTP: Atomically materialize or preserve User and delete pending row (N5)
+      const materialized = await materializePendingUserAtomically(normalizedEmail, pending);
 
-      let finalUser;
-      if (existingUser) {
-        finalUser = await db.user.update({
-          where: { id: existingUser.id },
-          data: {
-            name: pending.name,
-            passwordHash: pending.passwordHash,
-            emailVerified: new Date(),
-          },
-        });
-      } else {
-        finalUser = await db.user.create({
-          data: {
-            name: pending.name,
-            email: normalizedEmail,
-            passwordHash: pending.passwordHash,
-            emailVerified: new Date(),
-            role: "customer",
-            isAdmin: false,
-          },
+      // N7: Reset ONLY the email-scoped key on success, never the IP key
+      await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
+
+      if (materialized.alreadyVerified) {
+        return Response.json({
+          success: true,
+          accountAlreadyExists: true,
+          message:
+            "An account with this email already exists. Please sign in with your existing password or reset your password if needed.",
         });
       }
 
-      // Delete pending registration
-      await db.pendingRegistration.delete({
-        where: { email: normalizedEmail },
-      }).catch(() => null);
+      // Run H2 bootstrap hook & B5 guest record linking
+      await bootstrapAdminOnVerification(materialized.user.id, normalizedEmail);
+      await linkVerifiedUserRecords(materialized.user.id, normalizedEmail);
 
-      // Reset limiter on success
-      await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
-
-      // Run H2 bootstrap hook: check if verified email matches configured ADMIN_EMAILS
-      await bootstrapAdminOnVerification(finalUser.id, normalizedEmail);
-      // Link any prior guest records to the verified user account (Issue B5)
-      await linkVerifiedUserRecords(finalUser.id, normalizedEmail);
-
-      const isPartner = finalUser?.role === "solution_partner";
+      const isPartner = materialized.user.role === "solution_partner";
       return Response.json({
         success: true,
         isPartner,
@@ -139,12 +193,69 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Flow 2: Legacy VerificationToken Fallback ─────────────────────────────
+    // If atomic claim returned 0, check if a pending registration row exists that is locked or expired
+    const existingPending = await db.pendingRegistration.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingPending) {
+      if (existingPending.attempts >= 5) {
+        await db.pendingRegistration
+          .delete({ where: { email: normalizedEmail } })
+          .catch(() => null);
+        return Response.json(
+          { error: "Too many failed attempts. Code has been invalidated. Please register again." },
+          { status: 400 }
+        );
+      }
+
+      await db.pendingRegistration
+        .delete({ where: { email: normalizedEmail } })
+        .catch(() => null);
+      return Response.json(
+        { error: "Verification code has expired. Please request a new code." },
+        { status: 400 }
+      );
+    }
+
+    // ── Flow 2: Legacy VerificationToken Fallback with Atomic Claim (N6) ─────
+    const claimedLegacy = await db.verificationToken.updateMany({
+      where: {
+        identifier: normalizedEmail,
+        expires: { gt: now },
+        attempts: { lt: 5 },
+      },
+      data: {
+        attempts: { increment: 1 },
+      },
+    });
+
+    if (claimedLegacy.count === 0) {
+      const legacyRecords = await db.verificationToken.findMany({
+        where: { identifier: normalizedEmail },
+      });
+
+      if (legacyRecords.some((rec) => rec.attempts >= 5)) {
+        await db.verificationToken
+          .deleteMany({ where: { identifier: normalizedEmail } })
+          .catch(() => null);
+        return Response.json(
+          { error: "Too many failed attempts. Code has been invalidated. Please request a new code." },
+          { status: 400 }
+        );
+      }
+
+      return Response.json(
+        { error: "Verification code has expired or was not found. Please request a new code." },
+        { status: 400 }
+      );
+    }
+
     const tokenRecords = await db.verificationToken.findMany({
       where: { identifier: normalizedEmail },
     });
+    const activeRecord = tokenRecords.find((rec) => now <= rec.expires);
 
-    const activeRecord = tokenRecords.find((rec) => new Date() <= rec.expires);
     if (!activeRecord) {
       return Response.json(
         { error: "Verification code has expired or was not found. Please request a new code." },
@@ -152,25 +263,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (activeRecord.attempts >= 5) {
-      await db.verificationToken.deleteMany({
-        where: { identifier: normalizedEmail },
-      }).catch(() => null);
-      return Response.json(
-        { error: "Too many failed attempts. Code has been invalidated. Please request a new code." },
-        { status: 400 }
-      );
-    }
-
     const isValidRecord = verifySecretToken(otp, activeRecord.token);
 
     if (!isValidRecord) {
-      await db.verificationToken.updateMany({
-        where: { identifier: normalizedEmail },
-        data: { attempts: { increment: 1 } },
-      }).catch(() => null);
-
-      const remaining = Math.max(0, 4 - activeRecord.attempts);
+      const remaining = Math.max(0, 5 - activeRecord.attempts);
       return Response.json(
         {
           error: `Invalid verification code. ${remaining} attempt${
@@ -186,14 +282,17 @@ export async function POST(req: Request) {
       data: { emailVerified: new Date() },
     });
 
-    await db.verificationToken.deleteMany({
-      where: { identifier: normalizedEmail },
-    }).catch(() => null);
+    await db.verificationToken
+      .deleteMany({
+        where: { identifier: normalizedEmail },
+      })
+      .catch(() => null);
+
+    // N7: Reset ONLY email-scoped key
     await otpVerifyLimiter.reset(`email:${normalizedEmail}`);
 
-    // Run H2 bootstrap hook
+    // Run H2 bootstrap hook & B5 guest record linking
     await bootstrapAdminOnVerification(updatedUser.id, normalizedEmail);
-    // Link any prior guest records to the verified user account (Issue B5)
     await linkVerifiedUserRecords(updatedUser.id, normalizedEmail);
 
     const isPartner = updatedUser?.role === "solution_partner";

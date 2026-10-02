@@ -1,28 +1,32 @@
 // app/api/inquiries/route.ts
-// Public endpoint for submitting project inquiries.
-// Source of truth: docs/25-inquiry-system.md, docs/18-email-architecture.md, docs/05-provider-contact-system.md
+// Public POST endpoint for customers to submit project inquiries.
+// Source of truth: docs/25-inquiry-system.md & docs/15-api-Private-routes.md
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { InquirySchema } from "@/lib/validation/inquiry.schema";
+import { isProviderEligibleForRouting } from "@/lib/db/queries/providers";
 import {
-  getRequestIp,
   inquiryLimiter,
-  recipientEmailLimiter,
+  providerClientLimiter,
+  providerCustomerEmailLimiter,
+  providerGlobalBurstLimiter,
   projectIpLimiter,
-  dailyOutboundEmailLimiter,
+  canSendEmail,
+  getRequestIp,
 } from "@/lib/utils/rate-limit";
+import { verifyTurnstileToken } from "@/lib/utils/turnstile";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   sendProviderInquiryEmail,
   sendCustomerConfirmationEmail,
+  InquiryEmailData,
 } from "@/lib/email/email-service";
-import { verifyTurnstileToken } from "@/lib/utils/turnstile";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // 1. IP & Rate limiting by IP (M2 & M3)
-    const ip = await getRequestIp(request);
+    // 1. Rate Limiting (5 requests per 15 mins per IP)
+    const ip = await getRequestIp(req);
     const rateLimitResult = await inquiryLimiter.check(ip);
 
     if (!rateLimitResult.success) {
@@ -31,7 +35,9 @@ export async function POST(request: NextRequest) {
         Math.ceil((rateLimitResult.reset - Date.now()) / 1000)
       );
       return NextResponse.json(
-        { error: "Too many inquiries submitted. Please try again later." },
+        {
+          error: "Too many inquiry requests. Please wait before trying again.",
+        },
         {
           status: 429,
           headers: {
@@ -41,90 +47,95 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Request size limit: reject payloads > 128KB (Issue 46)
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 131072) {
-      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    // 2. Parse request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON payload" },
+        { status: 400 }
+      );
     }
 
-    // 2. Validate request body
-    const body = await request.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
+    // 2a. Honeypot & minimum form fill-time anti-bot checks (M4 / N1)
+    if (typeof body.website === "string" && body.website.trim().length > 0) {
+      return NextResponse.json(
+        { error: "Invalid submission" },
+        { status: 400 }
+      );
     }
 
-    // Anti-Spam: Honeypot check (M4)
-    if (body.website && String(body.website).trim().length > 0) {
-      return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
-    }
-
-    // Anti-Spam: Minimum fill time check (M4) - forms filled faster than 2 seconds are bot submissions
-    if (body.formSubmittedAt && typeof body.formSubmittedAt === "number") {
-      const fillDuration = Date.now() - body.formSubmittedAt;
-      if (fillDuration > 0 && fillDuration < 2000) {
+    if (typeof body.formSubmittedAt === "number") {
+      const elapsedMs = Date.now() - body.formSubmittedAt;
+      if (elapsedMs >= 0 && elapsedMs < 2000) {
         return NextResponse.json(
-          { error: "Form submitted too quickly. Please review your details before submitting." },
+          { error: "Form submitted too quickly. Please try again." },
           { status: 400 }
         );
       }
     }
 
-    const parseResult = InquirySchema.safeParse(body);
-    if (!parseResult.success) {
+    // Check authentication state before Turnstile check
+    const user = await getCurrentUser().catch(() => null);
+    const isVerifiedUser = Boolean(user?.id && user?.email);
+
+    // 2b. Unauthenticated visitors must pass Cloudflare Turnstile verification (N1)
+    let captchaVerified = false;
+    if (!isVerifiedUser) {
+      const turnstileToken =
+        typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+      const turnstileResult = await verifyTurnstileToken(turnstileToken, ip);
+      if (!turnstileResult.success) {
+        if (turnstileResult.unreachable) {
+          return NextResponse.json(
+            {
+              error:
+                "Security verification service is temporarily unavailable. Please try again in a moment.",
+            },
+            { status: 503 }
+          );
+        }
+        return NextResponse.json(
+          {
+            error:
+              "Security verification failed. Please complete the challenge and try again.",
+          },
+          { status: 400 }
+        );
+      }
+      captchaVerified = true;
+    }
+
+    // Strip anti-spam fields before strict Zod validation so .strict() doesn't reject them
+    const {
+      website: _website,
+      formSubmittedAt: _formSubmittedAt,
+      turnstileToken: _turnstileToken,
+      ...cleanPayload
+    } = body;
+
+    // 3. Validate input with strict schema (rejects provider_email, providerId, etc.)
+    const parsed = InquirySchema.safeParse(cleanPayload);
+    if (!parsed.success) {
       return NextResponse.json(
         {
           error: "Validation failed",
-          details: parseResult.error.flatten().fieldErrors,
+          details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
 
-    const { projectId, name, email, whatsapp, message, contactMethod, turnstileToken } = parseResult.data;
+    const { projectId, name, email, whatsapp, message, contactMethod } =
+      parsed.data;
+    const normalizedCustomerEmail = email.toLowerCase().trim();
 
-    // 3. User session verification & CAPTCHA validation (M4)
-    let customerId: string | null = null;
-    let isAuthenticatedVerifiedUser = false;
-    try {
-      const currentUser = await getCurrentUser();
-      if (currentUser?.id) {
-        customerId = currentUser.id;
-        if (currentUser.email && currentUser.email.toLowerCase() === email.toLowerCase()) {
-          isAuthenticatedVerifiedUser = true;
-        }
-      }
-    } catch {
-      customerId = null;
-    }
-
-    // If user is unauthenticated or emailing on behalf of another address, require valid Turnstile CAPTCHA
-    let captchaPassed = false;
-    if (!isAuthenticatedVerifiedUser) {
-      const turnstileResult = await verifyTurnstileToken(turnstileToken, ip);
-      if (!turnstileResult.success) {
-        return NextResponse.json(
-          { error: "Security verification failed. Please complete the CAPTCHA." },
-          { status: 400 }
-        );
-      }
-      captchaPassed = true;
-    } else {
-      captchaPassed = true;
-    }
-
-    // 4. Resolve project & verify it is published with an active, approved partner
+    // 4. Resolve Project & Provider strictly from database (NEVER from client)
     const project = await db.project.findFirst({
       where: {
-        OR: [
-          { id: projectId },
-          { slug: projectId },
-          { slug: { equals: projectId, mode: "insensitive" } },
-        ],
+        id: projectId,
         status: "PUBLISHED",
-        provider: {
-          isActive: true,
-          applicationStatus: "approved",
-        },
       },
       include: {
         provider: true,
@@ -133,84 +144,113 @@ export async function POST(request: NextRequest) {
 
     if (!project) {
       return NextResponse.json(
-        { error: "Project not found or is no longer available" },
+        { error: "Project not found or not available for inquiries" },
         { status: 404 }
       );
     }
 
-    // 5. Resolve provider & verify contact availability
     const provider = project.provider;
-    if (!provider || !provider.isActive || (provider.applicationStatus && provider.applicationStatus !== "approved")) {
+
+    // 5. Verify Provider is active and approved (B2/B3)
+    if (!isProviderEligibleForRouting(provider)) {
       return NextResponse.json(
         { error: "Project provider is currently unavailable" },
         { status: 400 }
       );
     }
 
+    // Enforce provider contact preference: reject email inquiry when showEmail is false (B2/B3)
     if (provider.showEmail === false) {
       return NextResponse.json(
-        { error: "Email inquiries are not enabled for this project." },
+        { error: "This provider has disabled email inquiries for this project" },
         { status: 403 }
       );
     }
 
-    if (!provider.email) {
-      return NextResponse.json(
-        { error: "Provider email contact is not configured" },
-        { status: 400 }
+    // 5a. Three-Layer Provider Lead Protection (N2) + Project-IP limit
+    // Layer 1: per provider + client (IP/fingerprint): 3/hour (stops one abuser without blocking others)
+    const providerClientCheck = await providerClientLimiter.check(
+      `${provider.id}:${ip}`
+    );
+    if (!providerClientCheck.success) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((providerClientCheck.reset - Date.now()) / 1000)
       );
-    }
-
-    // 6. Anti-Relay abuse limits (M4)
-    // Per recipient limiter: max 3/hour
-    const recipientCheck = await recipientEmailLimiter.check(`rcpt:${provider.email.toLowerCase()}`);
-    if (!recipientCheck.success) {
-      const retryAfter = Math.max(1, Math.ceil((recipientCheck.reset - Date.now()) / 1000));
       return NextResponse.json(
-        { error: "This solution provider is temporarily receiving a high volume of inquiries. Please try again later." },
+        {
+          error:
+            "You have sent too many inquiries to this provider recently. Please try again later.",
+        },
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 
-    // Per project per IP limiter: max 5/hour
-    const projectIpCheck = await projectIpLimiter.check(`proj:${project.id}:ip:${ip}`);
+    // Layer 2: per customer email + provider: 3/day (stops repeat spam from same email)
+    const providerCustomerEmailCheck = await providerCustomerEmailLimiter.check(
+      `${provider.id}:${normalizedCustomerEmail}`
+    );
+    if (!providerCustomerEmailCheck.success) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((providerCustomerEmailCheck.reset - Date.now()) / 1000)
+      );
+      return NextResponse.json(
+        {
+          error:
+            "You have reached the daily inquiry limit for this provider. Please wait for their response.",
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+
+    // Per-project per-IP limit: 5/hour
+    const projectIpCheck = await projectIpLimiter.check(`${project.id}:${ip}`);
     if (!projectIpCheck.success) {
-      const retryAfter = Math.max(1, Math.ceil((projectIpCheck.reset - Date.now()) / 1000));
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((projectIpCheck.reset - Date.now()) / 1000)
+      );
       return NextResponse.json(
-        { error: "Too many inquiries for this specific project from your connection. Please wait before submitting again." },
+        {
+          error:
+            "You have sent too many inquiries for this project recently. Please try again later.",
+        },
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 
-    // Global daily cap on outbound transactional emails
-    const dailyCapCheck = await dailyOutboundEmailLimiter.check("global_daily");
-    if (!dailyCapCheck.success) {
-      console.warn("[Email] Global daily outbound transactional email cap reached.");
-    }
+    // Layer 3: per provider global burst: 40/hour (burst safety — NEVER rejects the customer; throttles email only)
+    const providerBurstCheck = await providerGlobalBurstLimiter.check(provider.id);
+    const isBurstThrottled = !providerBurstCheck.success;
 
-    // 7. Create inquiry record in DB
+    // 6. Persist inquiry to database BEFORE sending emails
     const inquiry = await db.inquiry.create({
       data: {
         projectId: project.id,
         providerId: provider.id,
-        customerId,
+        customerId: user?.id ?? null,
         name,
-        email,
+        email: normalizedCustomerEmail,
         whatsapp: whatsapp || null,
         message,
         contactMethod,
         status: "NEW",
-        notificationStatus: "PENDING",
+        notificationStatus: isBurstThrottled ? "THROTTLED" : "PENDING",
       },
     });
 
-    // 8. Send provider notification asynchronously
-    sendProviderInquiryEmail({
+    // 7. Send Emails (Provider notification + Customer confirmation)
+    let notificationStatus: "SENT" | "FAILED" | "PENDING" | "THROTTLED" =
+      isBurstThrottled ? "THROTTLED" : "PENDING";
+    let emailSkipped = false;
+
+    const emailPayload: InquiryEmailData = {
       inquiry: {
-        name,
-        email,
-        whatsapp,
-        message,
+        name: inquiry.name,
+        email: inquiry.email,
+        whatsapp: inquiry.whatsapp,
+        message: inquiry.message,
       },
       project: {
         id: project.id,
@@ -221,70 +261,85 @@ export async function POST(request: NextRequest) {
         displayName: provider.displayName,
         email: provider.email,
       },
-    })
-      .then(async (emailResult) => {
-        try {
-          if (db.inquiry?.update) {
-            await db.inquiry.update({
-              where: { id: inquiry.id },
-              data: { notificationStatus: emailResult.success ? "SENT" : "FAILED" },
-            });
-          }
-        } catch {
-          // ignore background update error
-        }
-      })
-      .catch(async (emailErr) => {
-        console.error("[Email] Provider inquiry delivery exception:", emailErr);
-        try {
-          if (db.inquiry?.update) {
-            await db.inquiry.update({
-              where: { id: inquiry.id },
-              data: { notificationStatus: "FAILED" },
-            });
-          }
-        } catch {
-          // ignore background update error
-        }
-      });
+    };
 
-    // 9. Send customer confirmation ONLY if authenticated with verified email or CAPTCHA passed (M4)
-    if (isAuthenticatedVerifiedUser || captchaPassed) {
-      sendCustomerConfirmationEmail({
-        inquiry: {
-          name,
-          email,
-          whatsapp,
-          message,
-        },
-        project: {
-          id: project.id,
-          title: project.title,
-          slug: project.slug,
-        },
-        provider: {
-          displayName: provider.displayName,
-          email: provider.email,
-        },
-      }).catch((err) => {
-        console.error("[Email] Customer confirmation failed:", err);
-      });
+    if (!isBurstThrottled) {
+      // N3: Enforce daily outbound email cap via canSendEmail()
+      const canSendProviderEmail = await canSendEmail();
+      if (!canSendProviderEmail) {
+        notificationStatus = "THROTTLED";
+      } else {
+        try {
+          const providerEmailResult = await sendProviderInquiryEmail(emailPayload);
+          if (providerEmailResult.skipped) {
+            emailSkipped = true;
+            notificationStatus = "PENDING";
+          } else if (providerEmailResult.success) {
+            notificationStatus = "SENT";
+          } else {
+            notificationStatus = "FAILED";
+          }
+        } catch (emailErr) {
+          console.error("[Inquiry] Provider email dispatch failed:", emailErr);
+          notificationStatus = "FAILED";
+        }
+      }
     }
+
+    // Send customer confirmation ONLY if customer email matches verified user OR passed CAPTCHA (M4),
+    // and only if provider email was not burst-throttled and daily cap allows it (N3).
+    const shouldSendCustomerConfirmation =
+      (isVerifiedUser &&
+        user?.email?.toLowerCase() === normalizedCustomerEmail) ||
+      captchaVerified;
+
+    if (shouldSendCustomerConfirmation && notificationStatus !== "THROTTLED") {
+      const canSendCustEmail = await canSendEmail();
+      if (canSendCustEmail) {
+        try {
+          await sendCustomerConfirmationEmail(emailPayload);
+        } catch (confirmErr) {
+          console.warn(
+            "[Inquiry] Customer confirmation email failed (non-fatal):",
+            confirmErr
+          );
+        }
+      }
+    }
+
+    // 8. Update inquiry notificationStatus
+    await db.inquiry
+      .update({
+        where: { id: inquiry.id },
+        data: { notificationStatus },
+      })
+      .catch(() => null);
+
+    // 9. Return success response (B10: honest message when email is skipped or throttled)
+    const responseMessage =
+      emailSkipped ||
+      notificationStatus === "PENDING" ||
+      notificationStatus === "THROTTLED"
+        ? "Your inquiry has been saved and routed to the provider's dashboard."
+        : "Your inquiry has been sent to the project provider.";
 
     return NextResponse.json(
       {
         success: true,
         data: {
           inquiryId: inquiry.id,
-          message: "Inquiry submitted successfully",
+          status: inquiry.status,
+          notificationStatus,
+          emailDispatched: notificationStatus === "SENT",
+          message: responseMessage,
         },
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/inquiries error:", error);
+    console.error("[API /api/inquiries] Unexpected error:", error);
     return NextResponse.json(
-      { error: "Internal server error submitting inquiry" },
+      { error: "An unexpected error occurred while processing your inquiry" },
       { status: 500 }
     );
   }

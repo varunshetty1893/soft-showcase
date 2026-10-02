@@ -4,12 +4,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { CheckCircle2, AlertCircle, ArrowLeft, Send, Lock } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowLeft, Send } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_CATEGORIES } from "@/config/categories";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/security/TurnstileWidget";
 
 const POPULAR_TECHNOLOGIES = [
   "Next.js",
@@ -39,6 +43,8 @@ export function CustomProjectForm({
 } = {}) {
   const sessionContext = useSession();
   const session = sessionContext?.data;
+  const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
+
   const [formData, setFormData] = React.useState({
     name: initialContact?.name || "",
     email: initialContact?.email || "",
@@ -53,9 +59,20 @@ export function CustomProjectForm({
     additionalRequirements: "",
   });
 
+  // Anti-spam fields (N1): honeypot, mount timestamp, and Turnstile token
+  const [website, setWebsite] = React.useState("");
+  const [formSubmittedAt] = React.useState<number>(() => Date.now());
+  const [turnstileToken, setTurnstileToken] = React.useState<string>("");
+  const turnstileRef = React.useRef<TurnstileWidgetHandle | null>(null);
+
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+
+  function resetTurnstile() {
+    setTurnstileToken("");
+    turnstileRef.current?.reset();
+  }
 
   React.useEffect(() => {
     if (session?.user) {
@@ -104,43 +121,48 @@ export function CustomProjectForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setErrorMessage(null);
 
-    if (!session?.user) {
-      setErrorMessage("Please sign in before submitting your custom software build request.");
-      setIsLoading(false);
+    if (!isVerifiedUser && !turnstileToken) {
+      setErrorMessage("Please complete the security verification before submitting.");
       return;
     }
 
     // Basic client validation
     if (formData.description.trim().length < 50) {
       setErrorMessage("Description must be at least 50 characters long.");
-      setIsLoading(false);
       return;
     }
 
     if (formData.requiredFeatures.trim().length < 10) {
       setErrorMessage("Required features must be at least 10 characters long.");
-      setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
 
     try {
       const res = await fetch("/api/custom-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          website,
+          formSubmittedAt,
+          turnstileToken: !isVerifiedUser ? turnstileToken : undefined,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        resetTurnstile();
         throw new Error(data.error || "Failed to submit custom project request.");
       }
 
       setSuccess(true);
     } catch (err: unknown) {
+      resetTurnstile();
       if (err instanceof Error) {
         setErrorMessage(err.message);
       } else {
@@ -187,6 +209,8 @@ export function CustomProjectForm({
     );
   }
 
+  const isSubmitDisabled = isLoading || (!isVerifiedUser && !turnstileToken);
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -202,26 +226,22 @@ export function CustomProjectForm({
         </div>
       )}
 
-      {!session?.user && (
-        <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4] text-[#102124] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 text-sm">
-            <Lock className="w-4 h-4 text-[#155761] shrink-0" />
-            <span>
-              <strong>Authentication required:</strong> Please sign in to submit a custom software build request.
-            </span>
-          </div>
-          <Link
-            href="/login?callbackUrl=/custom-project"
-            className={buttonVariants({
-              variant: "primary",
-              size: "sm",
-              className: "shrink-0",
-            })}
-          >
-            Sign In to Continue
-          </Link>
-        </div>
-      )}
+      {/* Honeypot field: hidden from sighted users and assistive technologies */}
+      <div
+        aria-hidden="true"
+        className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden opacity-0 pointer-events-none"
+      >
+        <label htmlFor="custom-request-website">Website</label>
+        <input
+          id="custom-request-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
 
       {/* ── Section: Contact Details ────────────────────────────────────── */}
       <div>
@@ -413,32 +433,33 @@ export function CustomProjectForm({
         </div>
       </div>
 
+      {/* Turnstile widget shown only to visitors not signed in with a verified email (N1) */}
+      {!isVerifiedUser && (
+        <div className="pt-2">
+          <TurnstileWidget
+            ref={turnstileRef}
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken("")}
+            onError={() => setTurnstileToken("")}
+            theme="light"
+          />
+        </div>
+      )}
+
       <div className="pt-4 border-t border-[#D9E2E4] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <p className="text-xs text-[#526267]">
           Strict confidentiality. Your project idea is safe with our team.
         </p>
-        {!session?.user ? (
-          <Link
-            href="/login?callbackUrl=/custom-project"
-            className={buttonVariants({
-              size: "lg",
-              className: "gap-2 shadow-xs cursor-pointer w-full sm:w-auto",
-            })}
-          >
-            <Lock className="w-4 h-4" />
-            Sign In to Submit Request
-          </Link>
-        ) : (
-          <Button
-            type="submit"
-            size="lg"
-            isLoading={isLoading}
-            className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
-          >
-            <Send className="w-4 h-4" />
-            Submit Custom Request
-          </Button>
-        )}
+        <Button
+          type="submit"
+          size="lg"
+          isLoading={isLoading}
+          disabled={isSubmitDisabled}
+          className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
+        >
+          <Send className="w-4 h-4" />
+          {isLoading ? "Submitting Request..." : "Submit Custom Project Request"}
+        </Button>
       </div>
     </form>
   );

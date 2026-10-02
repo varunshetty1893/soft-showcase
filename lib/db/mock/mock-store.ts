@@ -1,13 +1,9 @@
 // lib/db/mock/mock-store.ts
 // In-memory Prisma mock store for local development and test environments when USE_MOCK_DB=true.
-// Strictly excluded from production execution.
+// Strictly excluded from production execution. Purely in-memory (no disk persistence).
 
-import fs from "fs";
-import path from "path";
 import { DEFAULT_CATEGORIES } from "@/config/categories";
 import { DEFAULT_TECHNOLOGIES } from "@/config/technologies";
-
-const PERSIST_FILE = path.join(process.cwd(), ".local_mock_store.json");
 
 const initialCategories = DEFAULT_CATEGORIES.map((cat, idx) => ({
   id: `cat-${idx + 1}`,
@@ -225,55 +221,17 @@ export class InMemoryStore {
   siteSettings: any[] = [];
 
   constructor() {
-    this.loadFromDisk();
+    // Purely in-memory; no disk persistence
   }
 
   lastLoadedMtime = 0;
 
   saveToDisk() {
-    try {
-      const dataToSave = {
-        providers: this.providers,
-        users: this.users,
-        pendingRegistrations: this.pendingRegistrations,
-        verificationTokens: this.verificationTokens,
-        inquiries: this.inquiries,
-        customRequests: this.customRequests,
-        supportTickets: this.supportTickets,
-        supportMessages: this.supportMessages,
-        transactions: this.transactions,
-        auditLogs: this.auditLogs,
-      };
-      fs.writeFileSync(PERSIST_FILE, JSON.stringify(dataToSave), "utf-8");
-      try {
-        const stat = fs.statSync(PERSIST_FILE);
-        this.lastLoadedMtime = stat.mtimeMs;
-      } catch {}
-    } catch {}
+    // No-op: disk persistence disabled (N12 / N13)
   }
 
-  loadFromDisk(force = false) {
-    try {
-      if (fs.existsSync(PERSIST_FILE)) {
-        const stat = fs.statSync(PERSIST_FILE);
-        if (!force && stat.mtimeMs <= this.lastLoadedMtime) {
-          return;
-        }
-        this.lastLoadedMtime = stat.mtimeMs;
-        const raw = fs.readFileSync(PERSIST_FILE, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.providers)) this.providers = parsed.providers;
-        if (Array.isArray(parsed.users)) this.users = parsed.users;
-        if (Array.isArray(parsed.pendingRegistrations)) this.pendingRegistrations = parsed.pendingRegistrations;
-        if (Array.isArray(parsed.verificationTokens)) this.verificationTokens = parsed.verificationTokens;
-        if (Array.isArray(parsed.inquiries)) this.inquiries = parsed.inquiries;
-        if (Array.isArray(parsed.customRequests)) this.customRequests = parsed.customRequests;
-        if (Array.isArray(parsed.supportTickets)) this.supportTickets = parsed.supportTickets;
-        if (Array.isArray(parsed.supportMessages)) this.supportMessages = parsed.supportMessages;
-        if (Array.isArray(parsed.transactions)) this.transactions = parsed.transactions;
-        if (Array.isArray(parsed.auditLogs)) this.auditLogs = parsed.auditLogs;
-      }
-    } catch {}
+  loadFromDisk(_force = false) {
+    // No-op: disk persistence disabled (N12 / N13)
   }
 
   resolveProject(p: any) {
@@ -467,6 +425,16 @@ export function createMockPrismaClient(): any {
               if (existingIdx !== -1) memoryStore.pendingRegistrations.splice(existingIdx, 1);
               memoryStore.pendingRegistrations.unshift(data);
             } else if (modelName === "user") {
+              if (
+                data.email &&
+                memoryStore.users.some((u) => u.email?.toLowerCase() === data.email.toLowerCase())
+              ) {
+                const err = new Error("Unique constraint failed on the fields: (`email`)") as Error & {
+                  code?: string;
+                };
+                err.code = "P2002";
+                throw err;
+              }
               memoryStore.users.push(data);
             } else if (modelName === "verificationToken") {
               memoryStore.verificationTokens.push(data);
@@ -550,32 +518,70 @@ export function createMockPrismaClient(): any {
             if (modelName === "user") coll = memoryStore.users;
             if (modelName === "pendingRegistration") coll = memoryStore.pendingRegistrations;
             if (modelName === "verificationToken") coll = memoryStore.verificationTokens;
+            if (modelName === "inquiry") coll = memoryStore.inquiries;
+            if (modelName === "customProjectRequest") coll = memoryStore.customRequests;
+            if (modelName === "transaction") coll = memoryStore.transactions;
 
             let updatedCount = 0;
             if (coll) {
-              const targetIdentifier = args?.where?.identifier?.toLowerCase();
-              const targetEmail = args?.where?.email?.toLowerCase();
+              const where = args?.where || {};
+              const targetIdentifier = typeof where.identifier === "string" ? where.identifier.toLowerCase() : undefined;
+              const targetEmail =
+                typeof where.email === "string"
+                  ? where.email.toLowerCase()
+                  : typeof where.email?.equals === "string"
+                  ? where.email.equals.toLowerCase()
+                  : undefined;
+              const targetCustomerEmail =
+                typeof where.customerEmail === "string" ? where.customerEmail.toLowerCase() : undefined;
 
               for (let i = 0; i < coll.length; i++) {
-                const match =
-                  (!targetIdentifier && !targetEmail) ||
-                  (targetIdentifier && coll[i].identifier?.toLowerCase() === targetIdentifier) ||
-                  (targetEmail && coll[i].email?.toLowerCase() === targetEmail);
+                const item = coll[i];
+                let match =
+                  (!targetIdentifier && !targetEmail && !targetCustomerEmail) ||
+                  Boolean(targetIdentifier && item.identifier?.toLowerCase() === targetIdentifier) ||
+                  Boolean(targetEmail && item.email?.toLowerCase() === targetEmail) ||
+                  Boolean(targetCustomerEmail && item.customerEmail?.toLowerCase() === targetCustomerEmail);
+
+                if (match && "customerId" in where) {
+                  match = (item.customerId ?? null) === where.customerId;
+                }
+                if (match && where.attempts && typeof where.attempts === "object") {
+                  const currentAttempts = item.attempts ?? 0;
+                  if (typeof where.attempts.lt === "number" && !(currentAttempts < where.attempts.lt)) {
+                    match = false;
+                  }
+                  if (typeof where.attempts.lte === "number" && !(currentAttempts <= where.attempts.lte)) {
+                    match = false;
+                  }
+                  if (typeof where.attempts.gte === "number" && !(currentAttempts >= where.attempts.gte)) {
+                    match = false;
+                  }
+                }
+                if (match && where.expiresAt && typeof where.expiresAt === "object") {
+                  const itemExpiresAt = item.expiresAt ? new Date(item.expiresAt).getTime() : 0;
+                  if (where.expiresAt.gt && !(itemExpiresAt > new Date(where.expiresAt.gt).getTime())) {
+                    match = false;
+                  }
+                }
+                if (match && where.expires && typeof where.expires === "object") {
+                  const itemExpires = item.expires ? new Date(item.expires).getTime() : 0;
+                  if (where.expires.gt && !(itemExpires > new Date(where.expires.gt).getTime())) {
+                    match = false;
+                  }
+                }
 
                 if (match) {
                   const patch = { ...(args?.data || {}) };
                   if (patch.tokenVersion && typeof patch.tokenVersion === "object" && "increment" in patch.tokenVersion) {
-                    patch.tokenVersion = (coll[i].tokenVersion || 0) + (patch.tokenVersion.increment || 1);
+                    patch.tokenVersion = (item.tokenVersion || 0) + (patch.tokenVersion.increment || 1);
                   }
                   if (patch.attempts && typeof patch.attempts === "object" && "increment" in patch.attempts) {
-                    patch.attempts = (coll[i].attempts || 0) + (patch.attempts.increment || 1);
+                    patch.attempts = (item.attempts || 0) + (patch.attempts.increment || 1);
                   }
-                  coll[i] = { ...coll[i], ...patch, updatedAt: new Date() };
+                  coll[i] = { ...item, ...patch, updatedAt: new Date() };
                   updatedCount++;
                 }
-              }
-              if (updatedCount > 0) {
-                memoryStore.saveToDisk();
               }
             }
             return { count: updatedCount };

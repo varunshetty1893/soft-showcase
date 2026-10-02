@@ -112,4 +112,64 @@ describe("Token Hardening & Abuse Prevention (M5)", () => {
     });
     expect(deletedRecord).toBeNull();
   });
+
+  it("N6: firing 20 parallel wrong OTP guesses evaluates at most 5 attempts atomically and rejects 6th+ without exceeding cap", async () => {
+    const parallelEmail = "parallel-atomic@example.com";
+    const realOtp = "987654";
+
+    await db.pendingRegistration.deleteMany({ where: { email: parallelEmail } });
+    await db.pendingRegistration.create({
+      data: {
+        email: parallelEmail,
+        name: "Parallel User",
+        passwordHash: "hash-parallel",
+        codeHash: hashSecretToken(realOtp),
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      },
+    });
+
+    // Spy onotpVerifyLimiter.check so rate limiting doesn't block the 20 parallel requests—
+    // we want all 20 to hit the atomic DB attempt claim simultaneously!
+    const checkSpy = vi.spyOn(otpVerifyLimiter, "check").mockResolvedValue({
+      success: true,
+      remaining: 39,
+      reset: Date.now() + 60_000,
+    });
+
+    const requests = Array.from({ length: 20 }, (_, idx) =>
+      verifyOtpHandler(
+        new Request("http://localhost:3000/api/auth/verify-otp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": `10.20.0.${idx + 1}`,
+          },
+          body: JSON.stringify({
+            email: parallelEmail,
+            otp: String(100000 + idx),
+          }),
+        })
+      )
+    );
+
+    const responses = await Promise.all(requests);
+    const payloads = await Promise.all(responses.map((r) => r.json()));
+
+    // Count how many responses evaluated the OTP ("Invalid verification code. X attempt(s) remaining.")
+    const evaluatedResponses = payloads.filter(
+      (p) => typeof p.error === "string" && p.error.startsWith("Invalid verification code.")
+    );
+    // Count how many were rejected as locked/expired/not found
+    const rejectedResponses = payloads.filter(
+      (p) =>
+        typeof p.error === "string" &&
+        (p.error.includes("Too many failed attempts") || p.error.includes("expired or was not found"))
+    );
+
+    expect(evaluatedResponses.length).toBe(5);
+    expect(rejectedResponses.length).toBe(15);
+
+    checkSpy.mockRestore();
+  });
 });

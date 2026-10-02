@@ -18,15 +18,15 @@ const GENERIC_SUCCESS_RESPONSE = {
 export async function POST(req: Request) {
   try {
     const ip = await getRequestIp(req);
-    const rateCheck = await authRegisterLimiter.check(ip);
-    if (!rateCheck.success) {
-      if (rateCheck.error) {
+    const ipCheck = await authRegisterLimiter.check(`ip:${ip}`);
+    if (!ipCheck.success) {
+      if (ipCheck.error) {
         return Response.json(
           { error: "Authentication service temporarily unavailable. Please try again later." },
           { status: 503 }
         );
       }
-      const retryAfter = Math.max(1, Math.ceil((rateCheck.reset - Date.now()) / 1000));
+      const retryAfter = Math.max(1, Math.ceil((ipCheck.reset - Date.now()) / 1000));
       return Response.json(
         { error: "Too many registration attempts. Please try again later." },
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
@@ -43,6 +43,21 @@ export async function POST(req: Request) {
 
     const { name, email, password } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
+
+    const emailCheck = await authRegisterLimiter.check(`email:${normalizedEmail}`);
+    if (!emailCheck.success) {
+      if (emailCheck.error) {
+        return Response.json(
+          { error: "Authentication service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+      const retryAfter = Math.max(1, Math.ceil((emailCheck.reset - Date.now()) / 1000));
+      return Response.json(
+        { error: "Too many registration attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
 
     // 1. Check if an already-verified user exists
     const existingVerifiedUser = await db.user.findFirst({

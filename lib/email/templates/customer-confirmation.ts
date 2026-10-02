@@ -2,20 +2,13 @@
 // Confirmation email sent to customer after submitting an inquiry.
 // Source of truth: docs/18-email-architecture.md
 
+import { escapeHtml } from "@/lib/email/escape";
+
 export interface CustomerConfirmationTemplateData {
   customerName: string;
   projectTitle: string;
   projectUrl: string;
   providerName: string;
-}
-
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export function renderCustomerConfirmationEmail(data: CustomerConfirmationTemplateData) {
@@ -25,13 +18,14 @@ export function renderCustomerConfirmationEmail(data: CustomerConfirmationTempla
   const providerName = escapeHtml(data.providerName);
 
   const subject = `Your Inquiry Has Been Received — Soft Showcase`;
+  const safeSubject = escapeHtml(subject);
 
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 32px; }

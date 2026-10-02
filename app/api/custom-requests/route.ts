@@ -1,28 +1,29 @@
 // app/api/custom-requests/route.ts
-// Public API endpoint for submitting custom project requests.
-// Source of truth: docs/26-custom-project-system.md & docs/15-api-architecture.md
+// Public API endpoint for submitting a custom software project request.
+// Source of truth: docs/26-custom-project-system.md
 
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { CustomRequestSchema } from "@/lib/validation/custom-request.schema";
 import {
   customRequestLimiter,
+  customRequestEmailLimiter,
+  customRequestBurstLimiter,
+  canSendEmail,
   getRequestIp,
-  recipientEmailLimiter,
-  dailyOutboundEmailLimiter,
 } from "@/lib/utils/rate-limit";
+import { verifyTurnstileToken } from "@/lib/utils/turnstile";
+import { createAuditLog } from "@/lib/db/audit";
+import { auth } from "@/lib/auth/auth";
 import {
   sendAdminCustomRequestEmail,
   sendCustomerCustomRequestConfirmationEmail,
 } from "@/lib/email/email-service";
-import { createAuditLog } from "@/lib/db/audit";
-import { verifyTurnstileToken } from "@/lib/utils/turnstile";
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // 1. IP & Rate Limiting Check (M2 & M3)
-    const ip = await getRequestIp(request);
+    // 1. Rate limiting (3 requests per 60 minutes per IP — dedicated custom namespace, N2)
+    const ip = await getRequestIp(req);
     const rateLimit = await customRequestLimiter.check(ip);
 
     if (!rateLimit.success) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
       );
       return NextResponse.json(
         {
-          error: "Rate limit exceeded. You may only submit 3 custom project requests per hour.",
+          error: "Too many custom project requests. Please try again later.",
         },
         {
           status: 429,
@@ -43,164 +44,234 @@ export async function POST(request: Request) {
       );
     }
 
-    // Request size limit: reject payloads > 128KB (Issue 46)
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 131072) {
-      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
-    }
-
-    // 2. Body parsing and Anti-Abuse Checks (M4)
-    const body = await request.json().catch(() => null);
-    if (!body) {
+    // 2. Parse request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { error: "Invalid request payload." },
+        { error: "Invalid JSON payload" },
         { status: 400 }
       );
     }
 
-    // Honeypot check (M4)
-    if (body.website && String(body.website).trim().length > 0) {
-      return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
+    // 2a. Honeypot & minimum form fill-time anti-bot checks (M4 / N1)
+    if (typeof body.website === "string" && body.website.trim().length > 0) {
+      return NextResponse.json(
+        { error: "Invalid submission" },
+        { status: 400 }
+      );
     }
 
-    // Minimum fill time check (M4)
-    if (body.formSubmittedAt && typeof body.formSubmittedAt === "number") {
-      const fillDuration = Date.now() - body.formSubmittedAt;
-      if (fillDuration > 0 && fillDuration < 2000) {
+    if (typeof body.formSubmittedAt === "number") {
+      const elapsedMs = Date.now() - body.formSubmittedAt;
+      if (elapsedMs >= 0 && elapsedMs < 2000) {
         return NextResponse.json(
-          { error: "Form submitted too quickly. Please review your details before submitting." },
+          { error: "Form submitted too quickly. Please try again." },
           { status: 400 }
         );
       }
     }
 
-    const validation = CustomRequestSchema.safeParse(body);
-    if (!validation.success) {
+    const session = await auth().catch(() => null);
+    const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
+
+    // 2b. Unauthenticated submissions require Turnstile verification (N1)
+    let captchaVerified = false;
+    if (!isVerifiedUser) {
+      const turnstileToken =
+        typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+      const turnstileCheck = await verifyTurnstileToken(turnstileToken, ip);
+      if (!turnstileCheck.success) {
+        if (turnstileCheck.unreachable) {
+          return NextResponse.json(
+            {
+              error:
+                "Security verification service is temporarily unavailable. Please try again in a moment.",
+            },
+            { status: 503 }
+          );
+        }
+        return NextResponse.json(
+          {
+            error:
+              "Security verification failed. Please complete the challenge and try again.",
+          },
+          { status: 400 }
+        );
+      }
+      captchaVerified = true;
+    }
+
+    const {
+      website: _website,
+      formSubmittedAt: _formSubmittedAt,
+      turnstileToken: _turnstileToken,
+      ...cleanPayload
+    } = body;
+
+    // 3. Validate input with Zod
+    const parsed = CustomRequestSchema.safeParse(cleanPayload);
+    if (!parsed.success) {
       return NextResponse.json(
         {
           error: "Validation failed",
-          details: validation.error.flatten().fieldErrors,
+          details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
 
-    const data = validation.data;
+    const data = parsed.data;
+    const normalizedEmail = data.email.toLowerCase().trim();
 
-    // 3. User session verification & CAPTCHA validation (M4)
-    let customerId: string | null = null;
-    let isAuthenticatedVerifiedUser = false;
-    try {
-      const session = await auth();
-      if (session?.user?.id) {
-        customerId = session.user.id;
-        if (session.user.email && session.user.email.toLowerCase() === data.email.toLowerCase()) {
-          isAuthenticatedVerifiedUser = true;
-        }
-      }
-    } catch {
-      customerId = null;
-    }
-
-    let captchaPassed = false;
-    if (!isAuthenticatedVerifiedUser) {
-      const turnstileResult = await verifyTurnstileToken(data.turnstileToken, ip);
-      if (!turnstileResult.success) {
-        return NextResponse.json(
-          { error: "Security verification failed. Please complete the CAPTCHA." },
-          { status: 400 }
-        );
-      }
-      captchaPassed = true;
-    } else {
-      captchaPassed = true;
-    }
-
-    // 4. Anti-Relay abuse limits (M4)
-    const recipientCheck = await recipientEmailLimiter.check(`custom:${data.email.toLowerCase()}`);
-    if (!recipientCheck.success) {
-      const retryAfter = Math.max(1, Math.ceil((recipientCheck.reset - Date.now()) / 1000));
+    // 3a. Dedicated custom-request per-email limit (3/day) and global burst limit (40/hr) (N2)
+    const emailLimitCheck = await customRequestEmailLimiter.check(normalizedEmail);
+    if (!emailLimitCheck.success) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((emailLimitCheck.reset - Date.now()) / 1000)
+      );
       return NextResponse.json(
-        { error: "Too many custom project requests submitted for this email address. Please try again later." },
+        {
+          error:
+            "You have reached the daily limit for custom project requests. Our team is reviewing your submissions.",
+        },
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
 
-    await dailyOutboundEmailLimiter.check("global_daily");
+    const burstCheck = await customRequestBurstLimiter.check("global_custom_requests");
+    const isBurstThrottled = !burstCheck.success;
 
-    // 5. Database Insertion
+    // 4. Persist to database first
     const customRequest = await db.customProjectRequest.create({
       data: {
-        customerId,
-        linkedAt: customerId ? new Date() : null,
+        customerId: session?.user?.id || null,
+        linkedAt: session?.user?.id ? new Date() : null,
         name: data.name,
-        email: data.email,
-        whatsapp: data.whatsapp || null,
+        email: normalizedEmail,
+        whatsapp: data.whatsapp ?? null,
         projectTitle: data.projectTitle,
-        category: data.category || null,
-        technologyPreferences: data.technologyPreferences || [],
+        category: data.category ?? null,
+        technologyPreferences: data.technologyPreferences,
         description: data.description,
         requiredFeatures: data.requiredFeatures,
-        deadline: data.deadline || null,
-        budget: data.budget || null,
-        additionalRequirements: data.additionalRequirements || null,
+        deadline: data.deadline ?? null,
+        budget: data.budget ?? null,
+        additionalRequirements: data.additionalRequirements ?? null,
         status: "NEW",
       },
     });
 
-    // 6. Audit Log Entry
+    // 5. Log to audit trail
     await createAuditLog({
-      userId: customerId,
+      userId: session?.user?.id || null,
       action: "CUSTOM_REQUEST_RECEIVED",
       entityType: "CustomProjectRequest",
       entityId: customRequest.id,
       details: {
-        projectTitle: data.projectTitle,
-        customerEmail: data.email,
-        category: data.category,
+        projectTitle: customRequest.projectTitle,
+        requesterEmail: customRequest.email,
+        category: customRequest.category,
       },
     });
 
-    // 7. Send Email Notifications
-    // 7a. Admin Notification
-    sendAdminCustomRequestEmail({
-      name: data.name,
-      email: data.email,
-      whatsapp: data.whatsapp,
-      projectTitle: data.projectTitle,
-      category: data.category,
-      technologies: data.technologyPreferences,
-      budget: data.budget,
-      deadline: data.deadline,
-      description: data.description,
-      requiredFeatures: data.requiredFeatures,
-      additionalRequirements: data.additionalRequirements,
-    }).catch((err) => {
-      console.error("[Email] Failed to notify admin for custom request:", err);
-    });
+    // 6. Dispatch notifications using canSendEmail() (N3)
+    let notificationStatus: "SENT" | "FAILED" | "PENDING" | "THROTTLED" =
+      isBurstThrottled ? "THROTTLED" : "PENDING";
+    let emailDispatched = false;
 
-    // 7b. Customer Confirmation Email only if authenticated or CAPTCHA passed (M4)
-    if (isAuthenticatedVerifiedUser || captchaPassed) {
-      sendCustomerCustomRequestConfirmationEmail(data.email, {
-        customerName: data.name,
-        projectTitle: data.projectTitle,
-      }).catch((err) => {
-        console.error("[Email] Failed to send customer confirmation email:", err);
-      });
+    if (!isBurstThrottled) {
+      const canSendAdminEmail = await canSendEmail();
+      if (!canSendAdminEmail) {
+        notificationStatus = "THROTTLED";
+      } else {
+        try {
+          const adminEmailRes = await sendAdminCustomRequestEmail({
+            name: customRequest.name,
+            email: customRequest.email,
+            whatsapp: customRequest.whatsapp,
+            projectTitle: customRequest.projectTitle,
+            category: customRequest.category,
+            technologies: customRequest.technologyPreferences,
+            budget: customRequest.budget,
+            deadline: customRequest.deadline,
+            description: customRequest.description,
+            requiredFeatures: customRequest.requiredFeatures,
+            additionalRequirements: customRequest.additionalRequirements,
+          });
+          if (adminEmailRes.skipped) {
+            notificationStatus = "PENDING";
+          } else if (adminEmailRes.success) {
+            notificationStatus = "SENT";
+            emailDispatched = true;
+          } else {
+            notificationStatus = "FAILED";
+          }
+        } catch (err) {
+          console.error(
+            "[CustomRequest] Failed to send admin notification email:",
+            err
+          );
+          notificationStatus = "FAILED";
+        }
+      }
     }
+
+    const canConfirmCustomer =
+      (isVerifiedUser &&
+        session?.user?.email?.toLowerCase() === normalizedEmail) ||
+      captchaVerified;
+
+    if (canConfirmCustomer && notificationStatus !== "THROTTLED") {
+      const canSendCustEmail = await canSendEmail();
+      if (canSendCustEmail) {
+        try {
+          const custEmailRes = await sendCustomerCustomRequestConfirmationEmail(
+            customRequest.email,
+            {
+              customerName: customRequest.name,
+              projectTitle: customRequest.projectTitle,
+            }
+          );
+          if (custEmailRes.success && !custEmailRes.skipped) {
+            emailDispatched = true;
+          }
+        } catch (err) {
+          console.error(
+            "[CustomRequest] Failed to send customer confirmation email:",
+            err
+          );
+        }
+      }
+    }
+
+    if (notificationStatus !== "PENDING") {
+      await db.customProjectRequest.update?.({
+        where: { id: customRequest.id },
+        data: { notificationStatus },
+      }).catch(() => null);
+    }
+
+    const responseMessage = emailDispatched
+      ? "Your custom project request has been received and confirmation has been sent."
+      : "Your custom project request has been saved and queued for architectural review.";
 
     return NextResponse.json(
       {
         success: true,
-        message: "Your custom project request has been submitted successfully.",
         requestId: customRequest.id,
+        notificationStatus,
+        emailDispatched,
+        message: responseMessage,
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Custom project request submission error:", error);
+    console.error("[API /api/custom-requests] Unexpected error:", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred while processing your request." },
+      { error: "An unexpected error occurred while submitting your request." },
       { status: 500 }
     );
   }

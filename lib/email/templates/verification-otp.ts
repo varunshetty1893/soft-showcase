@@ -1,6 +1,8 @@
 // lib/email/templates/verification-otp.ts
 // Branded Soft Showcase transactional email template for email verification.
 
+import { escapeHtml } from "@/lib/email/escape";
+
 export interface VerificationOtpTemplateData {
   userName: string;
   otp: string;
@@ -8,30 +10,23 @@ export interface VerificationOtpTemplateData {
   expiresInMinutes?: number;
 }
 
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
   const userName = escapeHtml(data.userName);
   const otp = escapeHtml(data.otp);
-  const verifyUrl = data.verifyUrl;
-  const minutes = data.expiresInMinutes || 15;
+  const verifyUrl = escapeHtml(data.verifyUrl);
+  const minutes = escapeHtml(data.expiresInMinutes || 15);
 
   // Use production domain for absolute image URL in email clients
-  const appBaseUrl = (
+  const rawBaseUrl = (
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
     "https://softshowcase.vercel.app"
   ).replace(/\/$/, "");
 
-  const logoUrl = `${appBaseUrl}/logo.png`;
-  const subject = `${otp} is your Soft Showcase verification code`;
+  const appBaseUrl = escapeHtml(rawBaseUrl);
+  const logoUrl = escapeHtml(`${rawBaseUrl}/logo.png`);
+  const subject = `${data.otp} is your Soft Showcase verification code`;
+  const safeSubject = escapeHtml(subject);
 
   const html = `
 <!DOCTYPE html>
@@ -39,7 +34,7 @@ export function renderVerificationOtpEmail(data: VerificationOtpTemplateData) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #F8FAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFA; padding: 40px 16px;">

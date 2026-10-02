@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Soft Showcase
+
+Curated software discovery and direct creator inquiry platform built with Next.js 15 App Router, NextAuth v5, Prisma/PostgreSQL, Upstash Redis, and Cloudflare Turnstile.
 
 ## Getting Started
 
-First, run the development server:
+1. Copy `.env.example` to `.env.local` and configure the environment variables.
+2. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required Production Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In production (`NODE_ENV=production`), the application validates the following variables at runtime and fails closed if any are missing:
 
-## Learn More
+- `AUTH_SECRET` — Cryptographic secret for NextAuth JWT signing (minimum 32 characters).
+- `DATABASE_URL` — PostgreSQL connection string (e.g., Neon).
+- `NEXT_PUBLIC_APP_URL` (or `AUTH_URL` / `NEXTAUTH_URL`) — Canonical public base URL of the deployment.
+- `UPSTASH_REDIS_REST_URL` — Upstash Redis REST endpoint for distributed serverless rate limiting.
+- `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis REST bearer token.
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — Cloudflare Turnstile public site key for anti-spam verification.
+- `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile server-side secret key.
 
-To learn more about Next.js, take a look at the following resources:
+Optional production variables:
+- `RESEND_API_KEY` / `SMTP_*` — Transactional email delivery credentials.
+- `ADMIN_EMAIL` / `ADMIN_EMAILS` — Verified administrator notification and bootstrap email(s).
+- `TRUSTED_PROXY_COUNT` — Number of trusted reverse proxies for `x-forwarded-for` extraction (default `1`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` — Start local development server on port 3000.
+- `npm run lint` — Run ESLint checks.
+- `npx tsc --noEmit` — Run TypeScript type checking.
+- `npm test` — Run Vitest unit and integration test suites.
+- `npm run build` — Build standalone Next.js production bundle.

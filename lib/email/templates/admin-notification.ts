@@ -3,6 +3,7 @@
 // Source of truth: docs/19-email-templates.md & docs/26-custom-project-system.md
 
 import { APP_URL } from "@/config/constants";
+import { escapeHtml } from "@/lib/email/escape";
 
 export interface AdminCustomRequestEmailData {
   name: string;
@@ -16,15 +17,6 @@ export interface AdminCustomRequestEmailData {
   description: string;
   requiredFeatures: string;
   additionalRequirements?: string | null;
-}
-
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export function renderAdminCustomRequestEmail(data: AdminCustomRequestEmailData) {
@@ -44,15 +36,16 @@ export function renderAdminCustomRequestEmail(data: AdminCustomRequestEmailData)
     ? escapeHtml(data.additionalRequirements)
     : null;
 
-  const adminDashboardUrl = `${APP_URL}/admin/custom-requests`;
+  const adminDashboardUrl = escapeHtml(`${APP_URL}/admin/custom-requests`);
   const subject = `New Custom Project Request: ${data.projectTitle} — Soft Showcase`;
+  const safeSubject = escapeHtml(subject);
 
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 20px; background-color: #f9fafb; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px; }

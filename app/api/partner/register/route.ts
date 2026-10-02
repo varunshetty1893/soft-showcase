@@ -10,16 +10,23 @@ import { recordAuditLog } from "@/lib/db/audit";
 import { sendVerificationEmail } from "@/lib/email/email-service";
 import { APP_URL } from "@/config/constants";
 import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
-import { partnerRegisterLimiter, getClientIp } from "@/lib/utils/rate-limit";
+import { partnerRegisterLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = getClientIp(req);
-    const rateCheck = await partnerRegisterLimiter.check(ip);
+    const ip = await getRequestIp(req);
+    const rateCheck = await partnerRegisterLimiter.check(`ip:${ip}`);
     if (!rateCheck.success) {
+      if (rateCheck.error) {
+        return NextResponse.json(
+          { error: "Registration service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+      const retryAfter = Math.max(1, Math.ceil((rateCheck.reset - Date.now()) / 1000));
       return NextResponse.json(
         { error: "Too many registration attempts. Please try again later." },
-        { status: 429 }
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
     const body = await req.json();
@@ -56,6 +63,21 @@ export async function POST(req: NextRequest) {
     } = parsed.data;
 
     const normalizedEmail = email.trim().toLowerCase();
+
+    const emailRateCheck = await partnerRegisterLimiter.check(`email:${normalizedEmail}`);
+    if (!emailRateCheck.success) {
+      if (emailRateCheck.error) {
+        return NextResponse.json(
+          { error: "Registration service temporarily unavailable. Please try again later." },
+          { status: 503 }
+        );
+      }
+      const retryAfter = Math.max(1, Math.ceil((emailRateCheck.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: "Too many registration attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
 
     // Check existing User
     const existingUser = await db.user.findUnique({

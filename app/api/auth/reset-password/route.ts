@@ -1,17 +1,18 @@
 // app/api/auth/reset-password/route.ts
-// Request or fulfill a password reset with 6-digit verification code, rate limiting, and hashed secrets.
+// Request or fulfill a password reset with 6-digit verification code, atomic attempts (N6),
+// two-key rate limiting (N9), HTML-escaped template (N10), and consistent error handling (N14).
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db/client";
 import { sendEmail } from "@/lib/email/email-service";
-import { APP_NAME } from "@/config/constants";
+import { renderPasswordResetEmail } from "@/lib/email/templates/password-reset";
 import { z } from "zod";
 import { generateSecureOtp, hashSecretToken, verifySecretToken } from "@/lib/utils/crypto";
 import {
   passwordResetRequestLimiter,
   passwordResetVerifyLimiter,
-  getClientIp,
+  getRequestIp,
 } from "@/lib/utils/rate-limit";
 
 const RequestResetSchema = z.object({
@@ -33,24 +34,38 @@ const VerifyAndResetSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = getClientIp(req);
+    const ip = await getRequestIp(req);
     const body = await req.json();
 
     if (body.action === "request") {
       const parsed = RequestResetSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid input" }, { status: 400 });
+        return NextResponse.json(
+          { error: parsed.error.errors[0]?.message || "Invalid input" },
+          { status: 400 }
+        );
       }
 
       const { email } = parsed.data;
 
-      // Rate limit password reset requests (Issue 20 & 22)
-      const ipCheck = await passwordResetRequestLimiter.check(`ip:${ip}`);
-      const emailCheck = await passwordResetRequestLimiter.check(`email:${email}`);
+      // Two-key rate limit on password reset requests (N9 & N14): IP (15/15m) + Email (3/15m)
+      const [ipCheck, emailCheck] = await Promise.all([
+        passwordResetRequestLimiter.check(`ip:${ip}`),
+        passwordResetRequestLimiter.check(`email:${email}`),
+      ]);
+
       if (!ipCheck.success || !emailCheck.success) {
+        if (ipCheck.error || emailCheck.error) {
+          return NextResponse.json(
+            { error: "Password reset service temporarily unavailable. Please try again later." },
+            { status: 503 }
+          );
+        }
+        const resetTime = Math.max(ipCheck.reset, emailCheck.reset);
+        const retryAfter = Math.max(1, Math.ceil((resetTime - Date.now()) / 1000));
         return NextResponse.json(
           { error: "Too many password reset requests. Please wait 15 minutes before trying again." },
-          { status: 429 }
+          { status: 429, headers: { "Retry-After": String(retryAfter) } }
         );
       }
 
@@ -58,7 +73,7 @@ export async function POST(req: NextRequest) {
         where: { email },
       });
 
-      // Avoid account enumeration: always return success
+      // Avoid account enumeration: always return identical generic response
       if (!user) {
         return NextResponse.json({
           success: true,
@@ -66,7 +81,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Generate cryptographically secure reset code (Issue 16)
+      // Generate cryptographically secure reset code
       const resetCode = generateSecureOtp();
       const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
@@ -75,7 +90,7 @@ export async function POST(req: NextRequest) {
         where: { identifier: `reset:${email}` },
       });
 
-      // Store hashed reset token (Issue 19)
+      // Store hashed reset token
       await db.verificationToken.create({
         data: {
           identifier: `reset:${email}`,
@@ -85,85 +100,18 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Build email
-      const appBaseUrl = (
-        process.env.NEXT_PUBLIC_APP_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-        "https://softshowcase.vercel.app"
-      ).replace(/\/$/, "");
-      const logoUrl = `${appBaseUrl}/logo.png`;
+      // Render escaped password-reset email template (N10)
+      const { subject, html, text } = renderPasswordResetEmail({
+        userName: user.name,
+        resetCode,
+        expiresInMinutes: 15,
+      });
 
-      // Send email asynchronously without blocking the response (Issue 24)
       sendEmail({
         to: email,
-        subject: `Your ${APP_NAME} Password Reset Code: ${resetCode}`,
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head><meta charset="utf-8"></head>
-          <body style="margin: 0; padding: 0; background-color: #F8FAFA; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFA; padding: 40px 16px;">
-              <tr>
-                <td align="center">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border: 1px solid #D9E2E4; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(16, 33, 36, 0.04);">
-                    <tr>
-                      <td style="padding: 28px 40px 22px; border-bottom: 1px solid #F3F7F7; background: linear-gradient(180deg, #F8FAFA 0%, #FFFFFF 100%);">
-                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                          <tr>
-                            <td valign="middle">
-                              <a href="${appBaseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
-                                <img src="${logoUrl}" alt="Soft Showcase" height="32" style="height: 32px; width: auto; max-width: 170px; display: block; border: 0;" />
-                              </a>
-                            </td>
-                            <td align="right" valign="middle">
-                              <span style="display: inline-block; background-color: #FEE4E2; color: #D92D20; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 12px; border-radius: 8px;">
-                                Security
-                              </span>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 36px 40px 28px;">
-                        <h1 style="color: #102124; font-size: 22px; font-weight: 800; margin: 0 0 16px;">Password Reset Request</h1>
-                        <p style="font-size: 15px; line-height: 1.6; color: #526267; margin: 0 0 20px;">
-                          Hello <strong style="color: #102124;">${user.name || "there"}</strong>,
-                        </p>
-                        <p style="font-size: 15px; line-height: 1.6; color: #526267; margin: 0 0 28px;">
-                          We received a request to reset your password for your <strong>${APP_NAME}</strong> account. Use the following 6-digit reset code:
-                        </p>
-                        <div style="background-color: #F8FAFA; border: 1.5px dashed #155761; border-radius: 16px; padding: 26px 20px; text-align: center; margin: 0 0 28px;">
-                          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #526267; margin-bottom: 8px;">
-                            Your 6-Digit Reset Code
-                          </div>
-                          <div style="font-size: 38px; font-family: 'SFMono-Regular', Consolas, Menlo, Monaco, monospace; font-weight: 800; letter-spacing: 10px; color: #155761; padding-left: 10px;">
-                            ${resetCode}
-                          </div>
-                          <div style="font-size: 12px; font-weight: 500; color: #526267; margin-top: 8px;">
-                            Expires in <strong style="color: #102124;">15 minutes</strong>
-                          </div>
-                        </div>
-                        <p style="font-size: 13px; line-height: 1.5; color: #8A979B; margin: 0;">
-                          If you did not request a password reset, you can safely ignore this email. Your current password remains completely unchanged.
-                        </p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 24px 40px; background-color: #F8FAFA; border-top: 1px solid #D9E2E4; text-align: center;">
-                        <p style="margin: 0; font-size: 11px; color: #8A979B;">
-                          © ${new Date().getFullYear()} Soft Showcase. All rights reserved.
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </body>
-          </html>
-        `,
-        text: `Your ${APP_NAME} password reset code is: ${resetCode}. Valid for 15 minutes.`,
+        subject,
+        html,
+        text,
       }).catch((emailErr) => {
         console.error("[Reset Password] Background email error:", emailErr);
       });
@@ -177,16 +125,28 @@ export async function POST(req: NextRequest) {
     if (body.action === "reset") {
       const parsed = VerifyAndResetSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid input" }, { status: 400 });
+        return NextResponse.json(
+          { error: parsed.error.errors[0]?.message || "Invalid input" },
+          { status: 400 }
+        );
       }
 
       const { email, code, newPassword } = parsed.data;
 
-      // Rate limit reset verification attempts (Issue 20)
-      const verifyCheck = await passwordResetVerifyLimiter.check(`verify:${email}`);
-      const ipCheck = await passwordResetVerifyLimiter.check(`ip:${ip}`);
+      // Two-key rate limit reset verification attempts (N9 & N14): Email (5/15m) + IP ceiling (40/15m)
+      const [verifyCheck, ipCheck] = await Promise.all([
+        passwordResetVerifyLimiter.check(`verify:${email}`),
+        passwordResetVerifyLimiter.check(`ip:${ip}`),
+      ]);
+
       if (!verifyCheck.success || !ipCheck.success) {
-        // Do NOT delete tokens on rate limit hit (M5) - prevents attacker lockout abuse
+        if (verifyCheck.error || ipCheck.error) {
+          return NextResponse.json(
+            { error: "Password reset service temporarily unavailable. Please try again later." },
+            { status: 503 }
+          );
+        }
+        // Do NOT delete tokens on rate limit hit (M5)
         const resetTime = Math.max(verifyCheck.reset, ipCheck.reset);
         const retryAfter = Math.max(1, Math.ceil((resetTime - Date.now()) / 1000));
         return NextResponse.json(
@@ -195,13 +155,50 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const tokenRecords = await db.verificationToken.findMany({
+      const now = new Date();
+      const resetIdentifier = `reset:${email}`;
+
+      // N6: Consume the attempt first, atomically, before comparing the code
+      const claimed = await db.verificationToken.updateMany({
         where: {
-          identifier: `reset:${email}`,
+          identifier: resetIdentifier,
+          expires: { gt: now },
+          attempts: { lt: 5 },
+        },
+        data: {
+          attempts: { increment: 1 },
         },
       });
 
-      const activeRecord = tokenRecords.find((rec) => new Date() <= rec.expires);
+      if (claimed.count === 0) {
+        const existingTokens = await db.verificationToken.findMany({
+          where: { identifier: resetIdentifier },
+        });
+
+        if (existingTokens.some((rec) => rec.attempts >= 5)) {
+          await db.verificationToken
+            .deleteMany({ where: { identifier: resetIdentifier } })
+            .catch(() => null);
+          return NextResponse.json(
+            {
+              error:
+                "Too many failed attempts. This reset code has been invalidated. Please request a new code.",
+            },
+            { status: 400 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: "Reset code has expired or was not found. Please request a new code." },
+          { status: 400 }
+        );
+      }
+
+      const tokenRecords = await db.verificationToken.findMany({
+        where: { identifier: resetIdentifier },
+      });
+
+      const activeRecord = tokenRecords.find((rec) => now <= rec.expires);
 
       if (!activeRecord) {
         return NextResponse.json(
@@ -210,27 +207,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (activeRecord.attempts >= 5) {
-        await db.verificationToken.deleteMany({
-          where: { identifier: `reset:${email}` },
-        });
-        return NextResponse.json(
-          { error: "Too many failed attempts. This reset code has been invalidated. Please request a new code." },
-          { status: 400 }
-        );
-      }
-
       const isValid = verifySecretToken(code, activeRecord.token);
 
       if (!isValid) {
-        await db.verificationToken.updateMany({
-          where: { identifier: `reset:${email}` },
-          data: { attempts: { increment: 1 } },
-        }).catch(() => null);
-
-        const remaining = Math.max(0, 4 - activeRecord.attempts);
+        const remaining = Math.max(0, 5 - activeRecord.attempts);
         return NextResponse.json(
-          { error: `Invalid reset code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
+          {
+            error: `Invalid reset code. ${remaining} attempt${
+              remaining === 1 ? "" : "s"
+            } remaining.`,
+          },
           { status: 400 }
         );
       }
@@ -255,27 +241,30 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Revoke all active sessions (Issue 58 / M6)
+        // Revoke all active sessions (M6)
         await tx.session.deleteMany({
           where: { userId: user.id },
         });
 
-        // Clear tokens
+        // Clear reset tokens
         await tx.verificationToken.deleteMany({
-          where: { identifier: `reset:${email}` },
+          where: { identifier: resetIdentifier },
         });
 
-        await tx.auditLog.create({
-          data: {
-            userId: user.id,
-            action: "PASSWORD_RESET_COMPLETED",
-            entityType: "User",
-            entityId: user.id,
-            details: { email },
-          },
-        }).catch(() => null);
+        await tx.auditLog
+          .create({
+            data: {
+              userId: user.id,
+              action: "PASSWORD_RESET_COMPLETED",
+              entityType: "User",
+              entityId: user.id,
+              details: { email },
+            },
+          })
+          .catch(() => null);
       });
 
+      // N7: Reset ONLY the email-scoped key on success, never the IP key
       await passwordResetVerifyLimiter.reset(`verify:${email}`);
 
       return NextResponse.json({
