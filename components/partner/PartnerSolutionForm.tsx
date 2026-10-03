@@ -1154,42 +1154,6 @@ export function PartnerSolutionForm({
         </div>
       )}
 
-      {/* ── Quick Tools Bar (Import JSON, Fast Actions) ──────────────── */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#F8FAFA] to-[#EDF4F5] border border-[#D9E2E4] shadow-xs flex-wrap gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#155761]/10 flex items-center justify-center text-[#155761] shrink-0">
-            <FileCode className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-[#102124]">Quick JSON Import Available</h3>
-            <p className="text-[11px] text-[#526267]">
-              Have project details or AI specification in JSON? Populate this entire form in 1 click.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setImportError(null);
-              setIsImportModalOpen(true);
-            }}
-            className="text-xs font-bold rounded-xl border-[#155761]/30 hover:border-[#155761] text-[#155761] bg-white gap-1.5 shadow-xs hover:bg-[#F3F7F7] cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>Import via JSON</span>
-          </Button>
-          <Link
-            href="/partner/solutions/import"
-            className="text-xs text-[#526267] hover:text-[#155761] underline font-medium px-2 py-1"
-          >
-            Full Importer Page →
-          </Link>
-        </div>
-      </div>
 
       {/* ── Error Banner ─────────────────────────────────────────────── */}
       {error && (
@@ -1533,20 +1497,6 @@ export function PartnerSolutionForm({
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
             />
-            {isUploadingPhoto && (
-              <div className="p-3 bg-[#EBF7F5] border border-[#2F7D78]/30 rounded-xl space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-bold text-[#155761]">
-                  <span className="flex items-center gap-1.5">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2F7D78]" />
-                    {uploadProgress || "Uploading & processing photo(s)..."}
-                  </span>
-                  <span>Please wait</span>
-                </div>
-                <div className="w-full bg-[#D9E2E4] h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#155761] h-full w-2/3 animate-pulse rounded-full" />
-                </div>
-              </div>
-            )}
             <Button
               type="button"
               variant="outline"
@@ -1624,21 +1574,6 @@ export function PartnerSolutionForm({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isUploadingPhoto && (
-              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2.5 p-4 text-center shadow-md animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-[#155761]/10 flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#155761]" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-[#155761] block">
-                    {uploadProgress || "Uploading screenshot..."}
-                  </span>
-                  <span className="text-[11px] text-[#526267] mt-0.5 block">
-                    Processing screenshot &amp; adding to gallery
-                  </span>
-                </div>
-              </div>
-            )}
             {photos.map((photo, idx) => (
               <div
                 key={photo.id}

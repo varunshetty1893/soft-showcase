@@ -4,7 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Loader2, Upload } from "lucide-react";
+import { AlertCircle, Loader2, Upload, Sparkles, CheckCircle2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,26 @@ interface SolutionOption {
 
 interface TransactionFormProps {
   solutions: SolutionOption[];
+}
+
+interface ExtractedReceiptData {
+  amount?: string;
+  currency?: string;
+  utrNumber?: string;
+  paymentMethod?: string;
+  confidence?: string;
+}
+
+// ── Receipt AI Extraction ──────────────────────────────────────────────────────
+// Calls our server-side route to avoid exposing API keys client-side.
+async function extractReceiptData(imageDataUrl: string): Promise<ExtractedReceiptData> {
+  const res = await fetch("/api/partner/receipt-extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageDataUrl }),
+  });
+  if (!res.ok) throw new Error("Could not read receipt automatically.");
+  return res.json();
 }
 
 export function TransactionForm({ solutions }: TransactionFormProps) {
@@ -46,22 +66,62 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
   const [evidenceUploading, setEvidenceUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleEvidenceUpload = async (file: File | undefined) => {
+  // ── Receipt AI state ─────────────────────────────────────────────────────────
+  const [receiptExtracting, setReceiptExtracting] = React.useState(false);
+  const [extractedData, setExtractedData] = React.useState<ExtractedReceiptData | null>(null);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = React.useState<string | null>(null);
+  const receiptInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleReceiptUpload = async (file: File | undefined) => {
     if (!file) return;
-    setEvidenceUploading(true);
     setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/partner/uploads", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok || !data?.url) throw new Error(data?.error || "Evidence upload failed");
-      setPaymentEvidenceUrl(data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Evidence upload failed");
-    } finally {
-      setEvidenceUploading(false);
-    }
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      setReceiptPreviewUrl(dataUrl);
+
+      // 1️⃣ Try AI extraction first
+      setReceiptExtracting(true);
+      try {
+        const extracted = await extractReceiptData(dataUrl);
+        setExtractedData(extracted);
+        // Pre-fill form fields — user can edit them
+        if (extracted.amount) setAmount(extracted.amount);
+        if (extracted.currency) setCurrency(extracted.currency.toUpperCase());
+        if (extracted.utrNumber) setUtrNumber(extracted.utrNumber);
+        if (extracted.paymentMethod) setPaymentMethod(extracted.paymentMethod);
+      } catch {
+        // AI extraction failed — still upload the file normally
+        toast.error("Could not auto-read receipt. Please fill fields manually.");
+      } finally {
+        setReceiptExtracting(false);
+      }
+
+      // 2️⃣ Upload file to storage
+      setEvidenceUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/partner/uploads", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok || !data?.url) throw new Error(data?.error || "Evidence upload failed");
+        setPaymentEvidenceUrl(data.url);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Evidence upload failed");
+      } finally {
+        setEvidenceUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearReceipt = () => {
+    setReceiptPreviewUrl(null);
+    setExtractedData(null);
+    setPaymentEvidenceUrl("");
+    if (receiptInputRef.current) receiptInputRef.current.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +167,8 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
       setLoading(false);
     }
   };
+
+  const isBusy = evidenceUploading || receiptExtracting;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
@@ -213,9 +275,117 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
           3. Payment Amount &amp; UTR Evidence
         </h2>
 
+        {/* ── Receipt Upload with AI extraction ─────────────────────────── */}
+        <div className="rounded-2xl border border-[#D9E2E4] bg-[#F8FAFA] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-[#102124]">
+              Payment Screenshot / Receipt
+            </Label>
+            {receiptPreviewUrl && !isBusy && (
+              <button
+                type="button"
+                onClick={clearReceipt}
+                className="text-[11px] text-rose-600 hover:text-rose-800 flex items-center gap-1 font-semibold cursor-pointer"
+              >
+                <X className="w-3 h-3" /> Remove
+              </button>
+            )}
+          </div>
+
+          {!receiptPreviewUrl ? (
+            /* Upload drop zone */
+            <label
+              className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-all ${
+                isBusy
+                  ? "border-[#155761] bg-[#EBF7F5]"
+                  : "border-[#D9E2E4] hover:border-[#155761]/60 hover:bg-white"
+              }`}
+            >
+              {isBusy ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin text-[#155761]" />
+                  <p className="text-xs font-bold text-[#155761]">
+                    {receiptExtracting ? "Reading receipt with AI…" : "Uploading receipt…"}
+                  </p>
+                  <p className="text-[11px] text-[#526267]">Please wait a moment.</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-[#155761]/10 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-[#155761]" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-[#102124]">Upload payment screenshot</p>
+                    <p className="text-[11px] text-[#526267] mt-0.5">
+                      PNG, JPG, WebP — AI will auto-fill amount &amp; UTR from the image
+                    </p>
+                  </div>
+                </>
+              )}
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={isBusy}
+                onChange={(e) => handleReceiptUpload(e.target.files?.[0])}
+              />
+            </label>
+          ) : (
+            /* Preview + AI-extracted banner */
+            <div className="space-y-3">
+              {/* Thumbnail */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={receiptPreviewUrl}
+                alt="Receipt preview"
+                className="w-full max-h-48 object-contain rounded-xl border border-[#D9E2E4] bg-white"
+              />
+
+              {/* AI extraction in progress */}
+              {receiptExtracting && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-semibold">
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>AI is reading your receipt — fields will fill automatically…</span>
+                </div>
+              )}
+
+              {/* Extraction success notice */}
+              {extractedData && !receiptExtracting && (
+                <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <div>
+                    <p className="font-bold">Fields auto-filled from your screenshot</p>
+                    <p className="text-[11px] mt-0.5 text-emerald-700">
+                      Review and edit any field below before submitting.
+                    </p>
+                  </div>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0 ml-auto" />
+                </div>
+              )}
+
+              {/* Upload in progress */}
+              {evidenceUploading && !receiptExtracting && (
+                <div className="flex items-center gap-2 p-3 bg-[#EBF7F5] border border-[#2F7D78]/30 rounded-xl text-xs text-[#155761] font-semibold">
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Uploading receipt to secure storage…</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Amount & Currency ──────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
-            <Label className="text-xs font-semibold text-[#102124]">Amount Received *</Label>
+            <Label className="text-xs font-semibold text-[#102124]">
+              Amount Received *
+              {extractedData?.amount && (
+                <span className="ml-1.5 text-[10px] font-normal text-emerald-600 inline-flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> auto-filled
+                </span>
+              )}
+            </Label>
             <Input
               type="number"
               value={amount}
@@ -235,9 +405,17 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
           </div>
         </div>
 
+        {/* ── Payment Mode & UTR ────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">Payment Mode</Label>
+            <Label className="text-xs font-semibold text-[#102124]">
+              Payment Mode
+              {extractedData?.paymentMethod && (
+                <span className="ml-1.5 text-[10px] font-normal text-emerald-600 inline-flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> auto-filled
+                </span>
+              )}
+            </Label>
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
@@ -248,40 +426,35 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
               <option value="IMPS">IMPS Immediate Transfer</option>
               <option value="WIRE_TRANSFER">International Wire / SWIFT</option>
               <option value="CARD">Debit / Credit Card</option>
+              <option value="CASH">Cash (In-Person)</option>
             </select>
           </div>
 
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">UTR / Bank Ref Number *</Label>
+            <Label className="text-xs font-semibold text-[#102124]">
+              UTR / Bank Ref Number
+              {paymentMethod === "CASH" ? (
+                <span className="ml-1 text-[10px] font-normal text-[#526267]">(optional for cash)</span>
+              ) : (
+                <span className="text-rose-500"> *</span>
+              )}
+              {extractedData?.utrNumber && (
+                <span className="ml-1.5 text-[10px] font-normal text-emerald-600 inline-flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> auto-filled
+                </span>
+              )}
+            </Label>
             <Input
               value={utrNumber}
               onChange={(e) => setUtrNumber(e.target.value)}
-              placeholder="e.g. 412389102931"
-              required
+              placeholder={paymentMethod === "CASH" ? "e.g. Receipt #001 (optional)" : "e.g. 412389102931"}
+              required={paymentMethod !== "CASH"}
               className="mt-1 font-mono text-xs"
             />
           </div>
         </div>
 
-        <div>
-          <Label className="text-xs font-semibold text-[#102124]">Payment Evidence Screenshot / Receipt</Label>
-          <label className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-[#155761] cursor-pointer">
-            {evidenceUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            <span>{evidenceUploading ? "Uploading receipt..." : "Upload receipt image"}</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={evidenceUploading} onChange={(event) => handleEvidenceUpload(event.target.files?.[0])} />
-          </label>
-          <Input
-            type="url"
-            value={paymentEvidenceUrl}
-            onChange={(e) => setPaymentEvidenceUrl(e.target.value)}
-            placeholder="Secure Cloudinary receipt URL (or upload an image above)"
-            className="mt-1 text-xs"
-          />
-          <p className="text-[11px] text-[#526267] mt-1">
-            Upload the receipt image through Soft Showcase, or use an approved secure storage URL. Transaction evidence is reviewed by the platform; it is not payment processing.
-          </p>
-        </div>
-
+        {/* ── Evidence notes ────────────────────────────────────────────── */}
         <div>
           <Label className="text-xs font-semibold text-[#102124]">Evidence Notes (Optional)</Label>
           <Input
@@ -318,6 +491,7 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
           variant="primary"
           size="md"
           isLoading={loading}
+          disabled={isBusy || loading}
           className="font-bold shadow-md"
         >
           Submit Transaction Record
