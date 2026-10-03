@@ -10,7 +10,6 @@ import {
   Users,
   MessageSquare,
   FileQuestion,
-  UploadCloud,
   ExternalLink,
   History,
   ChevronRight,
@@ -28,7 +27,6 @@ const NAV_ITEMS = [
   { label: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
   { label: "Custom Requests", href: "/admin/custom-requests", icon: FileQuestion },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: History },
-  { label: "Import Projects", href: "/admin/projects/import", icon: UploadCloud },
   { label: "Admin Profile", href: "/admin/profile", icon: UserCheck },
 ];
 

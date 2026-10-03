@@ -1263,43 +1263,6 @@ export function PartnerSolutionForm({
         </div>
       )}
 
-      {/* ── Quick Tools Bar (Import JSON, Fast Actions) ──────────────── */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#F8FAFA] to-[#EDF4F5] border border-[#D9E2E4] shadow-xs flex-wrap gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#155761]/10 flex items-center justify-center text-[#155761] shrink-0">
-            <FileCode className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-[#102124]">Quick JSON Import Available</h3>
-            <p className="text-[11px] text-[#526267]">
-              Have project details or AI specification in JSON? Populate this entire form in 1 click.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setImportError(null);
-              setIsImportModalOpen(true);
-            }}
-            className="text-xs font-bold rounded-xl border-[#155761]/30 hover:border-[#155761] text-[#155761] bg-white gap-1.5 shadow-xs hover:bg-[#F3F7F7] cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>Import via JSON</span>
-          </Button>
-          <Link
-            href="/partner/solutions/import"
-            className="text-xs text-[#526267] hover:text-[#155761] underline font-medium px-2 py-1"
-          >
-            Full Importer Page →
-          </Link>
-        </div>
-      </div>
-
       {/* ── Error Banner ─────────────────────────────────────────────── */}
       {error && (
         <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs space-y-3 animate-in fade-in duration-200">
@@ -1362,33 +1325,6 @@ export function PartnerSolutionForm({
           ) : (
             <p className="text-xs text-rose-700">{error}</p>
           )}
-        </div>
-      )}
-
-      {/* ── Quick JSON Import Bar ──────────────────────────────────────── */}
-      {!isEditing && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#F0F9F8] to-[#E6F4F1] border border-[#BEDEE1] shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#155761] text-white flex items-center justify-center shrink-0 shadow-xs">
-              <FileCode className="w-5 h-5 text-emerald-300" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm font-bold text-[#102124]">
-                Want to pre-fill all fields in 1 click?
-              </p>
-              <p className="text-[11px] text-[#526267]">
-                Import from an AI-generated or exported project JSON file instead of typing manually.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/partner/solutions/import"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs font-bold shadow-xs transition shrink-0 active:scale-95"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-            <span>Import via JSON</span>
-            <ArrowRight className="w-3.5 h-3.5 opacity-80" />
-          </Link>
         </div>
       )}
 

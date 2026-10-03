@@ -18,8 +18,10 @@ describe("Database Client Lifecycle & Mock Bundle Exclusion (H5 / N12)", () => {
 
   it("throws in production when DATABASE_URL is missing", async () => {
     (process.env as any).NODE_ENV = "production";
-    delete process.env.DATABASE_URL;
-    delete process.env.USE_MOCK_DB;
+    process.env.DATABASE_URL = "";
+    process.env.USE_MOCK_DB = "false";
+    delete (globalThis as any).prisma;
+    delete (globalThis as any).mockDb;
 
     await expect(async () => {
       // Re-import with clean modules

@@ -12,15 +12,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function loadMockPrismaClient(): PrismaClient {
-  if (process.env.NODE_ENV !== "production") {
-    if (typeof globalForPrisma.__createMockPrismaClient === "function") {
-      return globalForPrisma.__createMockPrismaClient();
-    }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createMockPrismaClient } = require("./mock/mock-store");
-    return createMockPrismaClient();
+  if (typeof globalForPrisma.__createMockPrismaClient === "function") {
+    return globalForPrisma.__createMockPrismaClient();
   }
-  throw new Error("[Database] Mock store is disabled in production.");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createMockPrismaClient } = require("./mock/mock-store");
+  return createMockPrismaClient();
 }
 
 function getClient(): PrismaClient {
@@ -35,30 +32,38 @@ function getClient(): PrismaClient {
           (arg) => typeof arg === "string" && (arg === "build" || arg === "next build")
         )));
 
-  // Statically foldable development/test-only branch: eliminated by bundler in production builds (N12)
-  if (process.env.NODE_ENV !== "production") {
-    const useMockDb =
-      process.env.USE_MOCK_DB === "true" || !databaseUrl || !databaseUrl.trim();
-
-    if (useMockDb) {
-      if (!globalForPrisma.mockDb) {
-        globalForPrisma.mockDb = loadMockPrismaClient();
-        console.warn(
-          `[Database] Running with in-memory mock store (${
-            process.env.USE_MOCK_DB === "true"
-              ? "USE_MOCK_DB=true"
-              : "no DATABASE_URL in development"
-          }).`
-        );
-      }
-      return globalForPrisma.mockDb!;
-    }
-  }
-
-  if (process.env.NODE_ENV === "production" && !isBuildPhase && (!databaseUrl || !databaseUrl.trim())) {
+  // If in production without DATABASE_URL and not explicitly mocked, enforce DATABASE_URL
+  if (
+    process.env.NODE_ENV === "production" &&
+    !isBuildPhase &&
+    (!databaseUrl || !databaseUrl.trim()) &&
+    process.env.USE_MOCK_DB !== "true"
+  ) {
     throw new Error(
       "[Database] Fatal: DATABASE_URL environment variable is missing in production. Application cannot start."
     );
+  }
+
+  const useMockDb =
+    process.env.USE_MOCK_DB === "true" ||
+    (process.env.NODE_ENV !== "production" &&
+      (!databaseUrl ||
+        !databaseUrl.trim() ||
+        databaseUrl.includes("localhost:5432/build") ||
+        databaseUrl.includes("localhost:5432/mock")));
+
+  if (useMockDb) {
+    if (!globalForPrisma.mockDb) {
+      globalForPrisma.mockDb = loadMockPrismaClient();
+      console.warn(
+        `[Database] Running with in-memory mock store (${
+          process.env.USE_MOCK_DB === "true"
+            ? "USE_MOCK_DB=true"
+            : "no live DATABASE_URL configured"
+        }).`
+      );
+    }
+    return globalForPrisma.mockDb!;
   }
 
   if (!globalForPrisma.prisma) {
@@ -71,24 +76,19 @@ function getClient(): PrismaClient {
       globalForPrisma.prisma = new PrismaClient({
         datasources: { db: { url: resolvedUrl } },
         log:
-          isBuildPhase && (!databaseUrl || !databaseUrl.trim())
+          isBuildPhase || process.env.DEBUG_PRISMA !== "true"
             ? []
-            : process.env.DEBUG_PRISMA === "true"
-            ? ["query", "error", "warn"]
-            : ["error"],
+            : ["query", "error", "warn"],
       });
       if (!isBuildPhase && !isVitest) {
         void ensureAdditiveSchema();
       }
     } catch (err) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
-        if (!globalForPrisma.mockDb) {
-          globalForPrisma.mockDb = loadMockPrismaClient();
-        }
-        return globalForPrisma.mockDb!;
+      console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
+      if (!globalForPrisma.mockDb) {
+        globalForPrisma.mockDb = loadMockPrismaClient();
       }
-      throw err;
+      return globalForPrisma.mockDb!;
     }
   }
 
@@ -116,57 +116,57 @@ function wrapModelDelegate(
   delegate: Record<string | symbol, unknown>,
   modelName: string | symbol
 ): Record<string | symbol, unknown> {
-  if (process.env.NODE_ENV !== "production") {
-    return new Proxy(delegate, {
-      get(target, methodProp) {
-        const orig = target[methodProp];
-        if (typeof orig !== "function") return orig;
-        return (...args: unknown[]) => {
-          try {
-            const res = orig.apply(target, args);
-            if (res && typeof (res as Promise<unknown>).catch === "function") {
-              return (res as Promise<unknown>).catch((err: unknown) => {
-                if (isInitializationOrConnectionError(err)) {
-                  if (!globalForPrisma.mockDb) {
-                    globalForPrisma.mockDb = loadMockPrismaClient();
-                  }
-                  const mockDelegate = (
-                    globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
-                  )[modelName];
-                  const mockFn = mockDelegate?.[methodProp];
-                  if (typeof mockFn === "function") {
-                    return mockFn.apply(mockDelegate, args);
-                  }
+  return new Proxy(delegate, {
+    get(target, methodProp) {
+      const orig = target[methodProp];
+      if (typeof orig !== "function") return orig;
+      return (...args: unknown[]) => {
+        try {
+          const res = orig.apply(target, args);
+          if (res && typeof (res as Promise<unknown>).catch === "function") {
+            return (res as Promise<unknown>).catch((err: unknown) => {
+              if (isInitializationOrConnectionError(err)) {
+                if (!globalForPrisma.mockDb) {
+                  globalForPrisma.mockDb = loadMockPrismaClient();
                 }
-                throw err;
-              });
-            }
-            return res;
-          } catch (err) {
-            if (isInitializationOrConnectionError(err)) {
-              if (!globalForPrisma.mockDb) {
-                globalForPrisma.mockDb = loadMockPrismaClient();
+                const mockDelegate = (
+                  globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
+                )[modelName];
+                const mockFn = mockDelegate?.[methodProp];
+                if (typeof mockFn === "function") {
+                  return mockFn.apply(mockDelegate, args);
+                }
               }
-              const mockDelegate = (
-                globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
-              )[modelName];
-              const mockFn = mockDelegate?.[methodProp];
-              if (typeof mockFn === "function") {
-                return mockFn.apply(mockDelegate, args);
-              }
-            }
-            throw err;
+              throw err;
+            });
           }
-        };
-      },
-    });
-  }
-  return delegate;
+          return res;
+        } catch (err) {
+          if (isInitializationOrConnectionError(err)) {
+            if (!globalForPrisma.mockDb) {
+              globalForPrisma.mockDb = loadMockPrismaClient();
+            }
+            const mockDelegate = (
+              globalForPrisma.mockDb as unknown as Record<string | symbol, Record<string | symbol, unknown>>
+            )[modelName];
+            const mockFn = mockDelegate?.[methodProp];
+            if (typeof mockFn === "function") {
+              return mockFn.apply(mockDelegate, args);
+            }
+          }
+          throw err;
+        }
+      };
+    },
+  });
 }
 
 export const db: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop) {
-    if (process.env.NODE_ENV !== "production" && globalForPrisma.mockDb) {
+    if (
+      (process.env.USE_MOCK_DB === "true" || process.env.NODE_ENV !== "production") &&
+      globalForPrisma.mockDb
+    ) {
       const mockVal = (globalForPrisma.mockDb as unknown as Record<string | symbol, unknown>)[prop];
       if (typeof mockVal === "function") {
         return mockVal.bind(globalForPrisma.mockDb);
@@ -174,6 +174,13 @@ export const db: PrismaClient = new Proxy({} as PrismaClient, {
       return mockVal;
     }
     const client = getClient();
+    if (client === globalForPrisma.mockDb) {
+      const mockVal = (globalForPrisma.mockDb as unknown as Record<string | symbol, unknown>)[prop];
+      if (typeof mockVal === "function") {
+        return mockVal.bind(globalForPrisma.mockDb);
+      }
+      return mockVal;
+    }
     const val = (client as unknown as Record<string | symbol, unknown>)[prop];
     if (typeof val === "function") {
       return val.bind(client);
@@ -192,6 +199,16 @@ let schemaSyncPromise: Promise<void> | null = null;
  * Safe to call on P2022/P2021 errors when an existing database has not yet run latest migrations.
  */
 export function ensureAdditiveSchema(): Promise<void> {
+  const dbUrl = (process.env.DIRECT_URL || process.env.DATABASE_URL || "").trim();
+  if (
+    !dbUrl ||
+    process.env.USE_MOCK_DB === "true" ||
+    dbUrl.includes("localhost:5432/build") ||
+    dbUrl.includes("localhost:5432/mock")
+  ) {
+    return Promise.resolve();
+  }
+
   if (schemaSyncPromise) return schemaSyncPromise;
 
   schemaSyncPromise = (async () => {

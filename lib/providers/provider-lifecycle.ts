@@ -206,10 +206,7 @@ export async function removeProvider(params: {
   await ensureAdditiveSchema();
   const { providerId, reason, confirmName, notifyPartner = false, actorId } = params;
 
-  const cleanReason = (reason || "").trim();
-  if (!cleanReason) {
-    return { ok: false, status: 400, message: "A removal reason is required." };
-  }
+  const cleanReason = (reason || "").trim() || "Removed by administrator";
 
   const existing = await db.projectProvider.findUnique({
     where: { id: providerId },
@@ -244,16 +241,19 @@ export async function removeProvider(params: {
     };
   }
 
-  const typedLower = (confirmName || "").trim().toLowerCase();
-  const nameLower = existing.displayName.trim().toLowerCase();
-  const emailLower = (existing.email || "").trim().toLowerCase();
+  // Confirmation name is optional; if provided, validate case-insensitively against name or email
+  if (confirmName && confirmName.trim()) {
+    const typedLower = confirmName.trim().toLowerCase();
+    const nameLower = existing.displayName.trim().toLowerCase();
+    const emailLower = (existing.email || "").trim().toLowerCase();
 
-  if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
-    return {
-      ok: false,
-      status: 400,
-      message: `Confirmation must match provider name "${existing.displayName}" or email "${existing.email}".`,
-    };
+    if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Confirmation must match provider name "${existing.displayName}" or email "${existing.email}".`,
+      };
+    }
   }
 
   let supportTicketsCount = 0;
@@ -462,16 +462,19 @@ export async function permanentlyDeleteProvider(params: {
     };
   }
 
-  const typedLower = (confirmName || "").trim().toLowerCase();
-  const nameLower = existing.displayName.trim().toLowerCase();
-  const emailLower = (existing.email || "").trim().toLowerCase();
+  // Confirmation name is optional; if provided, validate case-insensitively against name or email
+  if (confirmName && confirmName.trim()) {
+    const typedLower = confirmName.trim().toLowerCase();
+    const nameLower = existing.displayName.trim().toLowerCase();
+    const emailLower = (existing.email || "").trim().toLowerCase();
 
-  if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
-    return {
-      ok: false,
-      status: 400,
-      message: `Confirmation name must match "${existing.displayName}" or "${existing.email}".`,
-    };
+    if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Confirmation name must match "${existing.displayName}" or "${existing.email}".`,
+      };
+    }
   }
 
   const inquiriesCount = existing._count?.inquiries ?? 0;
