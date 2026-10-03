@@ -249,25 +249,10 @@ export async function POST(req: NextRequest) {
         resolvedTechIds.push(existingById.id);
         continue;
       }
-
-      const slug = trimmed
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      const tech = await db.technology.upsert({
-        where: { slug: slug || `tech-${trimmed.toLowerCase()}` },
-        update: {},
-        create: {
-          name: trimmed,
-          slug: slug || `tech-${Date.now()}`,
-          isActive: true,
-        },
-      }).catch(() => null);
-
-      if (tech) {
-        resolvedTechIds.push(tech.id);
-      }
+      return NextResponse.json(
+        { error: "Choose technologies from the administrator-curated list." },
+        { status: 400 }
+      );
     }
 
     const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = (

@@ -19,6 +19,7 @@ const DDL_STATEMENTS = [
     CONSTRAINT "pending_registrations_pkey" PRIMARY KEY ("id")
   );`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "pending_registrations_email_key" ON "pending_registrations"("email");`,
+  `ALTER TABLE "pending_registrations" ADD COLUMN IF NOT EXISTS "partnerApplication" JSONB;`,
 
   // 2. User tokenVersion & contact profile fields (M6 / B9)
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER NOT NULL DEFAULT 0;`,

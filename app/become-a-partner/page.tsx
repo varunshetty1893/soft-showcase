@@ -153,7 +153,7 @@ export default function BecomeAPartnerPage() {
                 </div>
                 <h4 className="font-bold text-sm text-[#102124]">Customer Enquiries</h4>
                 <p className="text-xs text-[#526267] leading-relaxed">
-                  Receive and respond directly to buyer enquiries, track negotiation stages, and schedule technical calls.
+                  Receive form enquiries from buyers and respond through the contact method they chose. WhatsApp conversations and scheduling happen directly with the buyer.
                 </p>
               </div>
 
@@ -163,7 +163,7 @@ export default function BecomeAPartnerPage() {
                 </div>
                 <h4 className="font-bold text-sm text-[#102124]">Transaction Records</h4>
                 <p className="text-xs text-[#526267] leading-relaxed">
-                  Record solution purchases, customized orders, submit UTR/payment evidence, and track verification.
+                  Submit transaction records and payment evidence for platform review. Soft Showcase does not process buyer payments.
                 </p>
               </div>
 

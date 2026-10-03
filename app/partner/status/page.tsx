@@ -1,9 +1,10 @@
 // app/partner/status/page.tsx
-// Displays the current Solution Partner application status for the user with email lookup.
+// Displays the current Solution Partner application status for the signed-in user.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import {
@@ -15,11 +16,8 @@ import {
   ArrowLeft,
   ShieldCheck,
   Headphones,
-  Mail,
-  Search,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -27,37 +25,22 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-interface PartnerStatusPageProps {
-  searchParams?: Promise<{ email?: string; submitted?: string; verified?: string }>;
-}
+interface PartnerStatusPageProps { searchParams?: Promise<{ submitted?: string; verified?: string }>; }
 
 export default async function PartnerStatusPage({ searchParams }: PartnerStatusPageProps) {
   const session = await auth();
   const params = await searchParams;
-  const lookupEmail = params?.email?.trim().toLowerCase();
   const justVerified = params?.verified === "true";
   const justSubmitted = params?.submitted === "true";
 
   let partner = null;
   let user = null;
 
-  if (lookupEmail) {
-    user = await db.user.findUnique({
-      where: { email: lookupEmail },
-    });
-
-    partner = await db.projectProvider.findFirst({
-      where: { email: lookupEmail },
-    });
-
-    if (!partner && user) {
-      partner = await db.projectProvider.findFirst({
-        where: { userId: user.id },
-      });
-    }
+  if (!session?.user?.id) {
+    redirect("/login?callbackUrl=/partner/status");
   }
 
-  if (!partner && session?.user) {
+  if (!partner) {
     user = await db.user.findUnique({
       where: { id: session.user.id },
     });
@@ -72,7 +55,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
     });
   }
 
-  const effectiveEmail = lookupEmail || session?.user?.email || "";
+  const effectiveEmail = session.user.email || "";
   const isEmailVerified = Boolean(user?.emailVerified);
 
   let status: string;
@@ -86,9 +69,7 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
     }
   } else if (effectiveEmail) {
     status = "not_applied";
-  } else {
-    status = "unauthenticated";
-  }
+  } else status = "not_applied";
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA] text-[#102124]">
@@ -351,8 +332,8 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
             </>
           )}
 
-          {/* Status: Unauthenticated or Not Applied (with Interactive Email Search) */}
-          {(status === "unauthenticated" || status === "not_applied") && (
+          {/* Status: Not Applied */}
+          {status === "not_applied" && (
             <>
               <div className="w-16 h-16 rounded-full bg-[#F3F7F7] text-[#155761] border border-[#D9E2E4] flex items-center justify-center mx-auto shadow-xs">
                 <ShieldCheck className="w-8 h-8" />
@@ -362,30 +343,9 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
                   Partner Application Status
                 </h1>
                 <p className="text-sm text-[#526267] leading-relaxed">
-                  {status === "not_applied" && effectiveEmail
-                    ? `No registered partner application was found for "${effectiveEmail}". Check another email or submit a new partner application.`
-                    : "Enter your registered email address below to look up your live Solution Partner application status."}
+                  No registered partner application was found for your signed-in account. You can submit a new application to begin review.
                 </p>
               </div>
-
-              {/* Interactive Email Lookup Form */}
-              <form action="/partner/status" method="GET" className="space-y-3 pt-2">
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-[#526267] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <Input
-                    type="email"
-                    name="email"
-                    defaultValue={effectiveEmail}
-                    placeholder="Enter your registered application email"
-                    className="pl-9 text-sm"
-                    required
-                  />
-                </div>
-                <Button type="submit" variant="primary" className="w-full font-bold shadow-xs gap-2">
-                  <Search className="w-4 h-4" />
-                  <span>Check Application Status</span>
-                </Button>
-              </form>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 border-t border-[#D9E2E4]">
                 <Link
@@ -410,15 +370,6 @@ export default async function PartnerStatusPage({ searchParams }: PartnerStatusP
             </>
           )}
 
-          {/* Quick email lookup for any status */}
-          {status !== "unauthenticated" && status !== "not_applied" && (
-            <div className="pt-4 border-t border-[#D9E2E4] text-xs text-[#526267]">
-              <span>Checking a different account? </span>
-              <Link href="/partner/status" className="font-semibold text-[#155761] hover:underline">
-                Look up by email
-              </Link>
-            </div>
-          )}
         </div>
       </main>
     </div>

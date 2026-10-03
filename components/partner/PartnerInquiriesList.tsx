@@ -75,7 +75,7 @@ export function PartnerInquiriesList({ initialInquiries }: PartnerInquiriesListP
         <div className="space-y-1">
           <h3 className="text-base font-bold text-[#102124]">No Inquiries Yet</h3>
           <p className="text-xs text-[#526267] max-w-md mx-auto">
-            When prospective buyers submit inquiry forms or WhatsApp messages on your software solutions, they will appear here.
+            Form inquiries submitted from your software solutions appear here. WhatsApp conversations open directly and are not recorded by the platform.
           </p>
         </div>
       </div>

@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/session";
-import { db } from "@/lib/db/client";
 import { validateImageFile, uploadImage } from "@/lib/storage/storage-service";
+import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,29 +15,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userEmail = session.user.email?.toLowerCase().trim() || "";
-    const partner = await db.projectProvider.findFirst({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          ...(userEmail
-            ? [{ email: { equals: userEmail, mode: "insensitive" as const } }]
-            : []),
-        ],
-      },
-    });
-
-    if (!partner && !session.user.isAdmin) {
-      return NextResponse.json({ error: "Partner profile not found" }, { status: 403 });
-    }
-
-    if (partner && !partner.userId) {
-      await db.projectProvider
-        .update({
-          where: { id: partner.id },
-          data: { userId: session.user.id },
-        })
-        .catch(() => null);
+    const partner = await resolvePartnerForUser(session.user);
+    if (!partner) {
+      return NextResponse.json({ error: "Partner account is not active or approved" }, { status: 403 });
     }
 
     const formData = await request.formData();

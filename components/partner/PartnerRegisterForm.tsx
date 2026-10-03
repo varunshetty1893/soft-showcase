@@ -58,6 +58,7 @@ export function PartnerRegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedPartnerTerms, setAcceptedPartnerTerms] = useState(false);
 
   // Email verification state
   const [needsOtpVerification, setNeedsOtpVerification] = useState(false);
@@ -212,6 +213,9 @@ export function PartnerRegisterForm() {
       if (!formData.location.trim() || formData.location.trim().length < 2) {
         errors.location = "Location / region is required (e.g. Bengaluru, India or Remote).";
       }
+      if (!acceptedPartnerTerms) {
+        errors.acceptedPartnerTerms = "Confirm your listing and distribution rights before submitting.";
+      }
     }
 
     setFieldErrors(errors);
@@ -256,6 +260,7 @@ export function PartnerRegisterForm() {
     const payload = {
       ...formData,
       whatsappNumber: cleanWhatsApp,
+      acceptedPartnerTerms,
     };
 
     try {
@@ -502,7 +507,7 @@ export function PartnerRegisterForm() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
           <Link
-            href={`/partner/status?email=${encodeURIComponent(formData.email.trim().toLowerCase())}&verified=true`}
+            href="/login?callbackUrl=%2Fpartner%2Fstatus%3Fverified%3Dtrue"
             className={buttonVariants({
               variant: "primary",
               className: "w-full sm:w-auto font-bold",
@@ -1097,9 +1102,20 @@ export function PartnerRegisterForm() {
 
             {/* Step 3 Actions */}
             <div className="pt-4 border-t border-[#D9E2E4] space-y-4">
-              <p className="text-[11px] text-[#526267] leading-relaxed">
-                By submitting this application, you agree to Soft Showcase&apos;s code quality standards, direct buyer communication policies, and acknowledge that approval is subject to administrative review.
-              </p>
+              <label className="flex items-start gap-3 text-[11px] text-[#526267] leading-relaxed cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedPartnerTerms}
+                  onChange={(event) => setAcceptedPartnerTerms(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
+                />
+                <span>
+                  I confirm that I own, or have the documented right to distribute, every solution I list. I agree to the <Link href="/terms" className="font-semibold text-[#155761] hover:underline">Terms of Service</Link>, direct buyer communication policies, and administrative review.
+                </span>
+              </label>
+              {fieldErrors.acceptedPartnerTerms && (
+                <p className="text-rose-600 text-xs">{fieldErrors.acceptedPartnerTerms}</p>
+              )}
 
               <div className="flex items-center justify-between gap-3">
                 <Button

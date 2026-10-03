@@ -166,7 +166,8 @@ export async function POST(request: NextRequest) {
           priceMode: data.priceMode,
           price: data.price ?? null,
           status: data.status || "PUBLISHED",
-          featured: Boolean(data.featured),
+          // Featured placement is an administrator-only decision.
+          featured: false,
           whatsIncluded: data.whatsIncluded || [],
           featuresCount: normalizedFeatures.length,
           specsCount: normalizedSpecs.length,
@@ -188,9 +189,29 @@ export async function POST(request: NextRequest) {
         technologies: {
           total: techNames.length,
           existing: existingTechnologies.map((t) => t.name),
-          new: newTechNames,
+          unrecognized: newTechNames,
         },
       });
+    }
+
+    // Partners may only use the administrator-curated category and technology
+    // catalogue. Importing JSON must not be a side door for creating global
+    // taxonomy records.
+    if (!existingCategory) {
+      return NextResponse.json(
+        { error: "Choose an existing category from the catalogue before importing." },
+        { status: 400 }
+      );
+    }
+
+    if (newTechNames.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Choose only existing technologies from the catalogue before importing.",
+          unrecognizedTechnologies: newTechNames,
+        },
+        { status: 400 }
+      );
     }
 
     // ── Execute Import ──────────────────────────────────────────────────────
@@ -199,39 +220,9 @@ export async function POST(request: NextRequest) {
       return Boolean(found);
     });
 
-    // 1. Resolve Category
-    let categoryId = existingCategory?.id;
-    if (!categoryId) {
-      const catSlug = categorySlug || `cat-${Date.now()}`;
-      const newCat = await db.category.upsert({
-        where: { slug: catSlug },
-        update: { isActive: true },
-        create: {
-          name: categoryName,
-          slug: catSlug,
-          isActive: true,
-        },
-      });
-      categoryId = newCat.id;
-    }
-
-    // 2. Resolve & create missing Technologies
+    // 1. Use the administrator-curated category and technologies.
+    const categoryId = existingCategory.id;
     const techIds: string[] = existingTechnologies.map((t) => t.id);
-    for (const newName of newTechNames) {
-      const techSlug = slugify(newName) || `tech-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const createdTech = await db.technology.upsert({
-        where: { slug: techSlug },
-        update: { isActive: true },
-        create: {
-          name: newName,
-          slug: techSlug,
-          isActive: true,
-        },
-      });
-      if (!techIds.includes(createdTech.id)) {
-        techIds.push(createdTech.id);
-      }
-    }
 
     const validOriginalPrice =
       data.priceMode === "FIXED" &&
@@ -241,7 +232,7 @@ export async function POST(request: NextRequest) {
         ? Number(data.originalPrice)
         : null;
 
-    // 3. Create Project with native Prisma nested writes
+    // 2. Create Project with native Prisma nested writes
     const imported = await db.project.create({
       data: {
         title: data.title,
@@ -254,7 +245,7 @@ export async function POST(request: NextRequest) {
         price: data.price ?? null,
         originalPrice: validOriginalPrice,
         status: data.status || "PUBLISHED",
-        featured: Boolean(data.featured),
+        featured: false,
         whatsIncluded: data.whatsIncluded || [],
         categoryId,
         providerId: partner.id,

@@ -42,7 +42,7 @@ export default async function PartnerDashboardPage() {
             Welcome back, {partner?.displayName || user.name || "Partner Studio"}!
           </h1>
           <p className="text-xs sm:text-sm text-[#526267] max-w-xl">
-            Here is your live software solutions overview, inbound customer enquiries, and verified transaction records.
+            Here is your software solutions overview, inbound form enquiries, and transaction records submitted for review.
           </p>
         </div>
 
@@ -127,7 +127,7 @@ export default async function PartnerDashboardPage() {
             {formatCurrency(stats.transactions.totalVolume)}
           </div>
           <div className="text-xs text-[#526267]">
-            Recorded across {stats.transactions.total} orders
+            Recorded across {stats.transactions.total} transaction entries
           </div>
         </div>
       </div>
@@ -176,7 +176,7 @@ export default async function PartnerDashboardPage() {
           <div className="flex items-center justify-between border-b border-[#F3F7F7] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#102124]">Recent Transactions</h2>
-              <p className="text-xs text-[#526267]">Payment evidence &amp; customer order settlements</p>
+              <p className="text-xs text-[#526267]">Partner-submitted payment evidence and transaction records</p>
             </div>
             <Link
               href="/partner/transactions"

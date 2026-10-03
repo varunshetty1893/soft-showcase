@@ -4,7 +4,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2, Upload } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,10 +40,29 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
   const [description, setDescription] = React.useState("");
   const [deliveryStatus, setDeliveryStatus] = React.useState<
     "PENDING" | "IN_PROGRESS" | "DELIVERED" | "COMPLETED"
-  >("IN_PROGRESS");
+  >("PENDING");
 
   const [loading, setLoading] = React.useState(false);
+  const [evidenceUploading, setEvidenceUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const handleEvidenceUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setEvidenceUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/partner/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data?.url) throw new Error(data?.error || "Evidence upload failed");
+      setPaymentEvidenceUrl(data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Evidence upload failed");
+    } finally {
+      setEvidenceUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,16 +264,21 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
         </div>
 
         <div>
-          <Label className="text-xs font-semibold text-[#102124]">Payment Evidence Screenshot / Receipt URL</Label>
+          <Label className="text-xs font-semibold text-[#102124]">Payment Evidence Screenshot / Receipt</Label>
+          <label className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-[#155761] cursor-pointer">
+            {evidenceUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            <span>{evidenceUploading ? "Uploading receipt..." : "Upload receipt image"}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={evidenceUploading} onChange={(event) => handleEvidenceUpload(event.target.files?.[0])} />
+          </label>
           <Input
             type="url"
             value={paymentEvidenceUrl}
             onChange={(e) => setPaymentEvidenceUrl(e.target.value)}
-            placeholder="https://drive.google.com/... or https://res.cloudinary.com/..."
+            placeholder="Secure Cloudinary receipt URL (or upload an image above)"
             className="mt-1 text-xs"
           />
           <p className="text-[11px] text-[#526267] mt-1">
-            Provide a direct public link to the bank receipt, UPI screenshot, or proof of payment for platform administrative audit.
+            Upload the receipt image through Soft Showcase, or use an approved secure storage URL. Transaction evidence is reviewed by the platform; it is not payment processing.
           </p>
         </div>
 
@@ -275,10 +299,8 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
             onChange={(e) => setDeliveryStatus(e.target.value as any)}
             className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
           >
-            <option value="IN_PROGRESS">In Progress (Code Handover underway)</option>
-            <option value="DELIVERED">Delivered (Code Handed Over)</option>
-            <option value="COMPLETED">Completed (Sign-off Finished)</option>
             <option value="PENDING">Pending (Awaiting Kickoff)</option>
+            <option value="IN_PROGRESS">In Progress (Code Handover underway)</option>
           </select>
         </div>
       </div>

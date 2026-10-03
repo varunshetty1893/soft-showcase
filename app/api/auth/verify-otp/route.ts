@@ -18,9 +18,24 @@ interface MaterializeResult {
   };
 }
 
+type PartnerApplication = {
+  displayName: string;
+  whatsappNumber: string | null;
+  bio: string;
+  skills: string[];
+  technologies: string[];
+  experience: string | null;
+  portfolioUrl: string | null;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  solutionsOffered: string | null;
+  expertiseAreas: string | null;
+  location: string | null;
+};
+
 async function materializePendingUserAtomically(
   normalizedEmail: string,
-  pending: { name: string; passwordHash: string }
+  pending: { name: string; passwordHash: string; partnerApplication?: unknown | null }
 ): Promise<MaterializeResult> {
   const runTransaction = async (): Promise<MaterializeResult> => {
     return db.$transaction(async (tx) => {
@@ -28,8 +43,56 @@ async function materializePendingUserAtomically(
         where: { email: normalizedEmail },
       });
 
+      const partnerApplication = pending.partnerApplication as PartnerApplication | null;
+
+      async function createPartnerProfile(userId: string) {
+        if (!partnerApplication) return;
+
+        const existingProvider = await tx.projectProvider.findUnique({
+          where: { email: normalizedEmail },
+        });
+        if (existingProvider) {
+          throw new Error("A partner application already exists for this email address.");
+        }
+
+        await tx.projectProvider.create({
+          data: {
+            userId,
+            email: normalizedEmail,
+            displayName: partnerApplication.displayName,
+            whatsappNumber: partnerApplication.whatsappNumber,
+            bio: partnerApplication.bio,
+            isActive: false,
+            applicationStatus: "pending",
+            verificationStatus: "not_required",
+            skills: partnerApplication.skills,
+            technologies: partnerApplication.technologies,
+            experience: partnerApplication.experience,
+            portfolioUrl: partnerApplication.portfolioUrl,
+            githubUrl: partnerApplication.githubUrl,
+            linkedinUrl: partnerApplication.linkedinUrl,
+            solutionsOffered: partnerApplication.solutionsOffered,
+            expertiseAreas: partnerApplication.expertiseAreas,
+            location: partnerApplication.location,
+            showEmail: false,
+            showWhatsapp: true,
+            providerConsentConfirmed: true,
+            providerConsentConfirmedAt: new Date(),
+          },
+        });
+      }
+
       // N5: If user already has emailVerified set, NEVER overwrite their password or name!
       if (existingUser && existingUser.emailVerified !== null) {
+        if (partnerApplication) {
+          const upgradedUser = await tx.user.update({
+            where: { id: existingUser.id },
+            data: { role: existingUser.isAdmin ? existingUser.role : "solution_partner" },
+          });
+          await createPartnerProfile(upgradedUser.id);
+          await tx.pendingRegistration.delete({ where: { email: normalizedEmail } });
+          return { alreadyVerified: false, user: upgradedUser };
+        }
         await tx.pendingRegistration
           .delete({ where: { email: normalizedEmail } })
           .catch(() => null);
@@ -48,6 +111,7 @@ async function materializePendingUserAtomically(
             name: pending.name,
             passwordHash: pending.passwordHash,
             emailVerified: new Date(),
+            role: partnerApplication ? "solution_partner" : existingUser.role,
           },
         });
       } else {
@@ -58,6 +122,7 @@ async function materializePendingUserAtomically(
             passwordHash: pending.passwordHash,
             emailVerified: new Date(),
             role: "customer",
+            ...(partnerApplication ? { role: "solution_partner" } : {}),
             isAdmin: false,
           },
         });
@@ -66,6 +131,8 @@ async function materializePendingUserAtomically(
       await tx.pendingRegistration
         .delete({ where: { email: normalizedEmail } })
         .catch(() => null);
+
+      await createPartnerProfile(finalUser.id);
 
       return {
         alreadyVerified: false,

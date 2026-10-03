@@ -90,6 +90,7 @@ model PendingRegistration {
   codeHash     String
   attempts     Int      @default(0)
   expiresAt    DateTime
+  partnerApplication Json?
   createdAt    DateTime @default(now())
 
   @@map("pending_registrations")

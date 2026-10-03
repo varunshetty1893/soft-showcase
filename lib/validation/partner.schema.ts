@@ -87,6 +87,11 @@ export const PartnerRegisterSchema = z
       .trim()
       .min(2, "Location / Region is required (e.g. Bengaluru, India or Remote)")
       .max(100),
+    acceptedPartnerTerms: z.literal(true, {
+      errorMap: () => ({
+        message: "You must confirm that you have the right to list and distribute your solutions",
+      }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",

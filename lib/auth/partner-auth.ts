@@ -253,6 +253,17 @@ export async function resolvePartnerForUser(user: {
     return null;
   }
 
+  // API callers must receive the same access rule as the Partner Portal.
+  // A pending, suspended, or deactivated provider must not be able to bypass
+  // the portal by calling its JSON endpoints directly.
+  if (
+    !isAdmin &&
+    partner &&
+    (partner.isActive === false || partner.applicationStatus !== "approved")
+  ) {
+    return null;
+  }
+
   return partner;
 }
 

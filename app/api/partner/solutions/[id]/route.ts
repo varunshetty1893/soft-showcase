@@ -297,25 +297,10 @@ export async function PUT(
         resolvedTechIds.push(existingById.id);
         continue;
       }
-
-      const techSlug = trimmed
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      const tech = await db.technology.upsert({
-        where: { slug: techSlug || `tech-${trimmed.toLowerCase()}` },
-        update: {},
-        create: {
-          name: trimmed,
-          slug: techSlug || `tech-${Date.now()}`,
-          isActive: true,
-        },
-      }).catch(() => null);
-
-      if (tech) {
-        resolvedTechIds.push(tech.id);
-      }
+      return NextResponse.json(
+        { error: "Choose technologies from the administrator-curated list." },
+        { status: 400 }
+      );
     }
 
     const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = (
@@ -350,7 +335,11 @@ export async function PUT(
         projectType: data.projectType,
         whatsIncluded: data.whatsIncluded,
         categoryId: data.categoryId,
-        featured: typeof body.featured === "boolean" ? body.featured : existing.featured,
+        // Homepage promotion is a moderation decision and is admin-controlled.
+        featured:
+          session.user.isAdmin && typeof body.featured === "boolean"
+            ? body.featured
+            : existing.featured,
         ...(Array.isArray(body.features) && {
           features: {
             deleteMany: {},
@@ -607,7 +596,7 @@ export async function PATCH(
 
     const updateData: { featured?: boolean; status?: "DRAFT" | "PUBLISHED" | "ARCHIVED" } = {};
 
-    if (typeof body.featured === "boolean") {
+    if (session.user.isAdmin && typeof body.featured === "boolean") {
       updateData.featured = body.featured;
     }
 

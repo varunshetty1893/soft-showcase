@@ -118,6 +118,13 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
+    if (data.deliveryStatus === "DELIVERED" || data.deliveryStatus === "COMPLETED") {
+      return NextResponse.json(
+        { error: "New transaction records must start as Pending or In Progress. Update delivery status after creation." },
+        { status: 400 }
+      );
+    }
+
     // Validate payment evidence URL (Issue 27: Arbitrary External URLs)
     if (data.paymentEvidenceUrl && !isValidEvidenceUrl(data.paymentEvidenceUrl)) {
       return NextResponse.json(
@@ -178,10 +185,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Enforce initial business state constraints (Issue 26)
-    const initialDeliveryStatus =
-      data.deliveryStatus === "COMPLETED" || data.deliveryStatus === "DELIVERED"
-        ? "IN_PROGRESS"
-        : data.deliveryStatus || "PENDING";
+    const initialDeliveryStatus = data.deliveryStatus || "PENDING";
 
     // Atomically create transaction and audit log
     const transaction = await db.$transaction(async (tx) => {

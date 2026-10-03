@@ -115,7 +115,6 @@ const SAMPLE_PARTNER_JSON = JSON.stringify(
     price: 4999,
     demoUrl: "https://demo.example.com",
     status: "PUBLISHED",
-    featured: false,
   },
   null,
   2
@@ -302,9 +301,6 @@ export function PartnerSolutionForm({
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
     initialData?.status || "PUBLISHED"
   );
-  const [featured, setFeatured] = React.useState<boolean>(
-    Boolean(initialData?.featured)
-  );
 
   // Deliverables (what's included - starts empty, no automatic pre-filling)
   const [whatsIncluded, setWhatsIncluded] = React.useState<string[]>(
@@ -346,7 +342,7 @@ export function PartnerSolutionForm({
   const [faqQ, setFaqQ] = React.useState("");
   const [faqA, setFaqA] = React.useState("");
 
-  // ── Tech stack list + custom tags ──────────────────────────────────────────
+  // ── Tech stack list ────────────────────────────────────────────────────────
   const [allTechs, setAllTechs] = React.useState<Technology[]>(() => {
     const list = [...technologies];
     if (initialData?.technologies) {
@@ -375,7 +371,6 @@ export function PartnerSolutionForm({
     return [];
   });
 
-  const [customTagInput, setCustomTagInput] = React.useState("");
 
   // ── Photos and Screenshots Gallery (Starts empty - no unwanted default cover) ──
   const [photos, setPhotos] = React.useState<PhotoItem[]>(() => {
@@ -460,12 +455,9 @@ export function PartnerSolutionForm({
         setDemoUrl(data.demoUrl.trim());
       }
 
-      // Status & featured
+      // Status
       if (data.status && ["DRAFT", "PUBLISHED"].includes(data.status)) {
         setStatus(data.status);
-      }
-      if (typeof data.featured === "boolean") {
-        setFeatured(data.featured);
       }
 
       // Deliverables (whatsIncluded)
@@ -635,30 +627,6 @@ export function PartnerSolutionForm({
     );
   };
 
-  const handleAddCustomTag = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = customTagInput.trim();
-    if (!trimmed) return;
-
-    // Check if tag already exists in allTechs (case-insensitive)
-    const existing = allTechs.find(
-      (t) => t.name.toLowerCase() === trimmed.toLowerCase()
-    );
-
-    if (existing) {
-      if (!selectedTechs.includes(existing.id)) {
-        setSelectedTechs((prev) => [...prev, existing.id]);
-      }
-    } else {
-      const newTech: Technology = {
-        id: trimmed,
-        name: trimmed,
-      };
-      setAllTechs((prev) => [...prev, newTech]);
-      setSelectedTechs((prev) => [...prev, newTech.id]);
-    }
-    setCustomTagInput("");
-  };
 
   const handleRemoveTech = (id: string) => {
     setSelectedTechs((prev) => prev.filter((t) => t !== id));
@@ -1073,7 +1041,6 @@ export function PartnerSolutionForm({
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
         status,
-        featured: Boolean(featured),
         whatsIncluded: activeWhatsIncluded,
         features: activeFeatures,
         specifications: activeSpecs,
@@ -1463,64 +1430,6 @@ export function PartnerSolutionForm({
             />
           </div>
 
-          {/* Featured Solution Toggle Card */}
-          <div className="sm:col-span-6 pt-1">
-            <button
-              type="button"
-              onClick={() => setFeatured(!featured)}
-              className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 select-none ${
-                featured
-                  ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-300/40 shadow-xs"
-                  : "bg-[#F8FAFA] border-[#D9E2E4] hover:bg-white hover:border-[#BEDEE1]"
-              }`}
-            >
-              <div className="flex items-start gap-3.5">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    featured
-                      ? "bg-amber-400 text-amber-950 shadow-xs"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
-                >
-                  <Star className={`w-5 h-5 ${featured ? "fill-current" : ""}`} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-[#102124]">
-                      Featured Solution Status
-                    </span>
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                        featured
-                          ? "bg-amber-400 text-amber-950"
-                          : "bg-gray-200 text-gray-700"
-                      }`}
-                    >
-                      {featured ? "Featured Active" : "Standard Listing"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#526267] mt-0.5 leading-relaxed">
-                    {featured
-                      ? "Featured badge active. This project is highlighted on the homepage hero, catalog top recommendations, and filter views."
-                      : "Standard catalog listing. Click anywhere on this card to enable the Featured badge."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Interactive toggle switch */}
-              <div
-                className={`w-12 h-6 rounded-full transition-colors relative shrink-0 p-0.5 ${
-                  featured ? "bg-[#155761]" : "bg-gray-300"
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                    featured ? "translate-x-6" : "translate-x-0"
-                  }`}
-                />
-              </div>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -1916,39 +1825,8 @@ export function PartnerSolutionForm({
             4. Tech Stack Tags
           </h2>
           <p className="text-xs text-[#526267] mt-0.5">
-            Select popular technologies or type custom tags to describe your stack.
+            Select from the administrator-curated technology list to keep catalog filters accurate.
           </p>
-        </div>
-
-        {/* Custom Tag Input */}
-        <div className="p-4 rounded-2xl bg-[#F8FAFA] border border-[#D9E2E4] space-y-2">
-          <Label className="text-xs font-semibold text-[#102124]">
-            Add Custom Tech Tag
-          </Label>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              value={customTagInput}
-              onChange={(e) => setCustomTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAddCustomTag();
-                }
-              }}
-              placeholder="Type any technology (e.g. PyTorch, Kubernetes, LangChain, Solidity, Tailwind v4...)"
-              className="text-xs flex-1 bg-white"
-            />
-            <Button
-              type="button"
-              onClick={handleAddCustomTag}
-              disabled={!customTagInput.trim()}
-              className="rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs px-4 h-10 gap-1.5 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Add Tag
-            </Button>
-          </div>
         </div>
 
         {/* Selected Tags Display */}

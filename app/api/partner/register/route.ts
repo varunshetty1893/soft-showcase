@@ -1,6 +1,6 @@
 // app/api/partner/register/route.ts
 // Handles Solution Partner registration with email OTP verification.
-// Sets applicationStatus = 'pending' and creates/updates User and ProjectProvider records.
+// Sensitive account and provider changes are staged until the applicant proves email ownership.
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -85,64 +85,40 @@ export async function POST(req: NextRequest) {
     });
 
     // Check existing Provider
-    const existingProvider = await db.projectProvider.findFirst({
+    const existingProvider = await db.projectProvider.findUnique({
       where: { email: normalizedEmail },
     });
 
-    let userId: string;
-
-    if (existingUser) {
-      // If user exists and is already verified
-      if (existingUser.emailVerified && existingUser.passwordHash) {
-        const isPasswordValid = await bcrypt.compare(password, existingUser.passwordHash);
-        if (!isPasswordValid) {
-          return NextResponse.json(
-            {
-              error: "An account with this email already exists. Please enter your correct account password to link your partner application.",
-            },
-            { status: 400 }
-          );
-        }
-      }
-
-      const passwordHash = await bcrypt.hash(password, 10);
-      const updatedUser = await db.user.update({
-        where: { id: existingUser.id },
-        data: {
-          name,
-          passwordHash,
-          role: "solution_partner",
-          // Require verification if not already verified
-          emailVerified: existingUser.emailVerified || null,
-        },
-      });
-      userId = updatedUser.id;
-    } else {
-      const passwordHash = await bcrypt.hash(password, 10);
-      const newUser = await db.user.create({
-        data: {
-          name,
-          email: normalizedEmail,
-          passwordHash,
-          emailVerified: null, // Email verification required!
-          role: "solution_partner",
-          isAdmin: false,
-        },
-      });
-      userId = newUser.id;
+    // Never overwrite an account or provider profile from an unauthenticated form.
+    if (existingProvider) {
+      return NextResponse.json(
+        { error: "A partner application already exists for this email. Please sign in or contact support." },
+        { status: 409 }
+      );
     }
 
-    // Create or update ProjectProvider
-    let partnerRecord;
-    const providerData = {
-      userId,
+    if (existingUser?.emailVerified) {
+      if (!existingUser.passwordHash) {
+        return NextResponse.json(
+          { error: "This email is linked to an existing sign-in method. Sign in first, then contact support to apply as a partner." },
+          { status: 409 }
+        );
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, existingUser.passwordHash);
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { error: "The supplied account credentials could not be verified." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const partnerApplication = {
       displayName: displayName.trim(),
-      email: normalizedEmail,
       whatsappNumber: whatsappNumber || null,
       bio: bio.trim(),
-      isActive: false, // inactive until administrative approval
-      applicationStatus: "pending",
-      verificationStatus: "not_required",
       skills,
       technologies,
       experience: experience || null,
@@ -152,38 +128,31 @@ export async function POST(req: NextRequest) {
       solutionsOffered: solutionsOffered || null,
       expertiseAreas: expertiseAreas || null,
       location: location || null,
-      showEmail: false,
-      showWhatsapp: true,
-      providerConsentConfirmed: true,
-      providerConsentConfirmedAt: new Date(),
     };
 
-    if (existingProvider) {
-      partnerRecord = await db.projectProvider.update({
-        where: { id: existingProvider.id },
-        data: providerData,
-      });
-    } else {
-      partnerRecord = await db.projectProvider.create({
-        data: providerData,
-      });
-    }
-
-    // Generate cryptographically secure 6-digit numeric OTP for verification (Issue 16)
+    // Stage the complete application. The User and ProjectProvider records are only
+    // created or changed after the valid OTP proves control of this email address.
     const otp = generateSecureOtp();
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // Delete previous verification tokens for this email
-    await db.verificationToken.deleteMany({
-      where: { identifier: normalizedEmail },
-    });
-
-    // Create new verification token with SHA-256 hash (Issue 19)
-    await db.verificationToken.create({
-      data: {
-        identifier: normalizedEmail,
-        token: hashSecretToken(otp),
-        expires,
+    await db.pendingRegistration.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        name,
+        passwordHash,
+        codeHash: hashSecretToken(otp),
+        attempts: 0,
+        expiresAt: expires,
+        partnerApplication,
+      },
+      create: {
+        email: normalizedEmail,
+        name,
+        passwordHash,
+        codeHash: hashSecretToken(otp),
+        attempts: 0,
+        expiresAt: expires,
+        partnerApplication,
       },
     });
 
@@ -205,12 +174,10 @@ export async function POST(req: NextRequest) {
     // Record audit log
     await recordAuditLog({
       action: "PARTNER_REGISTRATION_SUBMITTED",
-      entityType: "ProjectProvider",
-      entityId: partnerRecord.id,
-      userId,
+      entityType: "PartnerApplication",
+      entityId: normalizedEmail,
       details: {
-        partnerId: partnerRecord.id,
-        displayName: partnerRecord.displayName,
+        displayName: partnerApplication.displayName,
         email: normalizedEmail,
       },
     }).catch(() => null);
@@ -221,7 +188,6 @@ export async function POST(req: NextRequest) {
         message:
           "Your Solution Partner application has been received. Please verify your email using the 6-digit code or link sent to your inbox.",
         email: normalizedEmail,
-        partnerId: partnerRecord.id,
         requiresVerification: true,
         status: "pending",
       },

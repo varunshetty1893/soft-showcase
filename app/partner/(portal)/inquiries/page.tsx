@@ -48,7 +48,7 @@ export default async function PartnerInquiriesPage() {
             </h1>
           </div>
           <p className="mt-1 text-xs text-[#526267]">
-            Prospective buyers who contacted you regarding your listed solutions or custom scopes.
+            Form inquiries from prospective buyers regarding your listed solutions or custom scopes. Direct WhatsApp chats are not recorded here.
           </p>
         </div>
 
