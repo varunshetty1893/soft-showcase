@@ -441,7 +441,7 @@ export async function resolveAuditLogRows(
       transactionIds.length && client.transaction
         ? client.transaction.findMany({
             where: { id: { in: Array.from(new Set(transactionIds)) } },
-            select: { id: true, referenceNumber: true },
+            select: { id: true, transactionNumber: true },
           })
         : [],
       ticketIds.length && client.supportTicket
@@ -524,7 +524,7 @@ export async function resolveAuditLogRows(
       }
       case "Transaction": {
         const tx = eId ? transactionMap.get(eId) : null;
-        label = tx ? tx.referenceNumber || `Transaction #${eId}` : eId ? `Transaction #${eId}` : null;
+        label = tx ? tx.transactionNumber || `Transaction #${eId}` : eId ? `Transaction #${eId}` : null;
         href = eId ? `/admin/transactions/${eId}` : null;
         break;
       }

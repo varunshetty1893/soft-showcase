@@ -3,7 +3,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Shield, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Shield, CheckCircle2, AlertCircle, Loader2, Trash2, AlertTriangle, X } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordChangeForm } from "./PasswordChangeForm";
@@ -50,6 +51,41 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
     const timer = setTimeout(() => setMessage(null), 5000);
     return () => clearTimeout(timer);
   }, [message]);
+
+  // Delete account state
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = React.useState("");
+  const [deleteReason, setDeleteReason] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+      setDeleteError("Confirmation email does not match your account email.");
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmEmail: deleteConfirmEmail.trim(),
+          reason: deleteReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete account");
+      }
+      // Successfully deleted — sign out and redirect
+      await signOut({ callbackUrl: "/login?deleted=1" });
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete account");
+      setDeleting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,6 +306,126 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
           </div>
         </div>
       </div>
+
+      {/* Danger Zone: Delete Account */}
+      <div className="bg-white rounded-2xl border border-rose-200 p-6 sm:p-8 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-rose-800 mb-1 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-600" />
+              Delete Account
+            </h2>
+            <p className="text-sm text-[#526267] max-w-xl">
+              Permanently delete your Soft Showcase account, active sessions, and profile data. Once deleted, this action cannot be undone.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setDeleteConfirmEmail("");
+              setDeleteReason("");
+              setDeleteError(null);
+              setShowDeleteModal(true);
+            }}
+            className="shrink-0 border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400 font-semibold gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete My Account
+          </Button>
+        </div>
+      </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#D9E2E4] max-w-md w-full p-6 space-y-4 animate-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#102124]">Delete Your Account</h3>
+                  <p className="text-xs text-[#526267]">This action is irreversible</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="w-7 h-7 rounded-lg hover:bg-[#F3F7F7] flex items-center justify-center cursor-pointer transition text-[#526267]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#526267] leading-relaxed">
+              Your account, login sessions, and customer profile will be permanently deleted. You will be signed out immediately.
+            </p>
+
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] mb-1.5">
+                  To confirm, type your email: <span className="font-mono text-rose-700 font-bold">{user.email}</span>
+                </label>
+                <Input
+                  type="email"
+                  value={deleteConfirmEmail}
+                  onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                  placeholder="Type your email here"
+                  className="text-xs border-[#D9E2E4] focus:ring-rose-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#102124] mb-1.5">
+                  Reason for leaving (optional)
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  rows={2}
+                  placeholder="Tell us why you are deleting your account…"
+                  className="w-full text-xs rounded-xl border border-[#D9E2E4] px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#155761]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#D9E2E4]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirmEmail.trim().toLowerCase() !== user.email.toLowerCase()}
+                className="text-xs bg-rose-600 hover:bg-rose-700 text-white gap-1.5 disabled:opacity-50"
+              >
+                {deleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {deleting ? "Deleting Account…" : "Permanently Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

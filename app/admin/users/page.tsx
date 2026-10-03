@@ -19,7 +19,7 @@ export const revalidate = 0;
 export default async function AdminUsersPage() {
   const currentUser = await getCurrentUser();
 
-  const { users, total } = await getAllUsers({ pageSize: 50 });
+  const { users, total } = await getAllUsers({ pageSize: 10 });
 
   // Quick stat counts
   const [totalCustomers, totalPartners, totalAdmins] = await Promise.all([

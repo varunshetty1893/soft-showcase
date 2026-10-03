@@ -258,7 +258,7 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = useState(10);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const [fetching, setFetching] = useState(false);
@@ -270,27 +270,37 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch users ────────────────────────────────────────────────────────────
-  const fetchUsers = useCallback(async (opts: { q?: string; role?: string; page?: number }) => {
-    setFetching(true);
-    try {
-      const sp = new URLSearchParams();
-      if (opts.q) sp.set("q", opts.q);
-      if (opts.role) sp.set("role", opts.role);
-      sp.set("page", String(opts.page ?? 1));
-      sp.set("pageSize", String(pageSize));
-      const res = await fetch(`/api/admin/users?${sp.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setUsers(data.users);
-        setTotal(data.total);
-        setPage(data.currentPage);
-      } else {
-        toast.error(data.error ?? "Failed to load users");
+  const fetchUsers = useCallback(
+    async (opts: { q?: string; role?: string; page?: number; pageSize?: number }) => {
+      setFetching(true);
+      try {
+        const sp = new URLSearchParams();
+        const currentQ = opts.q !== undefined ? opts.q : search;
+        const currentRole = opts.role !== undefined ? opts.role : roleFilter;
+        const currentPage = opts.page ?? page;
+        const currentPageSize = opts.pageSize ?? pageSize;
+
+        if (currentQ) sp.set("q", currentQ);
+        if (currentRole && currentRole !== "all") sp.set("role", currentRole);
+        sp.set("page", String(currentPage));
+        sp.set("pageSize", String(currentPageSize));
+
+        const res = await fetch(`/api/admin/users?${sp.toString()}`);
+        const data = await res.json();
+        if (res.ok) {
+          setUsers(data.users);
+          setTotal(data.total);
+          setPage(data.currentPage);
+          if (data.pageSize) setPageSize(data.pageSize);
+        } else {
+          toast.error(data.error ?? "Failed to load users");
+        }
+      } finally {
+        setFetching(false);
       }
-    } finally {
-      setFetching(false);
-    }
-  }, [toast]);
+    },
+    [search, roleFilter, page, pageSize, toast]
+  );
 
   // Debounced search
   const handleSearch = (q: string) => {
@@ -307,7 +317,12 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
   };
 
   const handlePage = (p: number) => {
-    fetchUsers({ q: search, role: roleFilter, page: p });
+    fetchUsers({ page: p });
+  };
+
+  const handlePageSize = (size: number) => {
+    setPageSize(size);
+    fetchUsers({ page: 1, pageSize: size });
   };
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -455,17 +470,17 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
           : `Showing ${users.length} of ${total} user${total !== 1 ? "s" : ""}`}
       </p>
 
-      {/* Table */}
+      {/* Table Card */}
       <div className="bg-white border border-[#D9E2E4] rounded-2xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-y-hidden [scrollbar-width:thin]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-[#D9E2E4] bg-[#F8FAFA] text-[#526267] text-left text-xs uppercase tracking-wider">
-                <th className="px-5 py-3.5 font-semibold">User</th>
-                <th className="px-4 py-3.5 font-semibold">Role</th>
-                <th className="px-4 py-3.5 font-semibold">Activity</th>
-                <th className="px-4 py-3.5 font-semibold">Joined</th>
-                <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+              <tr className="border-b border-[#D9E2E4] bg-[#F8FAFA] text-[#526267] text-left text-xs uppercase tracking-wider font-semibold">
+                <th className="px-5 py-3.5">User</th>
+                <th className="px-4 py-3.5">Role</th>
+                <th className="px-4 py-3.5">Activity</th>
+                <th className="px-4 py-3.5">Joined</th>
+                <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#D9E2E4]">
@@ -491,11 +506,11 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                       className="hover:bg-[#F8FAFA]/60 transition-colors"
                     >
                       {/* User info */}
-                      <td className="px-5 py-2.5">
-                        <div className="flex items-center gap-2.5">
+                      <td className="px-5 py-3 align-middle">
+                        <div className="flex items-center gap-3">
                           <Avatar user={user} />
-                          <div>
-                            <div className="flex items-center gap-1.5">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-semibold text-[#102124] text-xs">
                                 {user.name || "—"}
                               </span>
@@ -504,15 +519,21 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                                   You
                                 </span>
                               )}
+                              {user.partnerProfile && (
+                                <span
+                                  title={`Partner: ${user.partnerProfile.displayName} (${user.partnerProfile.applicationStatus})`}
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[#DDF4EC] text-[#155761] border border-[#BEDEE1] font-semibold"
+                                >
+                                  Partner
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[11px] text-[#526267] mt-0.5">{user.email}</div>
+                            <div className="text-[11px] text-[#526267] mt-0.5 truncate max-w-[240px]">
+                              {user.email}
+                            </div>
                             {user.whatsapp && (
-                              <div className="text-[11px] text-[#526267]">WA: {user.whatsapp}</div>
-                            )}
-                            {user.partnerProfile && (
-                              <div className="text-[10px] text-[#155761] mt-0.5 font-medium">
-                                ↳ {user.partnerProfile.displayName} (
-                                {user.partnerProfile.applicationStatus})
+                              <div className="text-[10px] text-[#526267]">
+                                WA: {user.whatsapp}
                               </div>
                             )}
                           </div>
@@ -520,20 +541,13 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                       </td>
 
                       {/* Role */}
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3 align-middle whitespace-nowrap">
                         <RoleBadge user={user} />
-                        {user._count.sessions > 0 && (
-                          <div className="mt-1">
-                            <span className="text-[9px] text-[#526267] bg-[#F3F7F7] px-1.5 py-0.5 rounded-md">
-                              {user._count.sessions} session{user._count.sessions !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        )}
                       </td>
 
                       {/* Activity */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex flex-wrap gap-1">
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex flex-wrap items-center gap-1">
                           <StatChip
                             icon={MessageSquare}
                             count={user._count.inquiries}
@@ -558,22 +572,31 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                             label="transactions"
                             color="bg-emerald-50 text-emerald-700"
                           />
-                        </div>
-                        {user._count.inquiries === 0 &&
-                          user._count.customProjectRequests === 0 &&
-                          user._count.supportTickets === 0 &&
-                          user._count.transactions === 0 && (
-                            <span className="text-[10px] text-[#526267] opacity-50">No activity</span>
+                          {user._count.sessions > 0 && (
+                            <span
+                              title={`${user._count.sessions} active session(s)`}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-700"
+                            >
+                              {user._count.sessions} sess.
+                            </span>
                           )}
+                          {user._count.inquiries === 0 &&
+                            user._count.customProjectRequests === 0 &&
+                            user._count.supportTickets === 0 &&
+                            user._count.transactions === 0 &&
+                            user._count.sessions === 0 && (
+                              <span className="text-[10px] text-[#526267] opacity-50">No activity</span>
+                            )}
+                        </div>
                       </td>
 
                       {/* Joined */}
-                      <td className="px-4 py-2.5 text-[11px] text-[#526267] whitespace-nowrap">
+                      <td className="px-4 py-3 align-middle text-[11px] text-[#526267] whitespace-nowrap">
                         {formatDate(user.createdAt)}
                       </td>
 
                       {/* Actions */}
-                      <td className="px-5 py-2.5">
+                      <td className="px-5 py-3 align-middle text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {!isSelf && (
                             <div className="relative">
@@ -677,30 +700,70 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-[#D9E2E4] bg-[#F8FAFA]">
-            <p className="text-xs text-[#526267]">
-              Page {page} of {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1 || fetching}
-                onClick={() => handlePage(page - 1)}
-                className="h-8 px-3 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#526267] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-1"
+        {/* Pagination Toolbar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-[#D9E2E4] bg-[#F8FAFA]">
+          <div className="flex items-center gap-3 text-xs text-[#526267]">
+            <span>
+              Showing{" "}
+              <span className="font-semibold text-[#102124]">
+                {total === 0 ? 0 : (page - 1) * pageSize + 1}
+              </span>
+              –
+              <span className="font-semibold text-[#102124]">
+                {Math.min(page * pageSize, total)}
+              </span>{" "}
+              of <span className="font-semibold text-[#102124]">{total}</span> users
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-2 border-l border-[#D9E2E4] pl-3">
+              <span className="text-[11px]">Rows:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => handlePageSize(Number(e.target.value))}
+                className="h-7 px-2 text-xs rounded-lg border border-[#D9E2E4] bg-white text-[#102124] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#155761]"
               >
-                <ChevronLeft className="w-3.5 h-3.5" /> Previous
-              </button>
-              <button
-                disabled={page >= totalPages || fetching}
-                onClick={() => handlePage(page + 1)}
-                className="h-8 px-3 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#526267] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-1"
-              >
-                Next <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
             </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={page <= 1 || fetching}
+              onClick={() => handlePage(page - 1)}
+              className="h-8 px-2.5 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#526267] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-1 shadow-2xs"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Previous
+            </button>
+
+            {/* Page number buttons */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                disabled={fetching}
+                onClick={() => handlePage(p)}
+                className={`h-8 min-w-8 px-2 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center justify-center ${
+                  page === p
+                    ? "bg-[#155761] text-white shadow-2xs font-bold"
+                    : "border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-[#526267]"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+
+            <button
+              disabled={page >= totalPages || fetching}
+              onClick={() => handlePage(page + 1)}
+              className="h-8 px-2.5 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-xs font-semibold text-[#526267] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition flex items-center gap-1 shadow-2xs"
+            >
+              Next <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}

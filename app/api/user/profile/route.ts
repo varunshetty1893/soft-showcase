@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
+import { createAuditLog } from "@/lib/db/audit";
 import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 import { z } from "zod";
 
@@ -141,3 +142,99 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.id || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const confirmEmail = String(body.confirmEmail || "").trim().toLowerCase();
+    const reason = String(body.reason || "").trim();
+
+    if (confirmEmail !== user.email.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Please enter your exact email address to confirm account deletion." },
+        { status: 400 }
+      );
+    }
+
+    // Safety: prevent platform admins from self-deleting via customer portal
+    const targetUser = await db.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, email: true, isAdmin: true, role: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (targetUser.isAdmin) {
+      return NextResponse.json(
+        { error: "Admin accounts cannot be self-deleted. Please revoke admin status from the admin console first." },
+        { status: 403 }
+      );
+    }
+
+    const userId = targetUser.id;
+    const userEmail = targetUser.email;
+
+    // Safely disassociate or clean up foreign relations
+    await db.$transaction([
+      db.inquiry.updateMany({
+        where: { customerId: userId },
+        data: { customerId: null },
+      }),
+      db.customProjectRequest.updateMany({
+        where: { customerId: userId },
+        data: { customerId: null },
+      }),
+      db.transaction.updateMany({
+        where: { customerId: userId },
+        data: { customerId: null },
+      }),
+      db.projectProvider.updateMany({
+        where: { userId },
+        data: { userId: null, isActive: false },
+      }),
+      db.supportTicket.deleteMany({
+        where: { requesterId: userId },
+      }),
+      db.session.deleteMany({
+        where: { userId },
+      }),
+      db.account.deleteMany({
+        where: { userId },
+      }),
+      db.user.delete({
+        where: { id: userId },
+      }),
+    ]);
+
+    // Record audit log entry
+    await createAuditLog({
+      userId: null,
+      action: "USER_SELF_DELETED",
+      entityType: "User",
+      entityId: userId,
+      details: {
+        email: userEmail,
+        reason: reason || "User initiated self-deletion from account settings",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Your account and all associated data have been permanently deleted.",
+    });
+  } catch (error) {
+    console.error("[API] Error deleting user account:", error);
+    return NextResponse.json(
+      { error: "Failed to delete account. Please try again or contact support." },
+      { status: 500 }
+    );
+  }
+}
+

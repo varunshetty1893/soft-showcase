@@ -11,9 +11,10 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const pageSize = [25, 50, 100].includes(Number(searchParams.get("pageSize")))
-      ? Number(searchParams.get("pageSize"))
-      : 50;
+    const rawPageSize = Number(searchParams.get("pageSize"));
+    const pageSize = [5, 10, 20, 25, 50, 100].includes(rawPageSize)
+      ? rawPageSize
+      : 10;
     const q = searchParams.get("q")?.slice(0, 100) ?? "";
     const role = searchParams.get("role") ?? "all";
 
