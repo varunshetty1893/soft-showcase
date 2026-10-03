@@ -30,6 +30,7 @@ model User {
   accounts       Account[]
   sessions       Session[]
   inquiries      Inquiry[]
+  customProjectRequests CustomProjectRequest[]
   partnerProfile ProjectProvider?
   supportTickets SupportTicket[]
   transactions   Transaction[]
@@ -408,6 +409,8 @@ enum CustomRequestStatus {
 
 model CustomProjectRequest {
   id                     String              @id @default(cuid())
+  customerId             String?
+  linkedAt               DateTime?
   name                   String
   email                  String
   whatsapp               String?
@@ -424,9 +427,12 @@ model CustomProjectRequest {
   status                 CustomRequestStatus @default(NEW)
   adminNotes             String?             @db.Text
 
+  customer User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([customerId])
   @@map("custom_project_requests")
 }
 
