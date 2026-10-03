@@ -25,7 +25,7 @@ export default async function CustomerLayout({
     redirect("/login");
   }
 
-  const stats = await getCustomerStats(session.user.id);
+  const stats = await getCustomerStats(session.user.id, session.user.email);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFA]">
