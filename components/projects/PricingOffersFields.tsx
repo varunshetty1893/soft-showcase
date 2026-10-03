@@ -10,7 +10,6 @@ import * as React from "react";
 import { Tag, Clock, Sparkles } from "lucide-react";
 import { PriceBlock } from "./PriceBlock";
 import {
-  TIME_LIMITED_DEAL_TYPES,
   validatePricingOfferInput,
   toIstDatetimeLocal,
   fromIstDatetimeLocal,
@@ -52,7 +51,6 @@ export function PricingOffersFields({
 }: PricingOffersFieldsProps) {
   const isFixed = value.priceMode === "FIXED";
   const isPaid = value.priceMode === "FIXED" || value.priceMode === "STARTING_FROM";
-  const requiresEndDate = false;
 
   const startsAtLocal = React.useMemo(
     () =>
@@ -311,7 +309,7 @@ export function PricingOffersFields({
                 <p className="text-[11px] text-[#526267] mt-1 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-[#155761]" />
                   <span>
-                    Optional. A countdown timer is shown only when an end date is set.
+                    Optional. Leave blank for continuous offers without an expiry date, or set an end time to display a countdown timer.
                   </span>
                 </p>
                 {getFieldError("dealEndsAt") && (

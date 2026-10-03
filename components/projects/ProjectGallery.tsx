@@ -10,7 +10,6 @@ import {
   ZoomIn,
   ZoomOut,
   X,
-  RotateCcw,
 } from "lucide-react";
 
 interface ProjectImage {
@@ -29,86 +28,83 @@ interface ProjectGalleryProps {
 export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
-  const [zoomLevel, setZoomLevel] = React.useState(1); // 1 = normal, 1.75 = zoomed
-  const thumbnailContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
-  const [canScrollRight, setCanScrollRight] = React.useState(false);
+  const [isZoomed, setIsZoomed] = React.useState(false);
+  const thumbStripRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Check scroll boundary state for thumbnail carousel
-  const checkThumbnailScroll = React.useCallback(() => {
-    const el = thumbnailContainerRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    setCanScrollLeft(scrollLeft > 2);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 2);
-  }, []);
+  const total = images?.length || 0;
 
-  React.useEffect(() => {
-    checkThumbnailScroll();
-    window.addEventListener("resize", checkThumbnailScroll);
-    return () => window.removeEventListener("resize", checkThumbnailScroll);
-  }, [checkThumbnailScroll, images]);
-
-  // Scroll active thumbnail into view
-  React.useEffect(() => {
-    const el = thumbnailContainerRef.current;
-    if (!el) return;
-    const activeThumb = el.children[selectedIdx] as HTMLElement;
-    if (activeThumb) {
-      activeThumb.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-    }
-    checkThumbnailScroll();
-  }, [selectedIdx, checkThumbnailScroll]);
-
-  // Navigate main / lightbox images
+  // Navigation handlers
   const handlePrev = React.useCallback(
     (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      setSelectedIdx((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-      setZoomLevel(1);
+      if (e) e.stopPropagation();
+      setSelectedIdx((prev) => (prev > 0 ? prev - 1 : total - 1));
+      setIsZoomed(false);
     },
-    [images.length]
+    [total]
   );
 
   const handleNext = React.useCallback(
     (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      setSelectedIdx((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-      setZoomLevel(1);
+      if (e) e.stopPropagation();
+      setSelectedIdx((prev) => (prev < total - 1 ? prev + 1 : 0));
+      setIsZoomed(false);
     },
-    [images.length]
+    [total]
   );
 
-  // Keyboard navigation for lightbox
+  // Keyboard navigation when gallery / lightbox is active
   React.useEffect(() => {
-    if (!isLightboxOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsLightboxOpen(false);
-        setZoomLevel(1);
-      } else if (e.key === "ArrowLeft") {
-        handlePrev();
-      } else if (e.key === "ArrowRight") {
-        handleNext();
+    function handleKeyDown(e: KeyboardEvent) {
+      if (isLightboxOpen) {
+        if (e.key === "Escape") {
+          setIsLightboxOpen(false);
+          setIsZoomed(false);
+        } else if (e.key === "ArrowLeft") {
+          handlePrev();
+        } else if (e.key === "ArrowRight") {
+          handleNext();
+        } else if (e.key === "z" || e.key === "Z" || e.key === "+") {
+          setIsZoomed((z) => !z);
+        }
       }
-    };
-
+    }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isLightboxOpen, handlePrev, handleNext]);
 
-  // Scroll thumbnails using arrow buttons
+  // Lock body scroll when lightbox is open
+  React.useEffect(() => {
+    if (isLightboxOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isLightboxOpen]);
+
+  // Smooth scroll thumbnail into view when active index changes
+  React.useEffect(() => {
+    if (thumbStripRef.current) {
+      const activeEl = thumbStripRef.current.querySelector(
+        `[data-thumb-index="${selectedIdx}"]`
+      );
+      if (activeEl && typeof activeEl.scrollIntoView === "function") {
+        activeEl.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
+    }
+  }, [selectedIdx]);
+
+  // Scroll thumbnail strip manually using arrows
   const scrollThumbnails = (direction: "left" | "right") => {
-    const el = thumbnailContainerRef.current;
-    if (!el) return;
-    const offset = direction === "left" ? -220 : 220;
-    el.scrollBy({ left: offset, behavior: "smooth" });
-    setTimeout(checkThumbnailScroll, 250);
+    if (thumbStripRef.current) {
+      const offset = direction === "left" ? -240 : 240;
+      thumbStripRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
   };
 
   if (!images || images.length === 0) {
@@ -124,269 +120,304 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
   const currentImage = images[selectedIdx] || images[0];
 
   return (
-    <div className="space-y-4">
-      {/* ── Primary Hero Display View (Click to Zoom / Fullscreen) ──────── */}
-      <div
-        onClick={() => {
-          setIsLightboxOpen(true);
-          setZoomLevel(1);
-        }}
-        className="group relative aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#102124] shadow-xs cursor-zoom-in select-none"
-      >
-        <Image
-          src={currentImage.url}
-          alt={currentImage.altText || `${projectTitle} screenshot ${selectedIdx + 1}`}
-          fill
-          priority
-          sizes="(max-width: 1024px) 100vw, 850px"
-          referrerPolicy="no-referrer"
-          className="object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-        />
+    <div className="space-y-3">
+      {/* ── 1. Primary Hero Display Card ────────────────────────────────────── */}
+      <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#0c181a] shadow-xs group/card select-none">
+        {/* Clickable Image Viewport to trigger Fullscreen/Zoom */}
+        <div
+          onClick={() => setIsLightboxOpen(true)}
+          title="Click to view full screen & zoom in"
+          className="relative w-full h-full cursor-zoom-in flex items-center justify-center"
+        >
+          <Image
+            src={currentImage.url}
+            alt={currentImage.altText || `${projectTitle} screenshot ${selectedIdx + 1}`}
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 850px"
+            unoptimized={currentImage.url.startsWith("data:")}
+            referrerPolicy="no-referrer"
+            className="object-contain transition-transform duration-300 group-hover/card:scale-[1.01]"
+          />
+        </div>
 
-        {/* Floating Zoom / Fullscreen Hint in Top-Right */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-semibold backdrop-blur-md shadow-md transition-all opacity-85 group-hover:opacity-100">
+        {/* Counter Badge (Top Left) */}
+        {total > 1 && (
+          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wider flex items-center gap-1.5 shadow-md z-10 pointer-events-none">
+            <span>{selectedIdx + 1}</span>
+            <span className="opacity-50">/</span>
+            <span>{total}</span>
+          </div>
+        )}
+
+        {/* Fullscreen / Zoom Button (Top Right) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLightboxOpen(true);
+          }}
+          title="Open in Full Screen & Zoom"
+          className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/85 text-white text-xs font-semibold backdrop-blur-md shadow-md transition-all hover:scale-105 active:scale-95 z-20 cursor-pointer flex items-center gap-1.5"
+        >
           <Maximize2 className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Fullscreen / Zoom</span>
-        </div>
+          <span className="hidden sm:inline">Full Screen</span>
+        </button>
 
-        {/* Counter Badge in Top-Left */}
-        <div className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full bg-black/60 text-white text-[11px] font-mono font-bold backdrop-blur-md shadow-md">
-          {selectedIdx + 1} / {images.length}
-        </div>
-
-        {/* Main Display Navigation Arrows: Left (<) and Right (>) */}
-        {images.length > 1 && (
+        {/* Left / Right Navigation Arrows on Main Hero Image (< and >) */}
+        {total > 1 && (
           <>
             <button
               type="button"
-              aria-label="Previous screenshot"
               onClick={handlePrev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 active:scale-95 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all cursor-pointer opacity-80 group-hover:opacity-100 hover:scale-105"
+              title="Previous Screenshot (←)"
+              aria-label="Previous screenshot"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/55 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer z-20"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-6 h-6 -translate-x-0.5" />
             </button>
-
             <button
               type="button"
-              aria-label="Next screenshot"
               onClick={handleNext}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 active:scale-95 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all cursor-pointer opacity-80 group-hover:opacity-100 hover:scale-105"
+              title="Next Screenshot (→)"
+              aria-label="Next screenshot"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/55 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer z-20"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-6 h-6 translate-x-0.5" />
             </button>
           </>
         )}
 
-        {/* Caption */}
-        {currentImage.caption && (
-          <div className="absolute bottom-0 inset-x-0 bg-black/65 backdrop-blur-xs text-white p-3 text-xs z-10 font-medium">
-            {currentImage.caption}
+        {/* Caption Bar (Bottom) */}
+        {(currentImage.caption || currentImage.altText) && (
+          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent backdrop-blur-[2px] text-white p-3 text-xs z-10 flex items-center justify-between pointer-events-none">
+            <span className="truncate pr-4 font-medium opacity-90">
+              {currentImage.caption || currentImage.altText}
+            </span>
+            <span className="text-[10px] text-gray-300 shrink-0 uppercase tracking-wider font-semibold">
+              Click photo to zoom
+            </span>
           </div>
         )}
       </div>
 
-      {/* ── Thumbnail Strip (Scrollable without visible scrollbar + Scroll Arrows) ── */}
-      {images.length > 1 && (
-        <div className="relative flex items-center gap-2 group/carousel">
-          {/* Scroll Left Button (<) */}
+      {/* ── 2. Scrollable Thumbnails Strip (Scrollbar Removed + Scroll Arrows) ── */}
+      {total > 1 && (
+        <div className="relative flex items-center gap-2 group/strip">
+          {/* Scroll Left Arrow */}
           <button
             type="button"
-            aria-label="Scroll thumbnails left"
-            disabled={!canScrollLeft}
             onClick={() => scrollThumbnails("left")}
-            className="shrink-0 w-8 h-8 rounded-full border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] active:scale-95 text-[#102124] flex items-center justify-center shadow-xs transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed z-10"
+            title="Scroll screenshots left"
+            aria-label="Scroll screenshots left"
+            className="w-8 h-14 rounded-lg bg-white hover:bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center shadow-xs shrink-0 transition active:scale-95 cursor-pointer hover:border-[#155761]/40"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {/* Thumbnails Container: scrollable with NO scrollbar */}
+          {/* Thumbnails Container with Scrollbar Removed */}
           <div
-            ref={thumbnailContainerRef}
-            onScroll={checkThumbnailScroll}
-            className="flex-1 flex gap-2.5 overflow-x-auto py-1 scroll-smooth select-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            ref={thumbStripRef}
+            className="flex-1 flex gap-2.5 overflow-x-auto scroll-smooth py-1 px-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {images.map((img, idx) => (
               <button
                 key={img.id || idx}
+                data-thumb-index={idx}
                 type="button"
-                onClick={() => setSelectedIdx(idx)}
-                className={`relative aspect-video w-24 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                onClick={() => {
+                  setSelectedIdx(idx);
+                  setIsZoomed(false);
+                }}
+                title={img.altText || `View Screenshot #${idx + 1}`}
+                className={`relative aspect-video w-24 sm:w-28 shrink-0 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shadow-2xs ${
                   selectedIdx === idx
-                    ? "border-[#155761] ring-2 ring-[#155761]/30 scale-102 shadow-sm"
-                    : "border-[#D9E2E4] opacity-70 hover:opacity-100 hover:border-[#155761]/50"
+                    ? "border-[#155761] ring-2 ring-[#155761]/30 scale-102"
+                    : "border-[#D9E2E4] opacity-75 hover:opacity-100 hover:border-[#155761]/50"
                 }`}
               >
                 <Image
                   src={img.url}
                   alt={img.altText || `${projectTitle} preview thumbnail ${idx + 1}`}
                   fill
-                  sizes="96px"
+                  sizes="120px"
+                  unoptimized={img.url.startsWith("data:")}
                   referrerPolicy="no-referrer"
                   className="object-cover"
                 />
+                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">
+                  {idx + 1}
+                </span>
               </button>
             ))}
           </div>
 
-          {/* Scroll Right Button (>) */}
+          {/* Scroll Right Arrow */}
           <button
             type="button"
-            aria-label="Scroll thumbnails right"
-            disabled={!canScrollRight}
             onClick={() => scrollThumbnails("right")}
-            className="shrink-0 w-8 h-8 rounded-full border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] active:scale-95 text-[#102124] flex items-center justify-center shadow-xs transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed z-10"
+            title="Scroll screenshots right"
+            aria-label="Scroll screenshots right"
+            className="w-8 h-14 rounded-lg bg-white hover:bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761] flex items-center justify-center shadow-xs shrink-0 transition active:scale-95 cursor-pointer hover:border-[#155761]/40"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* ── Fullscreen & Zoom Lightbox Modal ─────────────────────────────── */}
+      {/* ── 3. Interactive Fullscreen & Zoom Lightbox Modal ────────────────── */}
       {isLightboxOpen && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Fullscreen screenshot view"
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200"
           onClick={() => {
             setIsLightboxOpen(false);
-            setZoomLevel(1);
+            setIsZoomed(false);
           }}
         >
-          {/* Lightbox Top Control Bar */}
+          {/* Lightbox Header Bar */}
           <div
-            className="flex items-center justify-between gap-4 z-20 text-white"
             onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-between px-4 sm:px-6 py-3 bg-black/40 border-b border-white/10 text-white z-20 shrink-0"
           >
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs font-bold px-3 py-1 rounded-full bg-white/10 border border-white/20">
-                {selectedIdx + 1} / {images.length}
+            <div className="flex items-center gap-3 truncate pr-4">
+              <span className="font-bold text-sm sm:text-base text-white truncate">
+                {projectTitle}
               </span>
-              <span className="text-sm font-semibold text-gray-200 hidden sm:inline truncate max-w-md">
-                {currentImage.altText || currentImage.caption || projectTitle}
+              <span className="text-xs text-gray-400 font-mono bg-white/10 px-2 py-0.5 rounded-full shrink-0">
+                {selectedIdx + 1} of {total}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Zoom In / Zoom Out Controls */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Zoom In / Zoom Out Toggle Button */}
               <button
                 type="button"
-                title={zoomLevel > 1 ? "Reset Zoom" : "Zoom In (1.75x)"}
-                onClick={() => setZoomLevel((prev) => (prev > 1 ? 1 : 1.75))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition cursor-pointer"
+                onClick={() => setIsZoomed((z) => !z)}
+                title={isZoomed ? "Reset Zoom (1x)" : "Zoom In (1.75x)"}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition active:scale-95 cursor-pointer"
               >
-                {zoomLevel > 1 ? (
+                {isZoomed ? (
                   <>
-                    <ZoomOut className="w-3.5 h-3.5" />
-                    <span>Reset</span>
+                    <ZoomOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">Reset Zoom</span>
                   </>
                 ) : (
                   <>
-                    <ZoomIn className="w-3.5 h-3.5" />
-                    <span>Zoom In</span>
+                    <ZoomIn className="w-4 h-4" />
+                    <span className="hidden sm:inline">Zoom In</span>
                   </>
                 )}
               </button>
 
-              {/* Close Button */}
+              {/* Close Modal Button */}
               <button
                 type="button"
-                aria-label="Close fullscreen view"
                 onClick={() => {
                   setIsLightboxOpen(false);
-                  setZoomLevel(1);
+                  setIsZoomed(false);
                 }}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                title="Close Full Screen (Esc)"
+                aria-label="Close"
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Lightbox Center Image View */}
+          {/* Lightbox Center Image Viewport */}
           <div
-            className="relative flex-1 flex items-center justify-center overflow-auto my-2 p-2 select-none"
             onClick={(e) => e.stopPropagation()}
+            className="relative flex-1 flex items-center justify-center overflow-auto p-2 sm:p-6"
           >
-            <div
-              className={`relative max-w-full max-h-[78vh] aspect-video transition-transform duration-200 ${
-                zoomLevel > 1 ? "cursor-zoom-out" : "cursor-zoom-in"
-              }`}
-              style={{
-                width: zoomLevel > 1 ? "150%" : "100%",
-                height: zoomLevel > 1 ? "150%" : "100%",
-                transform: `scale(${zoomLevel})`,
-              }}
-              onClick={() => setZoomLevel((prev) => (prev > 1 ? 1 : 1.75))}
-            >
-              <Image
-                src={currentImage.url}
-                alt={currentImage.altText || `${projectTitle} fullscreen screenshot`}
-                fill
-                priority
-                sizes="100vw"
-                referrerPolicy="no-referrer"
-                className="object-contain drop-shadow-2xl"
-              />
-            </div>
-
-            {/* Left (<) Navigation Arrow */}
-            {images.length > 1 && (
+            {/* Left Nav Arrow (<) */}
+            {total > 1 && (
               <button
                 type="button"
-                aria-label="Previous screenshot"
                 onClick={handlePrev}
-                className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer z-30"
+                title="Previous Screenshot (←)"
+                aria-label="Previous screenshot"
+                className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center backdrop-blur-md shadow-xl transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-7 h-7 -translate-x-0.5" />
               </button>
             )}
 
-            {/* Right (>) Navigation Arrow */}
-            {images.length > 1 && (
+            {/* Main Full-Res Lightbox Image */}
+            <div
+              onClick={() => setIsZoomed((z) => !z)}
+              title={isZoomed ? "Click to reset zoom" : "Click to zoom in"}
+              className={`relative max-w-full max-h-full transition-all duration-300 flex items-center justify-center ${
+                isZoomed
+                  ? "scale-150 sm:scale-175 cursor-zoom-out my-auto"
+                  : "scale-100 cursor-zoom-in w-full h-full"
+              }`}
+            >
+              <div className="relative w-full h-[65vh] sm:h-[75vh]">
+                <Image
+                  src={currentImage.url}
+                  alt={currentImage.altText || `${projectTitle} screenshot`}
+                  fill
+                  sizes="100vw"
+                  unoptimized={currentImage.url.startsWith("data:")}
+                  referrerPolicy="no-referrer"
+                  className="object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Right Nav Arrow (>) */}
+            {total > 1 && (
               <button
                 type="button"
-                aria-label="Next screenshot"
                 onClick={handleNext}
-                className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer z-30"
+                title="Next Screenshot (→)"
+                aria-label="Next screenshot"
+                className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center backdrop-blur-md shadow-xl transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-7 h-7 translate-x-0.5" />
               </button>
             )}
           </div>
 
-          {/* Lightbox Bottom Strip (Thumbnails Preview & Caption) */}
+          {/* Lightbox Footer Bar with Mini Thumbnail Strip & Caption */}
           <div
-            className="flex flex-col items-center gap-3 z-20"
             onClick={(e) => e.stopPropagation()}
+            className="p-3 sm:p-4 bg-black/60 border-t border-white/10 text-white z-20 shrink-0 space-y-2"
           >
-            {currentImage.caption && (
-              <p className="text-xs text-gray-300 font-medium text-center max-w-2xl px-4">
-                {currentImage.caption}
+            {/* Alt Text / Caption */}
+            {(currentImage.caption || currentImage.altText) && (
+              <p className="text-center text-xs text-gray-300 truncate max-w-2xl mx-auto font-medium">
+                {currentImage.caption || currentImage.altText}
               </p>
             )}
 
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto max-w-full py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* Mini Thumbnails Strip in Lightbox (No scrollbar) */}
+            {total > 1 && (
+              <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {images.map((img, idx) => (
                   <button
                     key={img.id || idx}
                     type="button"
                     onClick={() => {
                       setSelectedIdx(idx);
-                      setZoomLevel(1);
+                      setIsZoomed(false);
                     }}
+                    title={img.altText || `Screenshot #${idx + 1}`}
                     className={`relative aspect-video w-16 sm:w-20 shrink-0 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                       selectedIdx === idx
-                        ? "border-white ring-2 ring-white/50 scale-105"
-                        : "border-white/30 opacity-60 hover:opacity-100"
+                        ? "border-emerald-400 ring-2 ring-emerald-400/40 scale-105"
+                        : "border-white/20 opacity-60 hover:opacity-100 hover:border-white/50"
                     }`}
                   >
                     <Image
                       src={img.url}
-                      alt={img.altText || `Thumbnail ${idx + 1}`}
+                      alt={img.altText || `Screenshot ${idx + 1}`}
                       fill
                       sizes="80px"
+                      unoptimized={img.url.startsWith("data:")}
                       referrerPolicy="no-referrer"
                       className="object-cover"
                     />

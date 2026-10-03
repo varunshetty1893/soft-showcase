@@ -15,10 +15,6 @@ export async function getAdminDashboardStats() {
     totalRequests,
     newRequests,
     totalUsers,
-    inactiveProviderAlerts,
-    recentInquiries,
-    recentRequests,
-    recentAuditLogs,
   ] = await Promise.all([
     db.project.count(),
     db.project.count({ where: { status: "PUBLISHED" } }),
@@ -30,6 +26,14 @@ export async function getAdminDashboardStats() {
     db.customProjectRequest.count(),
     db.customProjectRequest.count({ where: { status: "NEW" } }),
     db.user.count(),
+  ]);
+
+  const [
+    inactiveProviderAlerts,
+    recentInquiries,
+    recentRequests,
+    recentAuditLogs,
+  ] = await Promise.all([
     // Critical alert: Projects that are PUBLISHED but whose provider is inactive or has unconfirmed consent
     db.project.findMany({
       where: {

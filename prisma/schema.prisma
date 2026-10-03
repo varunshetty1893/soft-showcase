@@ -26,13 +26,10 @@ model User {
   tokenVersion  Int       @default(0)
   isAdmin       Boolean   @default(false)
   role          String    @default("customer") // "customer" | "solution_partner" | "admin"
-  whatsapp      String?
-  contactEmail  String?
 
   accounts       Account[]
   sessions       Session[]
   inquiries      Inquiry[]
-  customRequests CustomProjectRequest[]
   partnerProfile ProjectProvider?
   supportTickets SupportTicket[]
   transactions   Transaction[]
@@ -139,10 +136,10 @@ model ProjectProvider {
   providerConsentConfirmed   Boolean   @default(false)
   providerConsentConfirmedAt DateTime?
 
-  // Soft removal tracking (Phase 2B)
+  // Soft removal
   removedAt                  DateTime?
   removedById                String?
-  removalReason              String?   @db.Text
+  removalReason              String?
 
   projects     Project[]
   inquiries    Inquiry[]
@@ -225,14 +222,18 @@ enum PriceQualifier {
 }
 
 model Project {
-  id               String         @id @default(cuid())
+  id               String        @id @default(cuid())
   title            String
-  slug             String         @unique
+  slug             String        @unique
   shortDescription String
-  fullDescription  String         @db.Text
-  status           ProjectStatus  @default(DRAFT)
-  featured         Boolean        @default(false)
-  featuredOrder    Int            @default(0)
+  fullDescription  String        @db.Text
+  status           ProjectStatus @default(DRAFT)
+  featured         Boolean       @default(false)
+  featuredOrder    Int           @default(0)
+  moderationNote   String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+
   priceMode        PriceMode      @default(CONTACT)
   price            Decimal?       @db.Decimal(10, 2)
   originalPrice    Decimal?       @db.Decimal(10, 2)
@@ -241,14 +242,10 @@ model Project {
   dealLabel        String?
   dealStartsAt     DateTime?
   dealEndsAt       DateTime?
+
   demoUrl          String?
   projectType      String?
-  whatsIncluded    String[]       @default([])
-
-  // Moderation tracking (Phase 3)
-  moderationNote   String?        @db.Text
-  moderatedAt      DateTime?
-  moderatedById    String?
+  whatsIncluded    String[]      @default([])
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -355,7 +352,6 @@ enum NotificationStatus {
   PENDING
   SENT
   FAILED
-  THROTTLED
 }
 
 enum ContactMethod {
@@ -412,8 +408,6 @@ enum CustomRequestStatus {
 
 model CustomProjectRequest {
   id                     String              @id @default(cuid())
-  customerId             String?
-  linkedAt               DateTime?
   name                   String
   email                  String
   whatsapp               String?
@@ -428,15 +422,11 @@ model CustomProjectRequest {
   budget                 String?
   additionalRequirements String?             @db.Text
   status                 CustomRequestStatus @default(NEW)
-  notificationStatus     NotificationStatus  @default(PENDING)
   adminNotes             String?             @db.Text
-
-  customer               User?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([customerId])
   @@map("custom_project_requests")
 }
 
@@ -466,13 +456,13 @@ model SiteSetting {
 // =============================================================================
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?  // ID of the admin who performed the action; null for system actions
-  action     String   // Action constant (see docs/32-audit-logging.md)
-  entityType String   // "Project", "ProjectProvider", "Inquiry", etc.
-  entityId   String?  // ID of the affected entity
-  details    Json?    // Additional context specific to the action
-  searchText String?  @db.Text // Lowercased searchable text (Phase 5)
+  id         String  @id @default(cuid())
+  userId     String? // ID of the admin who performed the action; null for system actions
+  action     String  // Action constant (see docs/32-audit-logging.md)
+  entityType String  // "Project", "ProjectProvider", "Inquiry", etc.
+  entityId   String? // ID of the affected entity
+  details    Json?   // Additional context specific to the action
+  searchText String? // Concatenated normalized searchable text for audit q filter
 
   createdAt DateTime @default(now())
 

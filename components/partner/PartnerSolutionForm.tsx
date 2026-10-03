@@ -19,31 +19,19 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ArrowDownAZ,
-  GripVertical,
   Loader2,
   Info,
   X,
   ExternalLink,
   FileCode,
   Sparkles,
+  GripVertical,
+  ArrowDownAZ,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/toast";
-import { hasAdminModerationHold } from "@/lib/auth/project-permissions";
-import {
-  PricingOffersFields,
-  type PricingOffersFormState,
-} from "@/components/projects/PricingOffersFields";
-import {
-  toIstDatetimeLocal,
-  fromIstDatetimeLocal,
-  type DealTypeValue,
-  type PriceQualifierValue,
-} from "@/lib/utils/pricing";
 
 interface Category {
   id: string;
@@ -187,7 +175,7 @@ function parseSolutionErrors(
     images: {
       title: "Screenshots & Images",
       maxLimit: 15,
-      getSimpleMsg: () => "Please check your uploaded screenshots (maximum 15 valid images).",
+      getSimpleMsg: () => "Please upload at most 15 screenshots.",
     },
     title: {
       title: "Solution Title",
@@ -206,12 +194,8 @@ function parseSolutionErrors(
       getSimpleMsg: () => "Please select a category for this solution.",
     },
     price: {
-      title: "Selling Price",
-      getSimpleMsg: () => "Please provide a valid selling price greater than zero.",
-    },
-    originalPrice: {
-      title: "Regular Price (Offer / Discount)",
-      getSimpleMsg: () => "Regular price before discount must be higher than the final selling price.",
+      title: "Pricing",
+      getSimpleMsg: () => "Please provide a valid price amount.",
     },
     demoUrl: {
       title: "Demo URL",
@@ -295,8 +279,6 @@ export function PartnerSolutionForm({
   isEditing = false,
 }: PartnerSolutionFormProps) {
   const router = useRouter();
-  const toast = useToast();
-  const moderationHold = hasAdminModerationHold(initialData);
 
   const [title, setTitle] = React.useState(initialData?.title || "");
   const [categoryId, setCategoryId] = React.useState(
@@ -308,32 +290,17 @@ export function PartnerSolutionForm({
   const [fullDescription, setFullDescription] = React.useState(
     initialData?.fullDescription || ""
   );
-  const [priceMode, setPriceMode] = React.useState<
-    "FIXED" | "STARTING_FROM" | "CONTACT" | "FREE"
-  >(initialData?.priceMode || "FIXED");
+  const [priceMode, setPriceMode] = React.useState<"FIXED" | "STARTING_FROM" | "CONTACT">(
+    initialData?.priceMode || "FIXED"
+  );
   const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "");
   const [originalPrice, setOriginalPrice] = React.useState(
     initialData?.originalPrice ? String(initialData.originalPrice) : ""
   );
-  const [priceQualifier, setPriceQualifier] = React.useState<PriceQualifierValue>(
-    (initialData?.priceQualifier as PriceQualifierValue) || "NONE"
-  );
-  const [dealType, setDealType] = React.useState<DealTypeValue>(
-    (initialData?.dealType as DealTypeValue) || "NONE"
-  );
-  const [dealLabel, setDealLabel] = React.useState<string>(
-    initialData?.dealLabel || ""
-  );
-  const [dealStartsAt, setDealStartsAt] = React.useState<string>(
-    initialData?.dealStartsAt ? toIstDatetimeLocal(initialData.dealStartsAt) : ""
-  );
-  const [dealEndsAt, setDealEndsAt] = React.useState<string>(
-    initialData?.dealEndsAt ? toIstDatetimeLocal(initialData.dealEndsAt) : ""
-  );
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
-    moderationHold ? "DRAFT" : initialData?.status || "PUBLISHED"
+    initialData?.status || "PUBLISHED"
   );
   const [featured, setFeatured] = React.useState<boolean>(
     Boolean(initialData?.featured)
@@ -429,10 +396,10 @@ export function PartnerSolutionForm({
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState<string | null>(null);
   const [dragActive, setDragActive] = React.useState(false);
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = React.useState<number | null>(null);
+  const [dragOverPhotoIndex, setDragOverPhotoIndex] = React.useState<number | null>(null);
   const [loadedImages, setLoadedImages] = React.useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [draggedPhotoIdx, setDraggedPhotoIdx] = React.useState<number | null>(null);
-  const [dragOverPhotoIdx, setDragOverPhotoIdx] = React.useState<number | null>(null);
 
   // ── Import JSON State ─────────────────────────────────────────────────────
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
@@ -483,40 +450,6 @@ export function PartnerSolutionForm({
       }
       if (data.price !== undefined && data.price !== null) {
         setPrice(String(data.price));
-      }
-      if (data.originalPrice !== undefined && data.originalPrice !== null) {
-        setOriginalPrice(String(data.originalPrice));
-      }
-
-      // Screenshots / Photos from JSON (mainImage + images)
-      const importedPhotos: PhotoItem[] = [];
-      if (typeof data.mainImage === "string" && data.mainImage.trim()) {
-        importedPhotos.push({
-          id: `import-main-${Date.now()}`,
-          url: data.mainImage.trim(),
-          altText: `${data.title?.trim() || "Solution"} Cover`,
-          isPrimary: true,
-        });
-      }
-      if (Array.isArray(data.images)) {
-        data.images.forEach((img: any, idx: number) => {
-          const url = typeof img === "string" ? img.trim() : img?.url?.trim();
-          const alt =
-            typeof img === "object" && img?.altText
-              ? String(img.altText).trim()
-              : `${data.title?.trim() || "Solution"} Screenshot ${idx + 1}`;
-          if (url && !importedPhotos.some((p) => p.url === url)) {
-            importedPhotos.push({
-              id: `import-img-${Date.now()}-${idx}`,
-              url,
-              altText: alt,
-              isPrimary: importedPhotos.length === 0,
-            });
-          }
-        });
-      }
-      if (importedPhotos.length > 0) {
-        setPhotos(importedPhotos.slice(0, 15));
       }
 
       // Project type & demo url
@@ -612,7 +545,7 @@ export function PartnerSolutionForm({
       }
 
       setIsImportModalOpen(false);
-      toast.success("Project details successfully populated from JSON!");
+      setSuccessNotice("Project details successfully populated from JSON!");
     } catch (err: any) {
       setImportError(err?.message || "Failed to parse JSON. Please check syntax.");
     }
@@ -622,23 +555,22 @@ export function PartnerSolutionForm({
   const [error, setError] = React.useState<string | null>(null);
   const [errorItems, setErrorItems] = React.useState<SolutionErrorItem[]>([]);
   const [showErrorModal, setShowErrorModal] = React.useState(false);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
-  const [uploadStats, setUploadStats] = React.useState<{ current: number; total: number; percent: number } | null>(null);
+  const [successNotice, setSuccessNotice] = React.useState<string | null>(null);
 
   // ── Trimming & Auto-Fix Helpers ───────────────────────────────────────────
   const handleTrimField = (field: string) => {
     if (field === "whatsIncluded") {
       setWhatsIncluded((prev) => prev.slice(0, 20));
-      toast.info("What's Included has been trimmed to 20 items.");
+      setSuccessNotice("What's Included has been trimmed to 20 items.");
     } else if (field === "features") {
       setFeatures((prev) => prev.slice(0, 25));
-      toast.info("Key Features has been trimmed to 25 features.");
+      setSuccessNotice("Key Features has been trimmed to 25 features.");
     } else if (field === "specifications") {
       setSpecifications((prev) => prev.slice(0, 25));
-      toast.info("Technical specifications trimmed to 25 items.");
+      setSuccessNotice("Technical specifications trimmed to 25 items.");
     } else if (field === "faqs") {
       setFaqs((prev) => prev.slice(0, 20));
-      toast.info("FAQs trimmed to 20 questions.");
+      setSuccessNotice("FAQs trimmed to 20 questions.");
     }
 
     setErrorItems((prev) => {
@@ -668,9 +600,7 @@ export function PartnerSolutionForm({
     setErrorItems([]);
     setError(null);
     setShowErrorModal(false);
-    toast.success(
-      "All items have been trimmed to platform limits. You can now save your solution!"
-    );
+    setSuccessNotice("All items have been trimmed to platform limits. You can now save your solution!");
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -753,35 +683,49 @@ export function PartnerSolutionForm({
     setNewPhotoUrl("");
     setNewPhotoCaption("");
     setError(null);
-    setFieldErrors((prev) => {
-      if (!prev.photos) return prev;
-      const next = { ...prev };
-      delete next.photos;
-      return next;
+  };
+
+  const handleSortAllPhotosByName = () => {
+    setPhotos((prev) => {
+      if (prev.length <= 1) return prev;
+      const sorted = [...prev].sort((a, b) => {
+        const nameA = a.altText || a.url || "";
+        const nameB = b.altText || b.url || "";
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+      });
+      // The first image in sorted sequence becomes the primary cover
+      return sorted.map((p, idx) => ({ ...p, isPrimary: idx === 0 }));
+    });
+  };
+
+  const handleMovePhotoToPosition = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || fromIdx >= photos.length || toIdx < 0 || toIdx >= photos.length) return;
+    setPhotos((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(fromIdx, 1);
+      copy.splice(toIdx, 0, moved);
+      return copy;
     });
   };
 
   const processFilesUpload = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
-    // Natural sort incoming files by file.name (e.g. 01, 02, 03... or A, B, C...)
+    // Alphanumeric natural sort on upload: 1-9, A-Z so files like 01-hero, 02-about, 10-pricing are in exact order
     const sortedFiles = Array.from(files).sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
     );
 
-    const total = sortedFiles.length;
     setIsUploadingPhoto(true);
-    setUploadStats({ current: 0, total, percent: 0 });
-    setUploadProgress(`Preparing ${total} photo(s)...`);
+    setUploadProgress(`Preparing ${sortedFiles.length} photo(s)...`);
     setError(null);
 
     try {
       const addedPhotos: PhotoItem[] = [];
+      const total = sortedFiles.length;
 
       for (let i = 0; i < total; i++) {
         const file = sortedFiles[i];
-        const percent = Math.round(((i + 1) / total) * 100);
-        setUploadStats({ current: i + 1, total, percent });
         setUploadProgress(`Uploading photo ${i + 1} of ${total} (${file.name})...`);
 
         const formData = new FormData();
@@ -822,34 +766,27 @@ export function PartnerSolutionForm({
         });
       }
 
-      // Auto-sort combined list naturally by altText / filename (numbers 1-9, alphabets A-Z)
-      const combined = [...photos, ...addedPhotos].sort((a, b) => {
-        const labelA = a.altText || a.url || "";
-        const labelB = b.altText || b.url || "";
-        return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: "base" });
+      setPhotos((prev) => {
+        const combined = [...prev, ...addedPhotos];
+        // Automatically sort by file name / caption (alphabets a-z, numbers 1-9)
+        combined.sort((a, b) => {
+          const nameA = a.altText || a.url || "";
+          const nameB = b.altText || b.url || "";
+          return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+        });
+        // Ensure primary is set on the first image if not already specified
+        const hasPrimary = combined.some((p) => p.isPrimary);
+        if (!hasPrimary && combined.length > 0) {
+          combined[0].isPrimary = true;
+        }
+        return combined;
       });
-
-      // Set first item in sorted order as primary cover thumbnail
-      const updated = combined.map((p, idx) => ({
-        ...p,
-        isPrimary: idx === 0,
-      }));
-
-      setPhotos(updated);
-      setFieldErrors((prev) => {
-        if (!prev.photos) return prev;
-        const next = { ...prev };
-        delete next.photos;
-        return next;
-      });
-      toast.success(`${addedPhotos.length} photo(s) uploaded and auto-sorted by name.`);
       setUploadProgress(null);
     } catch (err: any) {
       setError(err?.message || "Failed to upload image file");
     } finally {
       setIsUploadingPhoto(false);
       setUploadProgress(null);
-      setUploadStats(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -927,32 +864,6 @@ export function PartnerSolutionForm({
     });
   };
 
-  const handleAutoSortPhotos = () => {
-    if (photos.length <= 1) return;
-    setPhotos((prev) => {
-      const sorted = [...prev].sort((a, b) => {
-        const labelA = a.altText || a.url || "";
-        const labelB = b.altText || b.url || "";
-        return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: "base" });
-      });
-      return sorted.map((p, idx) => ({
-        ...p,
-        isPrimary: idx === 0,
-      }));
-    });
-    toast.success("Photos auto-sorted in natural order (1–9, A–Z).");
-  };
-
-  const handleReorderPhotos = (fromIdx: number, toIdx: number) => {
-    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
-    setPhotos((prev) => {
-      const copy = [...prev];
-      const [moved] = copy.splice(fromIdx, 1);
-      copy.splice(toIdx, 0, moved);
-      return copy;
-    });
-  };
-
   // ── Other Handlers ─────────────────────────────────────────────────────────
   const handleAddDeliverable = () => {
     if (!newDeliverable.trim()) return;
@@ -1018,104 +929,103 @@ export function PartnerSolutionForm({
       .filter((faq) => faq.question && faq.question.trim() && faq.answer && faq.answer.trim())
       .map((faq, i) => ({ question: faq.question.trim(), answer: faq.answer.trim(), sortOrder: i + 1 }));
 
-    // ── Client-side Field Validations ──
-    const newFieldErrors: Record<string, string> = {};
+    // ── Client-side Validations with instant Scroll-to-Top and Friendly Modal ──
+    const clientErrors: SolutionErrorItem[] = [];
 
     if (!title.trim() || title.trim().length < 3) {
-      newFieldErrors.title = "Please enter a solution title.";
-    }
-
-    if (!categoryId) {
-      newFieldErrors.categoryId = "Please select a category.";
+      clientErrors.push({
+        field: "title",
+        title: "Solution Title Too Short",
+        message: "Please enter a solution title with at least 3 characters.",
+      });
     }
 
     if (!shortDescription.trim() || shortDescription.trim().length < 10) {
-      newFieldErrors.shortDescription = "Please enter a short description (at least 10 characters).";
+      clientErrors.push({
+        field: "shortDescription",
+        title: "Short Description Needed",
+        message: "Please enter a short description of at least 10 characters.",
+      });
     }
 
     if (!fullDescription.trim() || fullDescription.trim().length < 50) {
-      newFieldErrors.fullDescription = "Please enter an overview description (at least 50 characters).";
+      clientErrors.push({
+        field: "fullDescription",
+        title: "Overview Description Too Short",
+        message: `Please enter an overview description of at least 50 characters (currently ${fullDescription.trim().length} characters).`,
+      });
     }
 
     if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice <= 0) {
-        newFieldErrors.price = "Please enter a valid price.";
-      } else if (
-        priceMode === "FIXED" &&
-        originalPrice &&
-        originalPrice.trim() !== "" &&
-        Number(originalPrice) > 0 &&
-        Number(originalPrice) < numPrice
-      ) {
-        newFieldErrors.originalPrice = "Regular price before discount cannot be lower than the selling price.";
+        clientErrors.push({
+          field: "price",
+          title: "Valid Price Required",
+          message: "Please enter a valid price amount greater than zero.",
+        });
       }
     }
 
     if (photos.length === 0) {
-      newFieldErrors.photos = "Cover photo is required. Please upload or add at least one screenshot or cover image.";
+      clientErrors.push({
+        field: "photos",
+        title: "Cover Photo Required",
+        message: "Please add or upload at least one image or screenshot of your solution.",
+      });
     }
 
     if (activeWhatsIncluded.length > 20) {
-      newFieldErrors.whatsIncluded = `Too many items in What's Included (${activeWhatsIncluded.length}/20). Maximum 20 allowed.`;
+      clientErrors.push({
+        field: "whatsIncluded",
+        title: "Too Many Items in What's Included",
+        message: `You currently have ${activeWhatsIncluded.length} items. The system limit is 20. Please keep your top 20 main deliverables.`,
+        currentCount: activeWhatsIncluded.length,
+        maxLimit: 20,
+        canTrim: true,
+      });
     }
 
     if (activeFeatures.length > 25) {
-      newFieldErrors.features = `Too many features (${activeFeatures.length}/25). Maximum 25 allowed.`;
+      clientErrors.push({
+        field: "features",
+        title: "Too Many Key Features",
+        message: `You currently have ${activeFeatures.length} features. The system limit is 25. Please keep your top 25 most important features.`,
+        currentCount: activeFeatures.length,
+        maxLimit: 25,
+        canTrim: true,
+      });
     }
 
     if (activeSpecs.length > 25) {
-      newFieldErrors.specifications = `Too many technical specifications (${activeSpecs.length}/25). Maximum 25 allowed.`;
+      clientErrors.push({
+        field: "specifications",
+        title: "Too Many Technical Specifications",
+        message: `You have ${activeSpecs.length} specifications. The system limit is 25 items.`,
+        currentCount: activeSpecs.length,
+        maxLimit: 25,
+        canTrim: true,
+      });
     }
 
     if (activeFaqs.length > 20) {
-      newFieldErrors.faqs = `Too many FAQs (${activeFaqs.length}/20). Maximum 20 allowed.`;
+      clientErrors.push({
+        field: "faqs",
+        title: "Too Many FAQs",
+        message: `You have ${activeFaqs.length} FAQs. The system limit is 20 questions.`,
+        currentCount: activeFaqs.length,
+        maxLimit: 20,
+        canTrim: true,
+      });
     }
 
-    if (Object.keys(newFieldErrors).length > 0) {
-      setFieldErrors(newFieldErrors);
-      setError(null);
-      setErrorItems([]);
-      setShowErrorModal(false);
-
-      const fieldOrder = [
-        "title",
-        "categoryId",
-        "shortDescription",
-        "fullDescription",
-        "price",
-        "originalPrice",
-        "photos",
-        "whatsIncluded",
-        "features",
-        "specifications",
-        "faqs",
-      ];
-      const firstInvalid = fieldOrder.find((f) => newFieldErrors[f]) || Object.keys(newFieldErrors)[0];
-      const targetId =
-        firstInvalid === "photos"
-          ? "section-photos"
-          : firstInvalid === "price" || firstInvalid === "originalPrice"
-          ? "section-pricing"
-          : firstInvalid === "whatsIncluded"
-          ? "section-whats-included"
-          : firstInvalid === "features"
-          ? "section-features"
-          : firstInvalid === "specifications"
-          ? "section-specifications"
-          : firstInvalid === "faqs"
-          ? "section-faqs"
-          : `field-${firstInvalid}`;
-
+    if (clientErrors.length > 0) {
+      setErrorItems(clientErrors);
+      setError("Please review and adjust the highlighted items below before saving.");
+      setShowErrorModal(true);
       if (typeof window !== "undefined") {
-        const el = document.getElementById(targetId);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.focus?.();
-        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-
-      toast.error(newFieldErrors[firstInvalid]);
       setLoading(false);
       return;
     }
@@ -1129,12 +1039,7 @@ export function PartnerSolutionForm({
           : null;
 
       const computedOriginalPrice =
-        priceMode === "FIXED" &&
-        originalPrice &&
-        originalPrice.trim() !== "" &&
-        Number(originalPrice) > 0 &&
-        computedPrice !== null &&
-        Number(originalPrice) > computedPrice
+        priceMode === "FIXED" && originalPrice && originalPrice.trim() !== "" && Number(originalPrice) > 0
           ? Number(originalPrice)
           : null;
 
@@ -1156,15 +1061,6 @@ export function PartnerSolutionForm({
         })
         .filter((name): name is string => Boolean(name));
 
-      const startsAtUtc =
-        priceMode === "FIXED" && dealStartsAt
-          ? fromIstDatetimeLocal(dealStartsAt)
-          : null;
-      const endsAtUtc =
-        priceMode === "FIXED" && dealEndsAt
-          ? fromIstDatetimeLocal(dealEndsAt)
-          : null;
-
       const payload = {
         title: title.trim(),
         slug: initialData?.slug || undefined,
@@ -1174,17 +1070,9 @@ export function PartnerSolutionForm({
         priceMode,
         price: computedPrice,
         originalPrice: computedOriginalPrice,
-        priceQualifier,
-        dealType: priceMode === "FIXED" ? dealType : "NONE",
-        dealLabel:
-          priceMode === "FIXED" && dealType === "CUSTOM"
-            ? dealLabel.trim() || null
-            : null,
-        dealStartsAt: startsAtUtc,
-        dealEndsAt: endsAtUtc,
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
-        status: moderationHold ? "DRAFT" : status,
+        status,
         featured: Boolean(featured),
         whatsIncluded: activeWhatsIncluded,
         features: activeFeatures,
@@ -1222,61 +1110,31 @@ export function PartnerSolutionForm({
           technologies: validTechIds.length,
         });
 
-        const serverFieldErrors: Record<string, string> = {};
-        if (parsed.length > 0) {
-          for (const item of parsed) {
-            serverFieldErrors[item.field] = item.message;
-          }
-        }
-        if (resData.details?.fieldErrors) {
-          for (const [k, v] of Object.entries(resData.details.fieldErrors)) {
-            if (Array.isArray(v) && v.length > 0) {
-              serverFieldErrors[k] = String(v[0]);
-            }
-          }
-        }
-
-        if (Object.keys(serverFieldErrors).length > 0) {
-          setFieldErrors(serverFieldErrors);
-          const firstField = Object.keys(serverFieldErrors)[0];
-          const targetId =
-            firstField === "photos" || firstField === "images"
-              ? "section-photos"
-              : firstField === "price" || firstField === "originalPrice"
-              ? "section-pricing"
-              : firstField === "whatsIncluded"
-              ? "section-whats-included"
-              : firstField === "features"
-              ? "section-features"
-              : firstField === "specifications"
-              ? "section-specifications"
-              : firstField === "faqs"
-              ? "section-faqs"
-              : `field-${firstField}`;
-
-          if (typeof window !== "undefined") {
-            const el = document.getElementById(targetId);
-            el?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-          toast.error(serverFieldErrors[firstField] || resData.error || "Please check the highlighted validation errors.");
-        } else {
-          setError(resData.error || "Failed to save solution. Please check your entries.");
-          toast.error(resData.error || "Failed to save solution.");
+        setErrorItems(parsed);
+        setError("Please review and adjust the highlighted items below before saving.");
+        setShowErrorModal(true);
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
         return;
       }
 
-      toast.success(
-        isEditing
-          ? `Solution "${title.trim()}" updated successfully.`
-          : `Solution "${title.trim()}" created successfully.`
-      );
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred while saving.";
       setError(msg);
-      toast.error(msg);
+      setErrorItems([
+        {
+          field: "general",
+          title: "Submission Error",
+          message: msg,
+        },
+      ]);
+      setShowErrorModal(true);
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } finally {
       setLoading(false);
     }
@@ -1301,13 +1159,10 @@ export function PartnerSolutionForm({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || "Failed to delete solution");
       }
-      toast.success(`Solution "${title.trim()}" deleted successfully.`);
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: any) {
-      const msg = err?.message || "Failed to delete solution. Please try again.";
-      setError(msg);
-      toast.error(msg);
+      setError(err?.message || "Failed to delete solution. Please try again.");
       setShowDeleteModal(false);
       setDeleting(false);
     }
@@ -1315,38 +1170,149 @@ export function PartnerSolutionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
-      {/* ── Phase 3: Admin Moderation Note / Hold Banner ──────────────── */}
-      {(initialData?.moderationNote || moderationHold) && (
-        <div
-          className="p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm flex items-start gap-3.5 shadow-2xs"
-          data-testid="partner-form-moderation-banner"
-        >
-          <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-bold text-amber-950">
-              {moderationHold
-                ? "Administrator Moderation Hold Active"
-                : "Administrator Moderation Note / Requested Changes"}
-            </p>
-            {initialData?.moderationNote && (
-              <p className="text-amber-900 leading-relaxed">
-                <strong>Reason / Note:</strong> {initialData.moderationNote}
-              </p>
-            )}
-            {moderationHold && (
-              <p className="text-xs text-amber-800">
-                You can freely edit and save all content, pricing, and screenshots below. Publishing status will remain in Draft until an administrator lifts the hold.
-              </p>
-            )}
+      {/* ── Success Notice Banner ────────────────────────────────────── */}
+      {successNotice && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{successNotice}</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotice(null)}
+            className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 rounded-lg hover:bg-emerald-100 transition cursor-pointer"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* ── General Error Banner (only for non-field server errors) ──────── */}
-      {error && Object.keys(fieldErrors).length === 0 && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs flex items-center gap-3 animate-in fade-in duration-200">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
-          <p className="font-semibold text-rose-800">{error}</p>
+      {/* ── Quick Tools Bar (Import JSON, Fast Actions) ──────────────── */}
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-[#F8FAFA] to-[#EDF4F5] border border-[#D9E2E4] shadow-xs flex-wrap gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#155761]/10 flex items-center justify-center text-[#155761] shrink-0">
+            <FileCode className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-[#102124]">Quick JSON Import Available</h3>
+            <p className="text-[11px] text-[#526267]">
+              Have project details or AI specification in JSON? Populate this entire form in 1 click.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setImportError(null);
+              setIsImportModalOpen(true);
+            }}
+            className="text-xs font-bold rounded-xl border-[#155761]/30 hover:border-[#155761] text-[#155761] bg-white gap-1.5 shadow-xs hover:bg-[#F3F7F7] cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span>Import via JSON</span>
+          </Button>
+          <Link
+            href="/partner/solutions/import"
+            className="text-xs text-[#526267] hover:text-[#155761] underline font-medium px-2 py-1"
+          >
+            Full Importer Page →
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Error Banner ─────────────────────────────────────────────── */}
+      {error && (
+        <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs space-y-3 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-rose-200/60">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+              <div>
+                <p className="font-bold text-sm text-rose-900">Please review solution details</p>
+                <p className="text-xs text-rose-700">
+                  {errorItems.length === 1
+                    ? "1 item needs your attention before saving:"
+                    : `${errorItems.length} items need your attention before saving:`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowErrorModal(true)}
+                className="px-3 py-1.5 bg-white border border-rose-200 hover:bg-rose-100/50 text-rose-900 rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer"
+              >
+                View Popup Guide
+              </button>
+              {errorItems.some((e) => e.canTrim) && (
+                <button
+                  type="button"
+                  onClick={handleAutoTrimAll}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+                >
+                  Auto-Trim to Limits
+                </button>
+              )}
+            </div>
+          </div>
+
+          {errorItems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {errorItems.map((item, idx) => (
+                <div key={idx} className="p-3.5 bg-white rounded-xl border border-rose-200 space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-rose-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      {item.title}
+                    </span>
+                    {item.canTrim && item.maxLimit && (
+                      <button
+                        type="button"
+                        onClick={() => handleTrimField(item.field)}
+                        className="text-[11px] font-bold text-[#155761] hover:text-[#0E3E45] underline cursor-pointer"
+                      >
+                        Trim to {item.maxLimit}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#526267] leading-relaxed">{item.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-rose-700">{error}</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Quick JSON Import Bar ──────────────────────────────────────── */}
+      {!isEditing && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#F0F9F8] to-[#E6F4F1] border border-[#BEDEE1] shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#155761] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <FileCode className="w-5 h-5 text-emerald-300" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-[#102124]">
+                Want to pre-fill all fields in 1 click?
+              </p>
+              <p className="text-[11px] text-[#526267]">
+                Import from an AI-generated or exported project JSON file instead of typing manually.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/partner/solutions/import"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#155761] hover:bg-[#0E3E45] text-white text-xs font-bold shadow-xs transition shrink-0 active:scale-95"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>Import via JSON</span>
+            <ArrowRight className="w-3.5 h-3.5 opacity-80" />
+          </Link>
         </div>
       )}
 
@@ -1359,50 +1325,22 @@ export function PartnerSolutionForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <Label htmlFor="field-title" className="text-xs font-semibold text-[#102124]">Solution Title *</Label>
+            <Label className="text-xs font-semibold text-[#102124]">Solution Title *</Label>
             <Input
-              id="field-title"
               value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                if (fieldErrors.title) {
-                  setFieldErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.title;
-                    return next;
-                  });
-                }
-              }}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. AI Resume & ATS Optimizer Platform"
               required
-              className={`mt-1 ${fieldErrors.title ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
+              className="mt-1"
             />
-            {fieldErrors.title && (
-              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{fieldErrors.title}</span>
-              </p>
-            )}
           </div>
 
           <div>
-            <Label htmlFor="field-categoryId" className="text-xs font-semibold text-[#102124]">Architecture Category *</Label>
+            <Label className="text-xs font-semibold text-[#102124]">Architecture Category *</Label>
             <select
-              id="field-categoryId"
               value={categoryId}
-              onChange={(e) => {
-                setCategoryId(e.target.value);
-                if (fieldErrors.categoryId) {
-                  setFieldErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.categoryId;
-                    return next;
-                  });
-                }
-              }}
-              className={`w-full h-10 px-3 mt-1 rounded-xl bg-white border text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761] ${
-                fieldErrors.categoryId ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : "border-[#D9E2E4]"
-              }`}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
               required
             >
               {categories.map((c) => (
@@ -1411,12 +1349,6 @@ export function PartnerSolutionForm({
                 </option>
               ))}
             </select>
-            {fieldErrors.categoryId && (
-              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{fieldErrors.categoryId}</span>
-              </p>
-            )}
           </div>
 
           <div>
@@ -1430,141 +1362,98 @@ export function PartnerSolutionForm({
           </div>
 
           <div className="sm:col-span-2">
-            <Label htmlFor="field-shortDescription" className="text-xs font-semibold text-[#102124]">
+            <Label className="text-xs font-semibold text-[#102124]">
               Short Teaser Description (Max 160 characters) *
             </Label>
             <Input
-              id="field-shortDescription"
               value={shortDescription}
-              onChange={(e) => {
-                setShortDescription(e.target.value);
-                if (fieldErrors.shortDescription) {
-                  setFieldErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.shortDescription;
-                    return next;
-                  });
-                }
-              }}
+              onChange={(e) => setShortDescription(e.target.value)}
               placeholder="A high-level 1-sentence summary displayed in search and catalog cards."
               maxLength={180}
               required
-              className={`mt-1 ${fieldErrors.shortDescription ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
+              className="mt-1"
             />
-            {fieldErrors.shortDescription && (
-              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{fieldErrors.shortDescription}</span>
-              </p>
-            )}
           </div>
 
           <div className="sm:col-span-2">
-            <Label htmlFor="field-fullDescription" className="text-xs font-semibold text-[#102124]">
+            <Label className="text-xs font-semibold text-[#102124]">
               Comprehensive Architecture &amp; System Overview *
             </Label>
             <Textarea
-              id="field-fullDescription"
               value={fullDescription}
-              onChange={(e) => {
-                setFullDescription(e.target.value);
-                if (fieldErrors.fullDescription) {
-                  setFieldErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.fullDescription;
-                    return next;
-                  });
-                }
-              }}
+              onChange={(e) => setFullDescription(e.target.value)}
               placeholder="Explain how the application works, setup requirements, data models, third-party services, and deployment architecture..."
               rows={6}
               required
-              className={`mt-1 ${fieldErrors.fullDescription ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
+              className="mt-1"
             />
-            {fieldErrors.fullDescription && (
-              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{fieldErrors.fullDescription}</span>
-              </p>
-            )}
           </div>
         </div>
       </div>
 
       {/* ── 2. Pricing & Visibility ───────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6" id="section-pricing">
-        <div className="border-b border-[#F3F7F7] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
+        <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
+          2. Commercial Pricing &amp; Visibility Status
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <h2 className="text-base font-bold text-[#102124]">
-              2. Commercial Pricing, Price Offer &amp; Visibility
-            </h2>
-            <p className="text-xs text-[#526267] mt-0.5">
-              Choose how your solution is priced and optionally run a promotional discount offer.
-            </p>
-          </div>
-        </div>
-
-        {/* Pricing Field Error */}
-        {(fieldErrors.price || fieldErrors.originalPrice) && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{fieldErrors.price || fieldErrors.originalPrice}</span>
-          </div>
-        )}
-
-        {/* Shared Phase 4 PricingOffersFields */}
-        <PricingOffersFields
-          value={{
-            priceMode,
-            price,
-            originalPrice,
-            priceQualifier,
-            dealType,
-            dealLabel,
-            dealStartsAt,
-            dealEndsAt,
-          }}
-          onChange={(patch: Partial<PricingOffersFormState>) => {
-            if (patch.priceMode !== undefined) setPriceMode(patch.priceMode);
-            if (patch.price !== undefined) setPrice(patch.price);
-            if (patch.originalPrice !== undefined)
-              setOriginalPrice(patch.originalPrice);
-            if (patch.priceQualifier !== undefined)
-              setPriceQualifier(patch.priceQualifier);
-            if (patch.dealType !== undefined) setDealType(patch.dealType);
-            if (patch.dealLabel !== undefined) setDealLabel(patch.dealLabel);
-            if (patch.dealStartsAt !== undefined)
-              setDealStartsAt(patch.dealStartsAt);
-            if (patch.dealEndsAt !== undefined) setDealEndsAt(patch.dealEndsAt);
-          }}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F3F7F7]">
-          <div>
-            <Label className="text-xs font-semibold text-[#102124]">
-              Publishing Status
-            </Label>
+            <Label className="text-xs font-semibold text-[#102124]">Pricing Mode</Label>
             <select
-              value={moderationHold ? "DRAFT" : status}
-              disabled={moderationHold}
-              onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761] disabled:opacity-60 disabled:cursor-not-allowed"
+              value={priceMode}
+              onChange={(e) => setPriceMode(e.target.value as any)}
+              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
             >
-              <option value="PUBLISHED" disabled={moderationHold}>
-                Published (Live on Public Showcase)
-              </option>
-              <option value="DRAFT">
-                {moderationHold
-                  ? "Draft (Locked by Admin Moderation Hold)"
-                  : "Draft (Saved Privately)"}
-              </option>
+              <option value="FIXED">Fixed Price (INR)</option>
+              <option value="STARTING_FROM">Starting From (INR)</option>
+              <option value="CONTACT">Contact for Quote</option>
             </select>
           </div>
 
+          {priceMode !== "CONTACT" && (
+            <div>
+              <Label className="text-xs font-semibold text-[#102124]">Price (INR) *</Label>
+              <Input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="24999"
+                required
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {priceMode === "FIXED" && (
+            <div>
+              <Label className="text-xs font-semibold text-[#102124]">
+                Original Price (INR) (Optional)
+              </Label>
+              <Input
+                type="number"
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                placeholder="Must be > selling price"
+                className="mt-1"
+              />
+            </div>
+          )}
+
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">
-              Live Demo URL (Optional)
-            </Label>
+            <Label className="text-xs font-semibold text-[#102124]">Publishing Status</Label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
+            >
+              <option value="PUBLISHED">Published (Visible on Showcase)</option>
+              <option value="DRAFT">Draft (Internal Architecture Only)</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-3">
+            <Label className="text-xs font-semibold text-[#102124]">Live Demo URL (Optional)</Label>
             <Input
               type="url"
               value={demoUrl}
@@ -1573,9 +1462,6 @@ export function PartnerSolutionForm({
               className="mt-1"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
           {/* Featured Solution Toggle Card */}
           <div className="sm:col-span-6 pt-1">
@@ -1639,27 +1525,38 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 3. Project Photos & Screenshots Gallery ─────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6" id="section-photos">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
         <div className="border-b border-[#F3F7F7] pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold text-[#102124] flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-[#155761]" />
               3. Project Photos &amp; Screenshots Gallery
             </h2>
-            <span className="text-xs font-medium text-[#526267]">
-              {photos.length} {photos.length === 1 ? "photo" : "photos"} added
-            </span>
+            <div className="flex items-center gap-2">
+              {photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleSortAllPhotosByName}
+                  title="Sort automatically by filename/caption: 1-9, A-Z"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F3F7F7] hover:bg-[#E8F3F4] text-[#155761] border border-[#BEDEE1] text-xs font-semibold shadow-2xs transition active:scale-95 cursor-pointer"
+                >
+                  <ArrowDownAZ className="w-3.5 h-3.5 text-[#155761]" />
+                  <span>Auto-Sort by Name (1-9 / A-Z)</span>
+                </button>
+              )}
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-100 text-[#526267]">
+                {photos.length} {photos.length === 1 ? "photo" : "photos"} added
+              </span>
+            </div>
           </div>
 
           {/* Explanation Banner */}
           <div className="mt-3 p-3.5 rounded-2xl bg-[#E8F3F4]/80 border border-[#BEDEE1] text-xs text-[#155761] flex items-start gap-2.5">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-[#155761]" />
             <div>
-              <p className="font-semibold">Why is there a Primary Image?</p>
+              <p className="font-semibold">Reordering &amp; Primary Cover</p>
               <p className="mt-0.5 text-[#2D5B60] leading-relaxed">
-                The <strong>Primary Cover Image</strong> is the main card thumbnail displayed across the catalog listing (<code>/projects</code>), home page cards, and search results.
-                All other images become <strong>Gallery Screenshots</strong> on your solution&apos;s detail page, allowing buyers to see your dashboards, mobile views, and feature walkthroughs.
-                Use the <strong>★ Set as Primary</strong> button on any photo to choose your cover image!
+                Photos are <strong>automatically sorted by filename</strong> (1-9, A-Z) when uploaded. You can also <strong>click, hold &amp; drag</strong> any photo to your desired position, or use the <strong>arrow buttons (← ↑ ↓ →)</strong> to nudge positions. The top-left badge marks the <strong>Primary Cover Image</strong> shown on catalog cards.
               </p>
             </div>
           </div>
@@ -1677,43 +1574,16 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
-        {/* Inline Field Error for Cover Photo */}
-        {fieldErrors.photos && (
-          <div
-            id="error-photos"
-            className="p-4 bg-rose-50 border border-rose-300 rounded-2xl text-xs text-rose-800 flex items-start gap-3 font-medium animate-in fade-in duration-150 shadow-xs"
-          >
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
-            <div>
-              <p className="font-bold text-rose-900 text-sm">Cover Photo Required</p>
-              <p className="text-rose-700 text-xs mt-0.5 leading-relaxed">
-                {fieldErrors.photos}
+        {/* Active Uploading Banner */}
+        {isUploadingPhoto && (
+          <div className="flex items-center gap-3 p-4 bg-[#DDF4EC] border border-[#2F7D78]/40 rounded-2xl text-xs text-[#155761] font-semibold animate-pulse shadow-xs">
+            <Loader2 className="w-5 h-5 animate-spin shrink-0 text-[#2F7D78]" />
+            <div className="space-y-0.5">
+              <p className="font-bold">{uploadProgress || "Uploading & Optimizing Photo(s)..."}</p>
+              <p className="text-[11px] text-[#2D5B60] font-normal">
+                Transferring screenshots to secure storage and generating gallery thumbnails. Please wait a moment.
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Single Authoritative Upload Status Displayer */}
-        {isUploadingPhoto && (
-          <div className="p-4 bg-[#F0FAF7] border border-[#2F7D78]/30 rounded-2xl space-y-2.5 shadow-xs animate-in fade-in duration-200">
-            <div className="flex items-center justify-between text-xs font-semibold text-[#155761]">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#2F7D78]" />
-                <span className="font-bold">{uploadProgress || "Uploading screenshots..."}</span>
-              </div>
-              <span className="font-mono text-xs font-bold text-[#2F7D78]">
-                {uploadStats ? `${uploadStats.percent}%` : "In Progress"}
-              </span>
-            </div>
-            <div className="w-full bg-[#D9E2E4] h-2.5 rounded-full overflow-hidden">
-              <div
-                className="bg-[#155761] h-full rounded-full transition-all duration-300"
-                style={{ width: `${uploadStats?.percent ?? 50}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-[#526267]">
-              Optimizing resolution and securing image assets. Please wait a moment.
-            </p>
           </div>
         )}
 
@@ -1727,9 +1597,7 @@ export function PartnerSolutionForm({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`space-y-3 p-4 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
-              fieldErrors.photos
-                ? "border-rose-400 bg-rose-50/20"
-                : dragActive
+              dragActive
                 ? "border-[#155761] bg-[#F3F7F7]"
                 : "border-[#D9E2E4] bg-white hover:border-[#155761]/50 hover:bg-[#F8FAFA]"
             }`}
@@ -1739,6 +1607,11 @@ export function PartnerSolutionForm({
                 <Upload className="w-3.5 h-3.5 text-[#155761]" />
                 Upload Photos from Device
               </Label>
+              {isUploadingPhoto && (
+                <span className="text-[11px] font-bold text-[#155761] flex items-center gap-1">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-[#526267]">
               Drag &amp; drop screenshots here or click anywhere in this box to browse (PNG, JPG, WebP up to 5MB each). Recommended 1200×675 px (16:9).
@@ -1751,10 +1624,25 @@ export function PartnerSolutionForm({
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
             />
+            {isUploadingPhoto && (
+              <div className="p-3 bg-[#EBF7F5] border border-[#2F7D78]/30 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-[#155761]">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2F7D78]" />
+                    {uploadProgress || "Uploading & processing photo(s)..."}
+                  </span>
+                  <span>Please wait</span>
+                </div>
+                <div className="w-full bg-[#D9E2E4] h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#155761] h-full w-2/3 animate-pulse rounded-full" />
+                </div>
+              </div>
+            )}
             <Button
               type="button"
               variant="outline"
               disabled={isUploadingPhoto}
+              isLoading={isUploadingPhoto}
               onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();
@@ -1764,7 +1652,7 @@ export function PartnerSolutionForm({
               {isUploadingPhoto ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#155761]" />
-                  <span>Uploading in progress...</span>
+                  <span>{uploadProgress || "Uploading Photo(s)... Please wait"}</span>
                 </>
               ) : (
                 <>
@@ -1816,28 +1704,7 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
-        {/* Photos Grid Toolbar */}
-        {photos.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 pb-1">
-            <p className="text-xs text-[#526267] flex items-center gap-1.5">
-              <GripVertical className="w-3.5 h-3.5 text-[#155761]" />
-              <span>Click, hold &amp; drag cards to reorder, use arrow buttons, or auto-sort.</span>
-            </p>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAutoSortPhotos}
-              className="text-xs h-8 gap-1.5 rounded-xl border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-[#155761] font-semibold cursor-pointer shadow-2xs self-start sm:self-auto"
-            >
-              <ArrowDownAZ className="w-3.5 h-3.5 text-[#155761]" />
-              <span>Auto-Sort (1–9, A–Z)</span>
-            </Button>
-          </div>
-        )}
-
-        {/* Photos Grid */}
+        {/* Photos Grid & Uploading Skeleton Cards */}
         {photos.length === 0 && !isUploadingPhoto ? (
           <div className="text-center py-8 px-4 rounded-2xl border-2 border-dashed border-[#D9E2E4] bg-[#F8FAFA]">
             <ImageIcon className="w-8 h-8 text-[#526267] mx-auto mb-2 opacity-50" />
@@ -1848,155 +1715,166 @@ export function PartnerSolutionForm({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {photos.map((photo, idx) => {
-              const isDragging = draggedPhotoIdx === idx;
-              const isDragOver = dragOverPhotoIdx === idx;
-
-              return (
-                <div
-                  key={photo.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedPhotoIdx(idx);
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    if (dragOverPhotoIdx !== idx) setDragOverPhotoIdx(idx);
-                  }}
-                  onDragLeave={() => {
-                    if (dragOverPhotoIdx === idx) setDragOverPhotoIdx(null);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedPhotoIdx !== null && draggedPhotoIdx !== idx) {
-                      handleReorderPhotos(draggedPhotoIdx, idx);
-                    }
-                    setDraggedPhotoIdx(null);
-                    setDragOverPhotoIdx(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedPhotoIdx(null);
-                    setDragOverPhotoIdx(null);
-                  }}
-                  className={`relative rounded-2xl border transition-all overflow-hidden flex flex-col justify-between bg-white cursor-grab active:cursor-grabbing select-none ${
-                    isDragging
-                      ? "opacity-40 border-dashed border-[#155761] ring-2 ring-[#155761]"
-                      : isDragOver
-                      ? "border-[#155761] ring-2 ring-[#155761] ring-offset-2 scale-[1.02] shadow-lg"
-                      : photo.isPrimary
-                      ? "border-[#155761] ring-2 ring-[#155761]/30 shadow-md"
-                      : "border-[#D9E2E4] shadow-2xs hover:border-[#BEDEE1]"
-                  }`}
-                >
-                  {/* Thumbnail Preview with loading indicator */}
-                  <div className="relative aspect-video w-full bg-slate-100 overflow-hidden group">
-                    {!loadedImages[photo.id] && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] z-5">
-                        <Loader2 className="w-5 h-5 animate-spin text-[#155761] mb-1.5" />
-                        <span className="text-[10px] font-semibold text-[#526267]">Loading preview...</span>
-                      </div>
-                    )}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt={photo.altText || "Project photo"}
-                      onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
-                      onError={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
-                      className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none ${
-                        loadedImages[photo.id] ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-
-                    {/* Primary Cover Badge */}
-                    {photo.isPrimary ? (
-                      <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-[#155761] text-white text-[11px] font-bold shadow-md flex items-center gap-1.5 backdrop-blur-xs z-10">
-                        <Star className="w-3.5 h-3.5 fill-current text-amber-300" />
-                        Primary Cover
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSetPrimaryPhoto(photo.id);
-                        }}
-                        className="absolute top-2 left-2 px-2 py-1 rounded-full bg-black/60 hover:bg-[#155761] text-white text-[11px] font-medium shadow-xs transition-colors flex items-center gap-1 backdrop-blur-xs cursor-pointer opacity-90 hover:opacity-100 z-10"
-                      >
-                        <Star className="w-3 h-3" />
-                        Make Primary
-                      </button>
-                    )}
-
-                    {/* Drag Handle & 4-Way Reorder Controls */}
-                    <div
-                      className="absolute top-2 right-2 flex items-center gap-1 bg-black/65 backdrop-blur-xs p-1 rounded-xl shadow-xs z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Drag Handle indicator */}
-                      <span
-                        className="flex items-center gap-0.5 text-[10px] text-white/90 px-1 py-0.5 cursor-grab active:cursor-grabbing font-medium"
-                        title="Click, hold & drag to reorder"
-                      >
-                        <GripVertical className="w-3.5 h-3.5 text-white/80" />
-                        <span className="hidden sm:inline">Drag</span>
-                      </span>
-
-                      <span className="w-px h-3.5 bg-white/20" />
-
-                      {/* Move 1 step left */}
-                      {idx > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMovePhoto(idx, "left")}
-                          title="Move 1 step left (←)"
-                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {/* Move earlier / Up */}
-                      {idx > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMovePhoto(idx, "up")}
-                          title="Move earlier / Up (↑)"
-                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {/* Move later / Down */}
-                      {idx < photos.length - 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMovePhoto(idx, "down")}
-                          title="Move later / Down (↓)"
-                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {/* Move 1 step right */}
-                      {idx < photos.length - 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMovePhoto(idx, "right")}
-                          title="Move 1 step right (→)"
-                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+            {isUploadingPhoto && (
+              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2.5 p-4 text-center shadow-md animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-[#155761]/10 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#155761]" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-[#155761] block">
+                    {uploadProgress || "Uploading screenshot..."}
+                  </span>
+                  <span className="text-[11px] text-[#526267] mt-0.5 block">
+                    Processing screenshot &amp; adding to gallery
+                  </span>
+                </div>
+              </div>
+            )}
+            {photos.map((photo, idx) => (
+              <div
+                key={photo.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", String(idx));
+                  e.dataTransfer.effectAllowed = "move";
+                  setDraggedPhotoIndex(idx);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverPhotoIndex !== idx) {
+                    setDragOverPhotoIndex(idx);
+                  }
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragOverPhotoIndex(idx);
+                }}
+                onDragLeave={() => {
+                  if (dragOverPhotoIndex === idx) {
+                    setDragOverPhotoIndex(null);
+                  }
+                }}
+                onDragEnd={() => {
+                  setDraggedPhotoIndex(null);
+                  setDragOverPhotoIndex(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const rawFrom = e.dataTransfer.getData("text/plain");
+                  const fromIdx = draggedPhotoIndex ?? (rawFrom ? parseInt(rawFrom, 10) : NaN);
+                  if (!isNaN(fromIdx) && fromIdx !== idx) {
+                    handleMovePhotoToPosition(fromIdx, idx);
+                  }
+                  setDraggedPhotoIndex(null);
+                  setDragOverPhotoIndex(null);
+                }}
+                className={`relative rounded-2xl border transition-all overflow-hidden flex flex-col justify-between bg-white cursor-grab active:cursor-grabbing ${
+                  draggedPhotoIndex === idx
+                    ? "opacity-40 scale-95 border-dashed border-[#155761] shadow-none"
+                    : dragOverPhotoIndex === idx
+                    ? "ring-4 ring-[#155761]/30 border-[#155761] scale-[1.02] shadow-md"
+                    : photo.isPrimary
+                    ? "border-[#155761] ring-2 ring-[#155761]/30 shadow-md"
+                    : "border-[#D9E2E4] shadow-2xs hover:border-[#BEDEE1]"
+                }`}
+              >
+                {/* Thumbnail Preview with loading indicator */}
+                <div className="relative aspect-video w-full bg-slate-100 overflow-hidden group">
+                  {!loadedImages[photo.id] && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] z-5">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#155761] mb-1.5" />
+                      <span className="text-[10px] font-semibold text-[#526267]">Loading preview...</span>
                     </div>
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.url}
+                    alt={photo.altText || "Project photo"}
+                    onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                    onError={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                      loadedImages[photo.id] ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+
+                  {/* Primary Cover Badge */}
+                  {photo.isPrimary ? (
+                    <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-[#155761] text-white text-[11px] font-bold shadow-md flex items-center gap-1.5 backdrop-blur-xs z-10">
+                      <Star className="w-3.5 h-3.5 fill-current text-amber-300" />
+                      Primary Cover
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSetPrimaryPhoto(photo.id)}
+                      className="absolute top-2 left-2 px-2 py-1 rounded-full bg-black/60 hover:bg-[#155761] text-white text-[11px] font-medium shadow-xs transition-colors flex items-center gap-1 backdrop-blur-xs cursor-pointer opacity-90 hover:opacity-100 z-10"
+                    >
+                      <Star className="w-3 h-3" />
+                      Make Primary
+                    </button>
+                  )}
+
+                  {/* Center Drag Handle Pill */}
+                  <div
+                    title="Click, hold & drag to reorder this card"
+                    className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-[10px] font-medium shadow-xs flex items-center gap-1 backdrop-blur-xs select-none opacity-85 hover:opacity-100 z-10 cursor-grab active:cursor-grabbing"
+                  >
+                    <GripVertical className="w-3 h-3" />
+                    <span>Drag</span>
                   </div>
 
-                  {/* Photo Details & Actions */}
-                  <div
-                    className="p-3.5 space-y-2.5 bg-white"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  {/* 4-Way Reorder Controls */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl shadow-xs z-10">
+                    {/* Move 1 step left */}
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "left")}
+                        title="Move 1 step left (←)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Move earlier / Up */}
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "up")}
+                        title="Move earlier / Up (↑)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Move later / Down */}
+                    {idx < photos.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "down")}
+                        title="Move later / Down (↓)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Move 1 step right */}
+                    {idx < photos.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMovePhoto(idx, "right")}
+                        title="Move 1 step right (→)"
+                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Photo Details & Actions */}
+                <div className="p-3.5 space-y-2.5">
                   <div>
                     <Label className="text-[11px] font-semibold text-[#526267]">
                       Caption / Alt Text
@@ -2140,6 +2018,7 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
+      {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-whats-included">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F7F7] pb-3">
           <div className="flex items-center gap-2.5">
@@ -2162,7 +2041,7 @@ export function PartnerSolutionForm({
               type="button"
               onClick={() => {
                 setWhatsIncluded((prev) => prev.slice(0, 20));
-                toast.success("What's Included has been trimmed to 20 items.");
+                setSuccessNotice("What's Included has been trimmed to 20 items.");
                 setErrorItems((prev) => prev.filter((item) => item.field !== "whatsIncluded"));
               }}
               className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"
@@ -2171,13 +2050,6 @@ export function PartnerSolutionForm({
             </button>
           )}
         </div>
-
-        {fieldErrors.whatsIncluded && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{fieldErrors.whatsIncluded}</span>
-          </div>
-        )}
 
         <div className="space-y-2">
           {whatsIncluded.map((item, idx) => (
@@ -2247,7 +2119,7 @@ export function PartnerSolutionForm({
               type="button"
               onClick={() => {
                 setFeatures((prev) => prev.slice(0, 25));
-                toast.success("Key Features has been trimmed to 25 features.");
+                setSuccessNotice("Key Features has been trimmed to 25 features.");
                 setErrorItems((prev) => prev.filter((item) => item.field !== "features"));
               }}
               className="text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 px-3 py-1 rounded-xl transition cursor-pointer self-start sm:self-auto shadow-2xs"
@@ -2256,13 +2128,6 @@ export function PartnerSolutionForm({
             </button>
           )}
         </div>
-
-        {fieldErrors.features && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{fieldErrors.features}</span>
-          </div>
-        )}
 
         <div className="space-y-2">
           {features.map((f, idx) => (
@@ -2307,17 +2172,10 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 7. Technical Specifications ───────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-specifications">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
         <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
           7. Technical Specifications (Key-Value)
         </h2>
-
-        {fieldErrors.specifications && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{fieldErrors.specifications}</span>
-          </div>
-        )}
 
         <div className="space-y-2">
           {specifications.map((s, idx) => (
@@ -2365,18 +2223,11 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 8. FAQs ───────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-faqs">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
         <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3 flex items-center gap-2">
           <HelpCircle className="w-4 h-4 text-[#155761]" />
           8. Frequently Asked Questions
         </h2>
-
-        {fieldErrors.faqs && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{fieldErrors.faqs}</span>
-          </div>
-        )}
 
         <div className="space-y-3">
           {faqs.map((faq, idx) => (

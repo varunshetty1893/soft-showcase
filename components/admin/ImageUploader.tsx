@@ -19,6 +19,8 @@ import {
   Check,
   Edit2,
   Image as ImageIcon,
+  GripVertical,
+  ArrowDownAZ,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +41,7 @@ export interface ProjectImageItem {
 }
 
 interface ImageUploaderProps {
-  projectId?: string;
+  projectId: string;
   initialImages?: ProjectImageItem[];
   onImagesChange?: (images: ProjectImageItem[]) => void;
 }
@@ -52,6 +54,8 @@ export function ImageUploader({
   const [images, setImages] = React.useState<ProjectImageItem[]>(initialImages);
   const [uploading, setUploading] = React.useState(false);
   const [dragActive, setDragActive] = React.useState(false);
+  const [draggedCardIndex, setDraggedCardIndex] = React.useState<number | null>(null);
+  const [dragOverCardIndex, setDragOverCardIndex] = React.useState<number | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [editingAltId, setEditingAltId] = React.useState<string | null>(null);
   const [altTextDraft, setAltTextDraft] = React.useState<string>("");
@@ -80,7 +84,50 @@ export function ImageUploader({
     return null;
   }
 
-  // Upload handler
+  // Drop reorder function (Click, hold & drag to any position)
+  async function handleDropReorder(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= images.length || toIndex < 0 || toIndex >= images.length) return;
+    const reordered = [...images];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+
+    const updated = reordered.map((img, idx) => ({ ...img, sortOrder: idx }));
+    notifyChange(updated);
+
+    try {
+      await fetch(`/api/admin/projects/${projectId}/images/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageIds: updated.map((img) => img.id) }),
+      });
+    } catch (err) {
+      console.error("Reorder sync error:", err);
+    }
+  }
+
+  // Auto-sort by name (alphanumeric 1-9 / A-Z)
+  async function handleSortByName() {
+    if (images.length <= 1) return;
+    const reordered = [...images].sort((a, b) => {
+      const nameA = a.altText || a.url || "";
+      const nameB = b.altText || b.url || "";
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+    });
+    const updated = reordered.map((img, idx) => ({ ...img, sortOrder: idx, isPrimary: idx === 0 }));
+    notifyChange(updated);
+
+    try {
+      await fetch(`/api/admin/projects/${projectId}/images/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageIds: updated.map((img) => img.id) }),
+      });
+    } catch (err) {
+      console.error("Sort sync error:", err);
+    }
+  }
+
+  // Upload handler with automatic alphanumeric natural sort (1-9, A-Z)
   async function handleFilesUpload(files: FileList | File[]) {
     if (!files || files.length === 0) return;
     setErrorMessage(null);
@@ -91,7 +138,12 @@ export function ImageUploader({
       return;
     }
 
-    const filesToUpload = Array.from(files).slice(0, availableSlots);
+    // Sort files naturally by name before uploading
+    const sortedFiles = Array.from(files).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+    );
+
+    const filesToUpload = sortedFiles.slice(0, availableSlots);
     setUploading(true);
 
     try {
@@ -106,9 +158,7 @@ export function ImageUploader({
 
         const formData = new FormData();
         formData.append("file", file);
-        if (projectId) {
-          formData.append("projectId", projectId);
-        }
+        formData.append("projectId", projectId);
         formData.append("isPrimary", String(uploadedImages.length === 0));
 
         const res = await fetch("/api/admin/uploads", {
@@ -124,7 +174,19 @@ export function ImageUploader({
         }
       }
 
-      notifyChange(uploadedImages);
+      // Auto-sort uploaded images if they have numerical or alphabetical names
+      uploadedImages.sort((a, b) => {
+        const nameA = a.altText || a.url || "";
+        const nameB = b.altText || b.url || "";
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+      });
+
+      const updated = uploadedImages.map((img, idx) => ({
+        ...img,
+        sortOrder: idx,
+      }));
+
+      notifyChange(updated);
     } catch (err) {
       console.error("Upload error:", err);
       setErrorMessage("Network error occurred during image upload.");
@@ -158,15 +220,6 @@ export function ImageUploader({
 
   // Set primary image
   async function handleSetPrimary(imageId: string) {
-    if (!projectId) {
-      const updated = images.map((img) => ({
-        ...img,
-        isPrimary: img.id === imageId,
-      }));
-      notifyChange(updated);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
         method: "PATCH",
@@ -192,15 +245,6 @@ export function ImageUploader({
 
   // Save alt text
   async function handleSaveAlt(imageId: string) {
-    if (!projectId) {
-      const updated = images.map((img) =>
-        img.id === imageId ? { ...img, altText: altTextDraft.trim() || null } : img
-      );
-      notifyChange(updated);
-      setEditingAltId(null);
-      return;
-    }
-
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
         method: "PATCH",
@@ -226,14 +270,7 @@ export function ImageUploader({
 
   // Delete image
   async function handleDelete(imageId: string) {
-    if (!projectId) {
-      let updated = images.filter((img) => img.id !== imageId);
-      if (images.find((img) => img.id === imageId)?.isPrimary && updated.length > 0) {
-        updated = updated.map((img, idx) => ({ ...img, isPrimary: idx === 0 }));
-      }
-      notifyChange(updated);
-      return;
-    }
+    if (!confirm("Are you sure you want to delete this screenshot?")) return;
 
     try {
       const res = await fetch(`/api/admin/projects/${projectId}/images/${imageId}`, {
@@ -281,8 +318,6 @@ export function ImageUploader({
     const updated = reordered.map((img, idx) => ({ ...img, sortOrder: idx }));
     notifyChange(updated);
 
-    if (!projectId) return;
-
     // Persist new order to server
     try {
       await fetch(`/api/admin/projects/${projectId}/images/reorder`, {
@@ -297,19 +332,32 @@ export function ImageUploader({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-bold text-[#102124] flex items-center gap-2">
             <ImageIcon className="w-4 h-4 text-[#155761]" />
             Project Screenshots
           </h3>
           <p className="text-xs text-[#526267] mt-0.5">
-            Upload screenshots for the catalog gallery. Star one image as the primary cover.
+            Upload screenshots for the catalog gallery. Star one image as the primary cover. Drag cards or use arrows to reorder.
           </p>
         </div>
-        <span className="text-xs font-semibold px-2 py-1 rounded bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761]">
-          {images.length} / {MAX_IMAGES_PER_PROJECT} images
-        </span>
+        <div className="flex items-center gap-2">
+          {images.length > 1 && (
+            <button
+              type="button"
+              onClick={handleSortByName}
+              title="Sort automatically by filename/caption: 1-9, A-Z"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F3F7F7] hover:bg-[#E8F3F4] text-[#155761] border border-[#BEDEE1] text-xs font-semibold shadow-2xs transition active:scale-95 cursor-pointer"
+            >
+              <ArrowDownAZ className="w-3.5 h-3.5 text-[#155761]" />
+              <span>Auto-Sort by Name (1-9 / A-Z)</span>
+            </button>
+          )}
+          <span className="text-xs font-semibold px-2 py-1 rounded bg-[#F3F7F7] border border-[#D9E2E4] text-[#155761]">
+            {images.length} / {MAX_IMAGES_PER_PROJECT} images
+          </span>
+        </div>
       </div>
 
       {errorMessage && (
@@ -371,8 +419,50 @@ export function ImageUploader({
           {images.map((img, idx) => (
             <div
               key={img.id}
-              className={`relative bg-white border rounded-xl overflow-hidden shadow-xs group transition-all ${
-                img.isPrimary ? "border-[#155761] ring-2 ring-[#155761]/20" : "border-[#D9E2E4]"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", String(idx));
+                e.dataTransfer.effectAllowed = "move";
+                setDraggedCardIndex(idx);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (dragOverCardIndex !== idx) {
+                  setDragOverCardIndex(idx);
+                }
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragOverCardIndex(idx);
+              }}
+              onDragLeave={() => {
+                if (dragOverCardIndex === idx) {
+                  setDragOverCardIndex(null);
+                }
+              }}
+              onDragEnd={() => {
+                setDraggedCardIndex(null);
+                setDragOverCardIndex(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const rawFrom = e.dataTransfer.getData("text/plain");
+                const fromIdx = draggedCardIndex ?? (rawFrom ? parseInt(rawFrom, 10) : NaN);
+                if (!isNaN(fromIdx) && fromIdx !== idx) {
+                  handleDropReorder(fromIdx, idx);
+                }
+                setDraggedCardIndex(null);
+                setDragOverCardIndex(null);
+              }}
+              className={`relative bg-white border rounded-xl overflow-hidden shadow-xs group transition-all cursor-grab active:cursor-grabbing ${
+                draggedCardIndex === idx
+                  ? "opacity-40 scale-95 border-dashed border-[#155761] shadow-none"
+                  : dragOverCardIndex === idx
+                  ? "ring-4 ring-[#155761]/30 border-[#155761] scale-[1.02] shadow-md"
+                  : img.isPrimary
+                  ? "border-[#155761] ring-2 ring-[#155761]/20 shadow-xs"
+                  : "border-[#D9E2E4] hover:border-[#155761]/40"
               }`}
             >
               {/* Thumbnail */}
@@ -384,6 +474,7 @@ export function ImageUploader({
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   className="object-cover"
                   referrerPolicy="no-referrer"
+                  unoptimized={img.url.startsWith("data:")}
                 />
 
                 {/* Primary Badge or Make Primary Button */}
@@ -402,6 +493,15 @@ export function ImageUploader({
                     Make Primary
                   </button>
                 )}
+
+                {/* Center Drag Handle Pill */}
+                <div
+                  title="Click, hold & drag to reorder this card"
+                  className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-[10px] font-medium shadow-xs flex items-center gap-1 backdrop-blur-xs select-none opacity-85 hover:opacity-100 z-10 cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical className="w-3 h-3" />
+                  <span>Drag</span>
+                </div>
 
                 {/* 4-Way Reorder Controls (Left, Up, Down, Right) */}
                 <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl shadow-xs z-10">
