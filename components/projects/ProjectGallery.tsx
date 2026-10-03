@@ -25,6 +25,24 @@ interface ProjectGalleryProps {
   projectTitle: string;
 }
 
+function isOptimizableImage(url?: string | null): boolean {
+  if (!url) return false;
+  if (url.startsWith("/")) return true;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === "res.cloudinary.com" ||
+      parsed.hostname === "images.unsplash.com" ||
+      parsed.hostname === "picsum.photos" ||
+      parsed.hostname === "lh3.googleusercontent.com" ||
+      parsed.hostname === "raw.githubusercontent.com" ||
+      parsed.hostname === "avatars.githubusercontent.com"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
@@ -135,7 +153,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
             fill
             priority
             sizes="(max-width: 1024px) 100vw, 850px"
-            unoptimized={currentImage.url.startsWith("data:")}
+            unoptimized={!isOptimizableImage(currentImage.url)}
             referrerPolicy="no-referrer"
             className="object-contain transition-transform duration-300 group-hover/card:scale-[1.01]"
           />
@@ -241,7 +259,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                   alt={img.altText || `${projectTitle} preview thumbnail ${idx + 1}`}
                   fill
                   sizes="120px"
-                  unoptimized={img.url.startsWith("data:")}
+                  unoptimized={!isOptimizableImage(img.url)}
                   referrerPolicy="no-referrer"
                   className="object-cover"
                 />
@@ -361,7 +379,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                   alt={currentImage.altText || `${projectTitle} screenshot`}
                   fill
                   sizes="100vw"
-                  unoptimized={currentImage.url.startsWith("data:")}
+                  unoptimized={!isOptimizableImage(currentImage.url)}
                   referrerPolicy="no-referrer"
                   className="object-contain"
                 />
@@ -417,7 +435,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                       alt={img.altText || `Screenshot ${idx + 1}`}
                       fill
                       sizes="80px"
-                      unoptimized={img.url.startsWith("data:")}
+                      unoptimized={!isOptimizableImage(img.url)}
                       referrerPolicy="no-referrer"
                       className="object-cover"
                     />
