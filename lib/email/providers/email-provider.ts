@@ -50,7 +50,12 @@ export class GmailSmtpProvider implements EmailProvider {
       this.secure = this.port === 465;
     }
 
-    this.user = (process.env.SMTP_USER || process.env.EMAIL_FROM || "").trim();
+    let configuredUser = (process.env.SMTP_USER || process.env.EMAIL_FROM || "").trim();
+    // Auto-heal common typo: Google App Password was generated for softshowcase1@gmail.com
+    if (configuredUser.toLowerCase() === "softshowcase@gmail.com") {
+      configuredUser = "softshowcase1@gmail.com";
+    }
+    this.user = configuredUser;
     // Strip accidental spaces from Google App Password (e.g. "abcd efgh ijkl mnop" -> "abcdefghijklmnop")
     this.pass = (process.env.SMTP_PASSWORD || "").replace(/\s+/g, "");
     this.defaultFrom = process.env.EMAIL_FROM || this.user;
@@ -160,6 +165,23 @@ export class GmailSmtpProvider implements EmailProvider {
           console.error(
             `[Email:GmailSmtpProvider] Fallback delivery attempt also failed on port ${fallbackPort}: ${fallbackMsg}`
           );
+        }
+      }
+
+      // If authentication failed with 535 and user was not softshowcase1@gmail.com, retry with softshowcase1@gmail.com
+      const isAuthError = primaryMsg.includes("535") || primaryMsg.includes("BadCredentials") || primaryMsg.includes("Username and Password not accepted");
+      if (isAuthError && this.user !== "softshowcase1@gmail.com") {
+        console.info("[Email:GmailSmtpProvider] Attempting retry with corrected Gmail account softshowcase1@gmail.com...");
+        try {
+          this.user = "softshowcase1@gmail.com";
+          const retryTransporter = this.createTransporter(this.port, this.secure);
+          const info = await retryTransporter.sendMail(mailOptions);
+          return {
+            success: true,
+            messageId: info.messageId,
+          };
+        } catch (authRetryError) {
+          console.error("[Email:GmailSmtpProvider] Credential retry failed:", authRetryError);
         }
       }
 

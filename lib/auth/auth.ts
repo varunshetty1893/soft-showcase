@@ -156,6 +156,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async createUser({ user }) {
       if (user.id && user.email) {
         const normalizedEmail = user.email.toLowerCase().trim();
+        // Google OAuth signups are pre-verified by Google — immediately guarantee emailVerified
+        const userVerified = (user as { emailVerified?: Date | null }).emailVerified;
+        await db.user.update({
+          where: { id: user.id },
+          data: { emailVerified: userVerified || new Date() },
+        }).catch((e) => console.error("[Auth] Error setting emailVerified on createUser:", e));
         await bootstrapAdminOnVerification(user.id, normalizedEmail);
         await linkVerifiedUserRecords(user.id, normalizedEmail);
       }
