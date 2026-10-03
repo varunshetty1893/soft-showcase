@@ -80,9 +80,9 @@ export class GmailSmtpProvider implements EmailProvider {
       },
       // Force IPv4 to prevent "Client network socket disconnected" on platforms with unrouted IPv6
       family: 4,
-      connectionTimeout: 12000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      connectionTimeout: 8000,
+      greetingTimeout: 6000,
+      socketTimeout: 10000,
       requireTLS: !secure && port === 587,
       tls: {
         servername: isGmail ? "smtp.gmail.com" : this.host,

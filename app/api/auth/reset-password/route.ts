@@ -32,6 +32,8 @@ const VerifyAndResetSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number"),
 });
 
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const ip = await getRequestIp(req);
@@ -107,14 +109,21 @@ export async function POST(req: NextRequest) {
         expiresInMinutes: 15,
       });
 
-      sendEmail({
-        to: email,
-        subject,
-        html,
-        text,
-      }).catch((emailErr) => {
-        console.error("[Reset Password] Background email error:", emailErr);
-      });
+      try {
+        const emailResult = await sendEmail({
+          to: email,
+          subject,
+          html,
+          text,
+        });
+        if (emailResult.success) {
+          console.info(`[Reset Password] Password reset code email sent to ${email} (MessageId: ${emailResult.messageId})`);
+        } else {
+          console.error(`[Reset Password] Password reset email failed for ${email}:`, emailResult.error);
+        }
+      } catch (emailErr) {
+        console.error("[Reset Password] Email error:", emailErr);
+      }
 
       return NextResponse.json({
         success: true,

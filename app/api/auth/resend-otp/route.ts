@@ -14,6 +14,8 @@ const GENERIC_RESEND_RESPONSE = {
   message: "If an unverified account exists with this email address, a new verification code has been sent.",
 };
 
+export const maxDuration = 30;
+
 export async function POST(req: Request) {
   try {
     const ip = await getRequestIp(req);
@@ -70,14 +72,21 @@ export async function POST(req: Request) {
         normalizedEmail
       )}&token=${otp}`;
 
-      sendVerificationEmail(normalizedEmail, {
-        userName: pending.name || "there",
-        otp,
-        verifyUrl,
-        expiresInMinutes: 15,
-      }).catch((err) => {
+      try {
+        const emailResult = await sendVerificationEmail(normalizedEmail, {
+          userName: pending.name || "there",
+          otp,
+          verifyUrl,
+          expiresInMinutes: 15,
+        });
+        if (emailResult.success) {
+          console.info(`[Resend OTP] Verification OTP email resent to ${normalizedEmail} (MessageId: ${emailResult.messageId})`);
+        } else {
+          console.error(`[Resend OTP] Verification email failed for ${normalizedEmail}:`, emailResult.error);
+        }
+      } catch (err) {
         console.error("[Resend OTP] Background email error:", err);
-      });
+      }
 
       return Response.json(GENERIC_RESEND_RESPONSE);
     }
@@ -107,14 +116,21 @@ export async function POST(req: Request) {
         normalizedEmail
       )}&token=${otp}`;
 
-      sendVerificationEmail(normalizedEmail, {
-        userName: user.name || "there",
-        otp,
-        verifyUrl,
-        expiresInMinutes: 15,
-      }).catch((err) => {
+      try {
+        const emailResult = await sendVerificationEmail(normalizedEmail, {
+          userName: user.name || "there",
+          otp,
+          verifyUrl,
+          expiresInMinutes: 15,
+        });
+        if (emailResult.success) {
+          console.info(`[Resend OTP] Legacy verification OTP email resent to ${normalizedEmail} (MessageId: ${emailResult.messageId})`);
+        } else {
+          console.error(`[Resend OTP] Legacy verification email failed for ${normalizedEmail}:`, emailResult.error);
+        }
+      } catch (err) {
         console.error("[Resend OTP] Background email error:", err);
-      });
+      }
     }
 
     // Always return generic response to prevent account enumeration

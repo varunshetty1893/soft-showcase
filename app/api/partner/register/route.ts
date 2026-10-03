@@ -12,6 +12,8 @@ import { APP_URL } from "@/config/constants";
 import { generateSecureOtp, hashSecretToken } from "@/lib/utils/crypto";
 import { partnerRegisterLimiter, getRequestIp } from "@/lib/utils/rate-limit";
 
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const ip = await getRequestIp(req);
@@ -161,15 +163,22 @@ export async function POST(req: NextRequest) {
       normalizedEmail
     )}&token=${otp}&role=partner`;
 
-    // Send verification email asynchronously without blocking (Issue 24)
-    sendVerificationEmail(normalizedEmail, {
-      userName: name,
-      otp,
-      verifyUrl,
-      expiresInMinutes: 15,
-    }).catch((err) => {
-      console.error("[PartnerRegister] Background email delivery error:", err);
-    });
+    // Send verification email (await delivery so serverless lambda does not freeze before completion)
+    try {
+      const emailResult = await sendVerificationEmail(normalizedEmail, {
+        userName: name,
+        otp,
+        verifyUrl,
+        expiresInMinutes: 15,
+      });
+      if (emailResult.success) {
+        console.info(`[PartnerRegister] Verification OTP email successfully sent to ${normalizedEmail} (MessageId: ${emailResult.messageId})`);
+      } else {
+        console.error(`[PartnerRegister] Verification email failed for ${normalizedEmail}:`, emailResult.error);
+      }
+    } catch (err) {
+      console.error("[PartnerRegister] Verification email delivery error:", err);
+    }
 
     // Record audit log
     await recordAuditLog({

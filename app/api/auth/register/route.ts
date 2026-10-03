@@ -15,6 +15,8 @@ const GENERIC_SUCCESS_RESPONSE = {
   message: "If you do not have an account, a verification code has been sent to your email.",
 };
 
+export const maxDuration = 30;
+
 export async function POST(req: Request) {
   try {
     const ip = await getRequestIp(req);
@@ -69,13 +71,15 @@ export async function POST(req: Request) {
 
     if (existingVerifiedUser) {
       // Send "Account already exists / Reset your password" email without exposing status to caller (anti-enumeration)
-      sendAccountExistsEmail(normalizedEmail, {
-        userName: existingVerifiedUser.name || undefined,
-        loginUrl: `${APP_URL}/login`,
-        resetUrl: `${APP_URL}/forgot-password`,
-      }).catch((emailErr) => {
-        console.error("[Register] Background account-exists notification error:", emailErr);
-      });
+      try {
+        await sendAccountExistsEmail(normalizedEmail, {
+          userName: existingVerifiedUser.name || undefined,
+          loginUrl: `${APP_URL}/login`,
+          resetUrl: `${APP_URL}/forgot-password`,
+        });
+      } catch (emailErr) {
+        console.error("[Register] Account-exists notification error:", emailErr);
+      }
 
       // Return identical generic response to prevent user enumeration
       return Response.json({
@@ -119,15 +123,22 @@ export async function POST(req: Request) {
       normalizedEmail
     )}&token=${otp}`;
 
-    // Send verification email asynchronously
-    sendVerificationEmail(normalizedEmail, {
-      userName: name,
-      otp,
-      verifyUrl,
-      expiresInMinutes: 15,
-    }).catch((emailErr) => {
-      console.error("[Register] Background verification email delivery error:", emailErr);
-    });
+    // Send verification email (await delivery so serverless lambda does not freeze before completion)
+    try {
+      const emailResult = await sendVerificationEmail(normalizedEmail, {
+        userName: name,
+        otp,
+        verifyUrl,
+        expiresInMinutes: 15,
+      });
+      if (emailResult.success) {
+        console.info(`[Register] Verification OTP email successfully sent to ${normalizedEmail} (MessageId: ${emailResult.messageId})`);
+      } else {
+        console.error(`[Register] Verification email failed for ${normalizedEmail}:`, emailResult.error);
+      }
+    } catch (emailErr) {
+      console.error("[Register] Verification email delivery error:", emailErr);
+    }
 
     return Response.json({
       ...GENERIC_SUCCESS_RESPONSE,
