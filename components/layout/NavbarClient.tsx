@@ -43,10 +43,9 @@ const PUBLIC_NAV = [
 
 const CUSTOMER_NAV = [
   { label: "Browse Projects", href: "/projects" },
-  { label: "Custom Build",    href: "/custom-project" },
-  { label: "My Requests",     href: "/my-requests" },
-  { label: "My Orders",       href: "/my-transactions" },
-  { label: "Help & Support",  href: "/my-support" },
+  { label: "Categories",      href: "/#categories" },
+  { label: "How It Works",    href: "/#how-it-works" },
+  { label: "Partners",        href: "/become-a-partner" },
 ];
 
 const PARTNER_NAV = [
@@ -107,14 +106,13 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
   // Mobile customer quick-links (icons + labels shown in mobile drawer)
   const mobileCustomerLinks = [
-    { label: "Custom Build",   href: "/custom-project",   Icon: FileCode2 },
-    { label: "My Requests",    href: "/my-requests",       Icon: FileCode2 },
-    { label: "My Orders",      href: "/my-transactions",   Icon: Receipt },
-    { label: "My Inquiries",   href: "/my-inquiries",      Icon: MessageSquare },
-    { label: "Saved Projects", href: "/cart",              Icon: ShoppingBag },
-    { label: "Help & Support", href: "/my-support",        Icon: Headphones },
-    { label: "Profile",        href: "/profile",           Icon: User },
+    { label: "My Requests",      href: "/my-requests",       Icon: FileCode2 },
+    { label: "My Inquiries",     href: "/my-inquiries",      Icon: MessageSquare },
+    { label: "Orders & Receipts",href: "/my-transactions",   Icon: Receipt },
+    { label: "Help & Support",   href: "/my-support",        Icon: Headphones },
+    { label: "Profile Settings", href: "/profile",           Icon: User },
   ];
+
 
   const mobilePartnerLinks = [
     { label: "Partner Portal",  href: "/partner/dashboard",  Icon: Layers },

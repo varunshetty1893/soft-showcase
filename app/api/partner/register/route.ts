@@ -99,22 +99,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (existingUser?.emailVerified) {
-      if (!existingUser.passwordHash) {
-        return NextResponse.json(
-          { error: "This email is linked to an existing sign-in method. Sign in first, then contact support to apply as a partner." },
-          { status: 409 }
-        );
-      }
+    // If existingProvider already exists, prevent duplicate applications
+    // (handled above). If existingUser exists without a provider profile, allow them
+    // to stage a partner application verified via email OTP without blocking on legacy password method.
 
-      const isPasswordValid = await bcrypt.compare(password, existingUser.passwordHash);
-      if (!isPasswordValid) {
-        return NextResponse.json(
-          { error: "The supplied account credentials could not be verified." },
-          { status: 400 }
-        );
-      }
-    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const partnerApplication = {

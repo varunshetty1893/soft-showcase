@@ -85,9 +85,15 @@ async function materializePendingUserAtomically(
       // N5: If user already has emailVerified set, NEVER overwrite their password or name!
       if (existingUser && existingUser.emailVerified !== null) {
         if (partnerApplication) {
+          const updateData: Record<string, any> = {
+            role: existingUser.isAdmin ? existingUser.role : "solution_partner",
+          };
+          if (!existingUser.passwordHash && pending.passwordHash) {
+            updateData.passwordHash = pending.passwordHash;
+          }
           const upgradedUser = await tx.user.update({
             where: { id: existingUser.id },
-            data: { role: existingUser.isAdmin ? existingUser.role : "solution_partner" },
+            data: updateData,
           });
           await createPartnerProfile(upgradedUser.id);
           await tx.pendingRegistration.delete({ where: { email: normalizedEmail } });

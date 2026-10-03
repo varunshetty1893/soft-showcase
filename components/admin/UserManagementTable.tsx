@@ -471,8 +471,8 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
       </p>
 
       {/* Table Card */}
-      <div className="bg-white border border-[#D9E2E4] rounded-2xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto overflow-y-hidden [scrollbar-width:thin]">
+      <div className="bg-white border border-[#D9E2E4] rounded-2xl shadow-xs">
+        <div className="overflow-x-auto [scrollbar-width:thin] min-h-[300px]">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-[#D9E2E4] bg-[#F8FAFA] text-[#526267] text-left text-xs uppercase tracking-wider font-semibold">
@@ -498,8 +498,9 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                   </td>
                 </tr>
               ) : (
-                users.map((user) => {
+                users.map((user, idx) => {
                   const isSelf = user.id === currentAdminId;
+                  const openUpwards = idx >= users.length - 2 && users.length >= 2;
                   return (
                     <tr
                       key={user.id}
@@ -613,10 +614,16 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                                 <>
                                   {/* Backdrop */}
                                   <div
-                                    className="fixed inset-0 z-10"
+                                    className="fixed inset-0 z-20"
                                     onClick={() => setOpenMenuId(null)}
                                   />
-                                  <div className="absolute right-0 top-9 z-20 w-52 bg-white border border-[#D9E2E4] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                  <div
+                                    className={`absolute right-0 ${
+                                      openUpwards
+                                        ? "bottom-9 origin-bottom-right slide-in-from-bottom-2"
+                                        : "top-9 origin-top-right slide-in-from-top-2"
+                                    } z-30 w-52 bg-white border border-[#D9E2E4] rounded-xl shadow-xl overflow-hidden animate-in fade-in duration-150`}
+                                  >
                                     {/* Set Role */}
                                     <button
                                       onClick={() => {
