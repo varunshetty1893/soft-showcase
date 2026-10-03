@@ -373,7 +373,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
                   : "scale-100 cursor-zoom-in w-full h-full"
               }`}
             >
-              <div className="relative w-full h-[65vh] sm:h-[75vh]">
+              <div key={`lb-img-${currentImage.id || selectedIdx}`} className="relative w-full h-[65vh] sm:h-[75vh]">
                 <Image
                   src={currentImage.url}
                   alt={currentImage.altText || `${projectTitle} screenshot`}
