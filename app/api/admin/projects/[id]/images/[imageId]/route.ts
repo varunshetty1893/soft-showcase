@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { deleteImage } from "@/lib/storage/storage-service";
@@ -63,11 +64,33 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   }
 }
 
+const ImageUpdateSchema = z
+  .object({
+    altText: z.string().max(300, "Alt text must be under 300 characters").nullable().optional(),
+    isPrimary: z.boolean().optional(),
+    sortOrder: z.number().int("sortOrder must be a whole number").min(0).max(10000).optional(),
+  })
+  .strict();
+
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     await requireAdmin();
     const { id, imageId } = await params;
-    const body = await request.json();
+
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
+
+    // Clear 400 instead of letting a bad value (e.g. non-numeric sortOrder -> NaN) hit Prisma.
+    const parsed = ImageUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const input = parsed.data;
 
     const image = await db.projectImage.findUnique({
       where: { id: imageId, projectId: id },
@@ -77,23 +100,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    if (body.isPrimary === true) {
-      // Unset primary flag on other project images
-      await db.projectImage.updateMany({
-        where: { projectId: id },
-        data: { isPrimary: false },
-      });
-    }
+    const updated = await db.$transaction(async (tx) => {
+      if (input.isPrimary === true) {
+        // Unset primary flag on the other project images (atomic with the update below)
+        await tx.projectImage.updateMany({
+          where: { projectId: id, id: { not: imageId } },
+          data: { isPrimary: false },
+        });
+      }
 
-    const updated = await db.projectImage.update({
-      where: { id: imageId },
-      data: {
-        ...(body.altText !== undefined && {
-          altText: typeof body.altText === "string" ? body.altText.trim() || null : null,
-        }),
-        ...(body.isPrimary !== undefined && { isPrimary: Boolean(body.isPrimary) }),
-        ...(body.sortOrder !== undefined && { sortOrder: Number(body.sortOrder) }),
-      },
+      return tx.projectImage.update({
+        where: { id: imageId },
+        data: {
+          ...(input.altText !== undefined && { altText: input.altText?.trim() || null }),
+          ...(input.isPrimary !== undefined && { isPrimary: input.isPrimary }),
+          ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
+        },
+      });
     });
 
     // Revalidate public catalog, homepage, and project details (Issue 54)

@@ -83,7 +83,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to post message");
 
-      setMessages((prev) => [...prev, data.message]);
+      setMessages((prev: Message[]) => [...prev, data.message]);
       setReplyText("");
       setStatus("WAITING_CUSTOMER");
       toast.success("Reply sent to ticket thread.");
@@ -130,15 +130,28 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
         {status !== "RESOLVED" && (
           <Button
             size="sm"
+            disabled={loading}
             onClick={async () => {
-              setStatus("RESOLVED");
-              await fetch(`/api/admin/support/${ticket.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "RESOLVED" }),
-              });
-              toast.success("Support ticket marked as resolved.");
-              router.refresh();
+              setLoading(true);
+              try {
+                const res = await fetch(`/api/admin/support/${ticket.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "RESOLVED" }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                  toast.error(data.error || "Failed to mark ticket as resolved.");
+                  return;
+                }
+                setStatus("RESOLVED");
+                toast.success("Support ticket marked as resolved.");
+                router.refresh();
+              } catch {
+                toast.error("Network error. Please try again.");
+              } finally {
+                setLoading(false);
+              }
             }}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1"
           >
@@ -155,7 +168,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
         </h2>
 
         <div className="space-y-4 pt-2">
-          {messages.map((msg) => {
+          {messages.map((msg: Message) => {
             const isSenderAdmin = msg.senderRole === "admin";
 
             return (
@@ -189,7 +202,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
         </div>
 
         {/* Admin Reply Box */}
-        <form onSubmit={handleSendReply} className="pt-4 border-t border-gray-100 space-y-3">
+        <form onSubmit={(e: React.FormEvent<HTMLFormElement>) => handleSendReply(e)} className="pt-4 border-t border-gray-100 space-y-3">
           <Label className="text-xs font-semibold text-gray-700">Reply as Administrator</Label>
           <Textarea
             value={replyText}

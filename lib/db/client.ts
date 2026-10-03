@@ -4,7 +4,6 @@
 // In development, allows optional mock store strictly when USE_MOCK_DB=true or no DATABASE_URL.
 
 import { PrismaClient } from "@prisma/client";
-import { createMockPrismaClient } from "./mock/mock-store";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -30,6 +29,8 @@ function getClient(): PrismaClient {
 
   if (useMockDb) {
     if (!globalForPrisma.mockDb) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createMockPrismaClient } = require("./mock/mock-store");
       globalForPrisma.mockDb = createMockPrismaClient();
       console.warn(
         `[Database] Running with in-memory mock store (${
@@ -62,6 +63,8 @@ function getClient(): PrismaClient {
     } catch (err) {
       console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
       if (!globalForPrisma.mockDb) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { createMockPrismaClient } = require("./mock/mock-store");
         globalForPrisma.mockDb = createMockPrismaClient();
       }
       return globalForPrisma.mockDb;

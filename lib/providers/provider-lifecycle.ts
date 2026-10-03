@@ -7,7 +7,7 @@
 // - Permanent Delete Provider (only when removed and zero inquiries/transactions/tickets, atomic transaction, snapshot audit PROVIDER_DELETED)
 
 import { db, ensureAdditiveSchema } from "@/lib/db/client";
-import { writeAuditLog } from "@/lib/db/audit";
+import { writeAuditLog, createAuditLogTx } from "@/lib/db/audit";
 import { sendPartnerRemovedEmail } from "@/lib/email/email-service";
 export {
   getProviderStatusButtonSpec,
@@ -275,14 +275,50 @@ export async function removeProvider(params: {
   };
 
   const now = new Date();
-  const updated = await db.projectProvider.update({
-    where: { id: providerId },
-    data: {
-      isActive: false,
-      removedAt: now,
-      removedById: actorId,
-      removalReason: cleanReason.slice(0, 500),
-    },
+
+  // Atomically: soft-remove the provider, move every published solution to DRAFT and
+  // record the audit entry. Drafting (not just hiding) matters: otherwise restoring the
+  // provider would silently re-publish every previously live solution without review.
+  const { updated, draftedProjectIds } = await db.$transaction(async (tx) => {
+    const publishedProjects = await tx.project.findMany({
+      where: { providerId, status: "PUBLISHED" },
+      select: { id: true },
+    });
+    const draftedIds = publishedProjects.map((p: { id: string }) => p.id);
+
+    const provider = await tx.projectProvider.update({
+      where: { id: providerId },
+      data: {
+        isActive: false,
+        removedAt: now,
+        removedById: actorId,
+        removalReason: cleanReason.slice(0, 500),
+      },
+    });
+
+    if (draftedIds.length > 0) {
+      await tx.project.updateMany({
+        where: { id: { in: draftedIds } },
+        data: { status: "DRAFT" },
+      });
+    }
+
+    await createAuditLogTx(tx, {
+      userId: actorId,
+      action: "PROVIDER_REMOVED",
+      entityType: "ProjectProvider",
+      entityId: providerId,
+      details: {
+        displayName: existing.displayName,
+        email: existing.email,
+        reason: cleanReason,
+        notifyPartner,
+        impactCounts,
+        draftedProjectIds: draftedIds,
+      },
+    });
+
+    return { updated: provider, draftedProjectIds: draftedIds };
   });
 
   // Invalidate partner sessions by incrementing tokenVersion and revert role to customer.
@@ -313,24 +349,13 @@ export async function removeProvider(params: {
     }).catch((err) => console.error("[removeProvider] Email notification error:", err));
   }
 
-  await writeAuditLog({
-    actorId,
-    action: "PROVIDER_REMOVED",
-    entityType: "ProjectProvider",
-    entityId: providerId,
-    metadata: {
-      displayName: existing.displayName,
-      email: existing.email,
-      reason: cleanReason,
-      notifyPartner,
-      impactCounts,
-    },
-  });
-
   return {
     ok: true,
     status: 200,
-    message: `Provider "${existing.displayName}" has been removed.`,
+    message:
+      draftedProjectIds.length > 0
+        ? `Provider "${existing.displayName}" has been removed. ${draftedProjectIds.length} published solution(s) were moved to draft.`
+        : `Provider "${existing.displayName}" has been removed.`,
     provider: updated,
   };
 }
@@ -462,19 +487,26 @@ export async function permanentlyDeleteProvider(params: {
     };
   }
 
-  // Confirmation name is optional; if provided, validate case-insensitively against name or email
-  if (confirmName && confirmName.trim()) {
-    const typedLower = confirmName.trim().toLowerCase();
-    const nameLower = existing.displayName.trim().toLowerCase();
-    const emailLower = (existing.email || "").trim().toLowerCase();
+  // Irreversible action: the admin MUST type the provider name (or email).
+  // A blank confirmation is rejected, matching what the UI asks for.
+  const typedLower = (confirmName ?? "").trim().toLowerCase();
+  const nameLower = existing.displayName.trim().toLowerCase();
+  const emailLower = (existing.email || "").trim().toLowerCase();
 
-    if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Confirmation name must match "${existing.displayName}" or "${existing.email}".`,
-      };
-    }
+  if (!typedLower) {
+    return {
+      ok: false,
+      status: 400,
+      message: `Type the provider name "${existing.displayName}" to confirm permanent deletion.`,
+    };
+  }
+
+  if (typedLower !== nameLower && (!emailLower || typedLower !== emailLower)) {
+    return {
+      ok: false,
+      status: 400,
+      message: `Confirmation name must match "${existing.displayName}" or "${existing.email}".`,
+    };
   }
 
   const inquiriesCount = existing._count?.inquiries ?? 0;
@@ -512,6 +544,8 @@ export async function permanentlyDeleteProvider(params: {
     projectCount: projectIds.length,
   };
 
+  // Delete + audit snapshot are one atomic unit: if the audit row cannot be written the
+  // whole deletion rolls back, so data is never destroyed without a trail.
   await db.$transaction(async (tx) => {
     if (projectIds.length > 0) {
       await tx.projectImage.deleteMany({
@@ -524,14 +558,14 @@ export async function permanentlyDeleteProvider(params: {
     await tx.projectProvider.delete({
       where: { id: providerId },
     });
-  });
 
-  await writeAuditLog({
-    actorId,
-    action: "PROVIDER_DELETED",
-    entityType: "ProjectProvider",
-    entityId: providerId,
-    metadata: snapshot,
+    await createAuditLogTx(tx, {
+      userId: actorId,
+      action: "PROVIDER_DELETED",
+      entityType: "ProjectProvider",
+      entityId: providerId,
+      details: snapshot,
+    });
   });
 
   return {

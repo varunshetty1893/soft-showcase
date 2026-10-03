@@ -101,6 +101,111 @@ const DDL_STATEMENTS = [
      )
    )
    WHERE "searchText" IS NULL;`,
+
+  // 11. Transaction enums and table
+  `DO $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TransactionPaymentStatus') THEN
+      CREATE TYPE "TransactionPaymentStatus" AS ENUM ('PENDING', 'EVIDENCE_SUBMITTED', 'UNDER_REVIEW', 'VERIFIED', 'REJECTED', 'REFUNDED', 'DISPUTED', 'COMPLETED');
+    END IF;
+  END $$;`,
+  `DO $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TransactionProjectType') THEN
+      CREATE TYPE "TransactionProjectType" AS ENUM ('EXISTING_SOLUTION', 'CUSTOMIZED_EXISTING_SOLUTION', 'NEW_SOLUTION_FOR_CUSTOMER');
+    END IF;
+  END $$;`,
+  `DO $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TransactionDeliveryStatus') THEN
+      CREATE TYPE "TransactionDeliveryStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED');
+    END IF;
+  END $$;`,
+  `CREATE TABLE IF NOT EXISTS "transactions" (
+    "id" TEXT NOT NULL,
+    "transactionNumber" TEXT NOT NULL,
+    "enquiryId" TEXT,
+    "customerId" TEXT,
+    "customerName" TEXT NOT NULL,
+    "customerEmail" TEXT NOT NULL,
+    "customerWhatsapp" TEXT,
+    "partnerId" TEXT NOT NULL,
+    "solutionId" TEXT,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'INR',
+    "transactionDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "paymentMethod" TEXT NOT NULL DEFAULT 'UPI',
+    "utrNumber" TEXT,
+    "paymentStatus" "TransactionPaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentEvidenceUrl" TEXT,
+    "paymentEvidenceNotes" TEXT,
+    "projectType" "TransactionProjectType" NOT NULL DEFAULT 'EXISTING_SOLUTION',
+    "description" TEXT,
+    "deliveryStatus" "TransactionDeliveryStatus" NOT NULL DEFAULT 'PENDING',
+    "verifiedAt" TIMESTAMP(3),
+    "verifiedBy" TEXT,
+    "adminNotes" TEXT,
+    "verificationSource" TEXT NOT NULL DEFAULT 'manual_provider_submission',
+    "gateway" TEXT,
+    "gatewayOrderId" TEXT,
+    "gatewayPaymentId" TEXT,
+    "gatewaySignature" TEXT,
+    "gatewayVerifiedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "transactions_pkey" PRIMARY KEY ("id")
+  );`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "transactions_transactionNumber_key" ON "transactions"("transactionNumber");`,
+  `CREATE INDEX IF NOT EXISTS "transactions_partnerId_idx" ON "transactions"("partnerId");`,
+  `CREATE INDEX IF NOT EXISTS "transactions_customerId_idx" ON "transactions"("customerId");`,
+  `CREATE INDEX IF NOT EXISTS "transactions_paymentStatus_idx" ON "transactions"("paymentStatus");`,
+
+  // 12. SupportTicket enums and tables
+  `DO $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketStatus') THEN
+      CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'WAITING_ADMIN', 'RESOLVED', 'CLOSED');
+    END IF;
+  END $$;`,
+  `DO $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketPriority') THEN
+      CREATE TYPE "TicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
+    END IF;
+  END $$;`,
+  `CREATE TABLE IF NOT EXISTS "support_tickets" (
+    "id" TEXT NOT NULL,
+    "ticketNumber" TEXT NOT NULL,
+    "requesterId" TEXT NOT NULL,
+    "requesterRole" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "status" "TicketStatus" NOT NULL DEFAULT 'OPEN',
+    "priority" "TicketPriority" NOT NULL DEFAULT 'MEDIUM',
+    "assignedAdminId" TEXT,
+    "adminNotes" TEXT,
+    "resolvedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "support_tickets_pkey" PRIMARY KEY ("id")
+  );`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "support_tickets_ticketNumber_key" ON "support_tickets"("ticketNumber");`,
+  `CREATE INDEX IF NOT EXISTS "support_tickets_requesterId_idx" ON "support_tickets"("requesterId");`,
+  `CREATE INDEX IF NOT EXISTS "support_tickets_status_idx" ON "support_tickets"("status");`,
+  `CREATE TABLE IF NOT EXISTS "support_messages" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "senderId" TEXT NOT NULL,
+    "senderName" TEXT NOT NULL,
+    "senderRole" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "attachmentUrl" TEXT,
+    "attachmentName" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "support_messages_pkey" PRIMARY KEY ("id")
+  );`,
+  `CREATE INDEX IF NOT EXISTS "support_messages_ticketId_idx" ON "support_messages"("ticketId");`,
 ];
 
 async function main() {

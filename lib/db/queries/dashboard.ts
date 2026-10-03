@@ -9,6 +9,9 @@ export async function getAdminDashboardStats() {
     publishedProjects,
     draftProjects,
     totalProviders,
+    // "Active Builders" = providers that are genuinely live: active, approved,
+    // and not in a removed/soft-deleted state. Counting isActive=true alone
+    // inflates the figure with pending or suspended records.
     activeProviders,
     totalInquiries,
     newInquiries,
@@ -20,7 +23,13 @@ export async function getAdminDashboardStats() {
     db.project.count({ where: { status: "PUBLISHED" } }),
     db.project.count({ where: { status: "DRAFT" } }),
     db.projectProvider.count(),
-    db.projectProvider.count({ where: { isActive: true } }),
+    db.projectProvider.count({
+      where: {
+        isActive: true,
+        applicationStatus: "approved",
+        removedAt: null,
+      },
+    }),
     db.inquiry.count(),
     db.inquiry.count({ where: { status: "NEW" } }),
     db.customProjectRequest.count(),
@@ -34,13 +43,18 @@ export async function getAdminDashboardStats() {
     recentRequests,
     recentAuditLogs,
   ] = await Promise.all([
-    // Critical alert: Projects that are PUBLISHED but whose provider is inactive or has unconfirmed consent
+    // Critical alert: Projects that are PUBLISHED but whose provider is not
+    // fully valid (inactive, not approved, unconfirmed consent, or removed).
+    // Checking all four conditions prevents false negatives where e.g. a
+    // pending provider somehow has a published project.
     db.project.findMany({
       where: {
         status: "PUBLISHED",
         OR: [
           { provider: { isActive: false } },
+          { provider: { applicationStatus: { not: "approved" } } },
           { provider: { providerConsentConfirmed: false } },
+          { provider: { removedAt: { not: null } } },
         ],
       },
       select: {
@@ -52,7 +66,9 @@ export async function getAdminDashboardStats() {
             id: true,
             displayName: true,
             isActive: true,
+            applicationStatus: true,
             providerConsentConfirmed: true,
+            removedAt: true,
           },
         },
       },

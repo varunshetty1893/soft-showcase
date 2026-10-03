@@ -44,3 +44,13 @@ All user-visible behavior changes and security remediations are documented below
 - **N13 (Repository Hygiene)**: Removed stray `.local_mock_store.json`, `*.zip` deliverables, and `.snapshots/`, and added them to `.gitignore`.
 - **N14 (Reset-Password Route Consistency)**: Updated `app/api/auth/reset-password/route.ts` to use `await getRequestIp(req)`, handle `error: true` rate-limit results with `503`, and apply atomic attempt claiming (N6).
 
+
+## Phase 5 — Admin Workflow & Data Integrity Hardening
+
+- **Provider removal drafts published solutions**: `removeProvider` now moves every published project of the provider to `DRAFT` in the same transaction as the soft-removal and its `PROVIDER_REMOVED` audit entry (drafted ids are recorded). Restoring a provider can no longer silently re-publish old solutions without review.
+- **Permanent delete requires the typed confirmation**: a blank/incorrect confirmation is rejected by the API (400) and the UI button stays disabled until the provider name (or email) is typed. The `PROVIDER_DELETED` snapshot is now written *inside* the deletion transaction (new `createAuditLogTx`, which never swallows errors), so data is never destroyed without an audit trail.
+- **Partner status endpoint persists `adminNotes`** on the provider record, returns 404 for unknown providers, 409 for soft-removed ones (must be restored first), and writes its audit row atomically.
+- **Approval/rejection from the main provider table is audited**: the table now uses the audited `/status` endpoint, and the generic provider `PATCH` also writes an audit record (in one transaction with project drafting and role sync) whenever status or activation changes.
+- **Transaction verification is reversible**: moving a transaction out of `VERIFIED`/`COMPLETED` clears `verifiedAt`/`verifiedBy`; moving between verified states keeps the original verifier; unknown ids return 404; the audit row (with previous status) is atomic.
+- **Bulk project update uses a strict allow-list** (zod `.strict()`): unknown fields are rejected with 400 instead of being copied into Prisma data (also for admin-managed projects), unknown project ids return 404 and write nothing, ids are de-duplicated and capped, categories are validated, publishing requires an active/approved/consented/non-removed provider, and all writes + audit rows run in one transaction.
+- **Image ordering/update validation**: reorder rejects duplicate/empty/foreign ids (400) and writes contiguous unique `sortOrder` values; image `PATCH` validates `altText`/`isPrimary`/`sortOrder` (non-numeric `sortOrder` is a 400, not a 500) and swaps the primary flag atomically.

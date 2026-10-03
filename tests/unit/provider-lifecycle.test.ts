@@ -36,6 +36,7 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("@/lib/db/audit", () => ({
   writeAuditLog: vi.fn().mockResolvedValue(undefined),
+  createAuditLogTx: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/email/email-service", () => ({
@@ -43,7 +44,7 @@ vi.mock("@/lib/email/email-service", () => ({
 }));
 
 import { db } from "@/lib/db/client";
-import { writeAuditLog } from "@/lib/db/audit";
+import { writeAuditLog, createAuditLogTx } from "@/lib/db/audit";
 import {
   getProviderStatusButtonSpec,
   toggleProviderActiveState,
@@ -274,12 +275,23 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
         },
       });
       (db.supportTicket.count as any).mockResolvedValue(3);
-      (db.projectProvider.update as any).mockResolvedValue({
+
+      const txProviderUpdate = vi.fn().mockResolvedValue({
         id: "p-rem",
         displayName: "Acme Solutions",
         isActive: false,
         removedAt: new Date(),
       });
+      const txProjectFindMany = vi
+        .fn()
+        .mockResolvedValue([{ id: "proj-a" }, { id: "proj-b" }]);
+      const txProjectUpdateMany = vi.fn().mockResolvedValue({ count: 2 });
+      (db.$transaction as any).mockImplementation(async (cb: any) =>
+        cb({
+          project: { findMany: txProjectFindMany, updateMany: txProjectUpdateMany },
+          projectProvider: { update: txProviderUpdate },
+        })
+      );
 
       const res = await removeProvider({
         providerId: "p-rem",
@@ -290,7 +302,7 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
       });
 
       expect(res.ok).toBe(true);
-      expect(db.projectProvider.update).toHaveBeenCalledWith(
+      expect(txProviderUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "p-rem" },
           data: expect.objectContaining({
@@ -301,6 +313,15 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
         })
       );
 
+      // Published solutions are moved to DRAFT so a later restore cannot silently re-publish them.
+      expect(txProjectFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { providerId: "p-rem", status: "PUBLISHED" } })
+      );
+      expect(txProjectUpdateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["proj-a", "proj-b"] } },
+        data: { status: "DRAFT" },
+      });
+
       // Verify user tokenVersion is incremented and role set to customer, and isAdmin is NEVER touched
       expect(db.user.update).toHaveBeenCalledTimes(1);
       const userUpdateCall = (db.user.update as any).mock.calls[0][0];
@@ -310,12 +331,15 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
       });
       expect(userUpdateCall.data).not.toHaveProperty("isAdmin");
 
-      expect(writeAuditLog).toHaveBeenCalledWith(
+      // Audit is written inside the same transaction.
+      expect(createAuditLogTx).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           action: "PROVIDER_REMOVED",
           entityId: "p-rem",
-          metadata: expect.objectContaining({
+          details: expect.objectContaining({
             reason: "Policy violation",
+            draftedProjectIds: ["proj-a", "proj-b"],
             impactCounts: {
               projects: 4,
               inquiries: 2,
@@ -400,7 +424,31 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
       expect(db.projectProvider.delete).not.toHaveBeenCalled();
     });
 
-    it("permanently deletes a removed provider with zero protected records and logs PROVIDER_DELETED snapshot", async () => {
+    it("rejects permanent delete when the confirmation name is blank or wrong", async () => {
+      (db.projectProvider.findUnique as any).mockResolvedValue({
+        id: "p-clean",
+        displayName: "Clean Test Provider",
+        email: "clean@example.com",
+        userId: "user-clean",
+        removedAt: new Date("2026-03-01T00:00:00Z"),
+        projects: [],
+        _count: { projects: 0, inquiries: 0, transactions: 0 },
+      });
+
+      for (const confirmName of ["", "   ", "Some Other Provider"]) {
+        const res = await permanentlyDeleteProvider({
+          providerId: "p-clean",
+          confirmName,
+          actorId: "admin-1",
+        });
+        expect(res.ok).toBe(false);
+        expect(res.status).toBe(400);
+      }
+      expect(db.$transaction).not.toHaveBeenCalled();
+      expect(createAuditLogTx).not.toHaveBeenCalled();
+    });
+
+    it("permanently deletes a removed provider with zero protected records and writes the PROVIDER_DELETED snapshot inside the transaction", async () => {
       (db.projectProvider.findUnique as any).mockResolvedValue({
         id: "p-clean",
         displayName: "Clean Test Provider",
@@ -415,32 +463,63 @@ describe("Phase 2 — Provider Management (Toggle & Remove/Restore/Delete)", () 
         },
       });
       (db.supportTicket.count as any).mockResolvedValue(0);
+      const txProviderDelete = vi.fn().mockResolvedValue({});
       (db.$transaction as any).mockImplementation(async (cb: any) => {
         return cb({
           projectImage: { deleteMany: vi.fn().mockResolvedValue({ count: 2 }) },
           project: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
-          projectProvider: { delete: vi.fn().mockResolvedValue({}) },
+          projectProvider: { delete: txProviderDelete },
         });
       });
 
       const res = await permanentlyDeleteProvider({
         providerId: "p-clean",
-        confirmName: "Clean Test Provider",
+        confirmName: "clean test provider",
         actorId: "admin-1",
       });
 
       expect(res.ok).toBe(true);
-      expect(writeAuditLog).toHaveBeenCalledWith(
+      expect(txProviderDelete).toHaveBeenCalled();
+      expect(createAuditLogTx).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           action: "PROVIDER_DELETED",
           entityId: "p-clean",
-          metadata: expect.objectContaining({
+          details: expect.objectContaining({
             displayName: "Clean Test Provider",
             email: "clean@example.com",
             projectIds: ["proj-1"],
           }),
         })
       );
+    });
+
+    it("does not report success if the audit write fails (deletion is rolled back with it)", async () => {
+      (db.projectProvider.findUnique as any).mockResolvedValue({
+        id: "p-clean",
+        displayName: "Clean Test Provider",
+        email: "clean@example.com",
+        userId: null,
+        removedAt: new Date("2026-03-01T00:00:00Z"),
+        projects: [],
+        _count: { projects: 0, inquiries: 0, transactions: 0 },
+      });
+      (createAuditLogTx as any).mockRejectedValueOnce(new Error("audit down"));
+      (db.$transaction as any).mockImplementation(async (cb: any) =>
+        cb({
+          projectImage: { deleteMany: vi.fn() },
+          project: { deleteMany: vi.fn() },
+          projectProvider: { delete: vi.fn().mockResolvedValue({}) },
+        })
+      );
+
+      await expect(
+        permanentlyDeleteProvider({
+          providerId: "p-clean",
+          confirmName: "Clean Test Provider",
+          actorId: "admin-1",
+        })
+      ).rejects.toThrow("audit down");
     });
   });
 });

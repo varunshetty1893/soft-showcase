@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
+import { createAuditLogTx } from "@/lib/db/audit";
 import { ProviderUpdateSchema } from "@/lib/validation/provider.schema";
 
 interface RouteParams {
@@ -50,7 +51,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
 
     const body = await request.json().catch(() => null);
@@ -109,46 +110,85 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       data.applicationStatus === "suspended" ||
       data.applicationStatus === "rejected";
 
-    const updated = await db.projectProvider.update({
-      where: { id },
-      data: {
-        ...(data.isActive !== undefined && { isActive: isApproving ? true : isDeactivating ? false : data.isActive }),
-        ...(data.applicationStatus !== undefined && { applicationStatus: data.applicationStatus }),
-        ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
-        ...(data.verificationStatus !== undefined && { verificationStatus: data.verificationStatus }),
-        ...(data.adminNotes !== undefined && { adminNotes: data.adminNotes }),
-        ...(data.showEmail !== undefined && { showEmail: data.showEmail }),
-        ...(data.showWhatsapp !== undefined && { showWhatsapp: data.showWhatsapp }),
-        ...(data.providerConsentConfirmed !== undefined && {
-          providerConsentConfirmed: data.providerConsentConfirmed,
-          providerConsentConfirmedAt: consentAt,
-        }),
-      },
-    });
+    const statusChanged =
+      data.applicationStatus !== undefined && data.applicationStatus !== existing.applicationStatus;
+    const activeChanged = data.isActive !== undefined && data.isActive !== existing.isActive;
 
-    // If provider is deactivated, demote their published projects to DRAFT
-    // so they are removed from the user side but remain as draft in the partner portal
-    if (isDeactivating) {
-      await db.project.updateMany({
-        where: {
-          providerId: id,
-          status: "PUBLISHED",
-        },
+    // Provider update, project drafting, role sync and audit are one atomic unit.
+    const updated = await db.$transaction(async (tx) => {
+      const provider = await tx.projectProvider.update({
+        where: { id },
         data: {
-          status: "DRAFT",
+          ...(data.isActive !== undefined && { isActive: isApproving ? true : isDeactivating ? false : data.isActive }),
+          ...(data.applicationStatus !== undefined && { applicationStatus: data.applicationStatus }),
+          ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
+          ...(data.verificationStatus !== undefined && { verificationStatus: data.verificationStatus }),
+          ...(data.adminNotes !== undefined && { adminNotes: data.adminNotes }),
+          ...(data.showEmail !== undefined && { showEmail: data.showEmail }),
+          ...(data.showWhatsapp !== undefined && { showWhatsapp: data.showWhatsapp }),
+          ...(data.providerConsentConfirmed !== undefined && {
+            providerConsentConfirmed: data.providerConsentConfirmed,
+            providerConsentConfirmedAt: consentAt,
+          }),
         },
       });
-    }
 
-    if (updated.userId && data.applicationStatus) {
-      await db.user.update({
-        where: { id: updated.userId },
-        data: {
-          role: data.applicationStatus === "approved" ? "solution_partner" : "customer",
-          ...(data.applicationStatus === "approved" ? { emailVerified: new Date() } : {}),
-        },
-      }).catch(() => null);
-    }
+      // If provider is deactivated, demote their published projects to DRAFT
+      // so they are removed from the user side but remain as draft in the partner portal
+      if (isDeactivating) {
+        await tx.project.updateMany({
+          where: {
+            providerId: id,
+            status: "PUBLISHED",
+          },
+          data: {
+            status: "DRAFT",
+          },
+        });
+      }
+
+      if (provider.userId && data.applicationStatus) {
+        await tx.user.updateMany({
+          where: { id: provider.userId },
+          data: {
+            role: data.applicationStatus === "approved" ? "solution_partner" : "customer",
+            ...(data.applicationStatus === "approved" ? { emailVerified: new Date() } : {}),
+          },
+        });
+      }
+
+      // Every approval-state or activation change leaves an audit record,
+      // regardless of which admin screen triggered it.
+      if (statusChanged || activeChanged) {
+        await createAuditLogTx(tx, {
+          userId: session.user.id,
+          action: statusChanged
+            ? `PARTNER_${String(data.applicationStatus).toUpperCase()}`
+            : provider.isActive
+            ? "PARTNER_ACTIVATED"
+            : "PARTNER_DEACTIVATED",
+          entityType: "ProjectProvider",
+          entityId: id,
+          details: {
+            displayName: existing.displayName,
+            previousState: {
+              applicationStatus: existing.applicationStatus,
+              verificationStatus: existing.verificationStatus,
+              isActive: existing.isActive,
+            },
+            newState: {
+              applicationStatus: provider.applicationStatus,
+              verificationStatus: provider.verificationStatus,
+              isActive: provider.isActive,
+            },
+            rejectionReason: data.rejectionReason ?? null,
+            adminNotes: data.adminNotes ?? null,
+          },
+        });
+      }
+
+      return provider;
+    });
 
     revalidatePath("/admin/providers");
     revalidatePath(`/admin/providers/${id}/edit`);

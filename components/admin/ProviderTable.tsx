@@ -252,11 +252,11 @@ export function ProviderTable({
   async function handleApprovePendingOrRejected(provider: ProviderRow) {
     setLoadingId(provider.id);
     try {
-      const res = await fetch(`/api/admin/providers/${provider.id}`, {
+      // Use the audited status endpoint (atomic: status + user role + audit record).
+      const res = await fetch(`/api/admin/providers/${provider.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: true,
           applicationStatus: "approved",
           verificationStatus: "verified",
           rejectionReason: null,
@@ -307,11 +307,11 @@ export function ProviderTable({
     if (!rejectModalProvider) return;
     setLoadingId(rejectModalProvider.id);
     try {
-      const res = await fetch(`/api/admin/providers/${rejectModalProvider.id}`, {
+      // Use the audited status endpoint (atomic: status + project drafting + audit record).
+      const res = await fetch(`/api/admin/providers/${rejectModalProvider.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: false,
           applicationStatus: "rejected",
           verificationStatus: "rejected",
           rejectionReason: rejectionReason.trim() || "Application did not meet platform criteria.",
@@ -1247,7 +1247,7 @@ export function ProviderTable({
 
             <div>
               <label className="block text-xs font-bold text-[#102124] mb-1.5">
-                Confirm Provider <span className="text-[#526267] font-normal normal-case">(optional — <span className="font-mono text-rose-600 font-bold">{deleteModalProvider.displayName}</span>)</span>
+                Type <span className="font-mono text-rose-600 font-bold">{deleteModalProvider.displayName}</span> to confirm
               </label>
               <input
                 type="text"
@@ -1273,7 +1273,7 @@ export function ProviderTable({
                 size="sm"
                 disabled={
                   loadingId === deleteModalProvider.id ||
-                  (Boolean(deleteConfirmName.trim()) && !isProviderConfirmMatch(deleteConfirmName, deleteModalProvider))
+                  !isProviderConfirmMatch(deleteConfirmName, deleteModalProvider)
                 }
                 onClick={handlePermanentDeleteConfirm}
               >

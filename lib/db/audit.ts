@@ -592,6 +592,36 @@ export async function createAuditLog(options: AuditOptions): Promise<void> {
   }
 }
 
+/**
+ * Transaction-bound audit writer. Unlike createAuditLog it never swallows errors:
+ * if the audit row cannot be written the surrounding transaction rolls back, so a
+ * privileged change can never be committed without its audit trail.
+ */
+export async function createAuditLogTx(
+  tx: Prisma.TransactionClient,
+  options: AuditOptions
+): Promise<void> {
+  const redactedDetails = options.details ? redactPayload(options.details) : null;
+  const searchText = buildAuditSearchText({
+    action: options.action,
+    entityType: options.entityType,
+    entityId: options.entityId,
+    userId: options.userId,
+    details: redactedDetails,
+  });
+
+  await tx.auditLog.create({
+    data: {
+      userId: options.userId ?? undefined,
+      action: options.action,
+      entityType: options.entityType,
+      entityId: options.entityId ?? undefined,
+      details: redactedDetails ? (redactedDetails as Prisma.InputJsonValue) : Prisma.JsonNull,
+      searchText,
+    } as any,
+  });
+}
+
 export const recordAuditLog = createAuditLog;
 
 export const writeAuditLog = async (options: {

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
+import { createAuditLogTx } from "@/lib/db/audit";
 import { PartnerStatusUpdateSchema } from "@/lib/validation/partner.schema";
 
 export async function PATCH(
@@ -22,7 +23,10 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
     const parsed = PartnerStatusUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -41,7 +45,33 @@ export async function PATCH(
       applicationStatus === "suspended" ||
       applicationStatus === "rejected";
 
-    // Atomically execute status change, project draft cascading, user role update, and audit log
+    const existing = await db.projectProvider.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        displayName: true,
+        applicationStatus: true,
+        verificationStatus: true,
+        isActive: true,
+        removedAt: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    }
+
+    // A soft-removed provider must go through the explicit Restore flow, never be
+    // re-approved implicitly through a status change.
+    if (existing.removedAt) {
+      return NextResponse.json(
+        { error: "This provider has been removed. Restore it before changing its status." },
+        { status: 409 }
+      );
+    }
+
+    // Atomically execute status change, project draft cascading, user role update, and audit log.
+    // Audit is written inside the transaction (and is NOT swallowed): no audit row, no change.
     const updated = await db.$transaction(async (tx) => {
       const provider = await tx.projectProvider.update({
         where: { id },
@@ -66,12 +96,15 @@ export async function PATCH(
               }),
           ...(rejectionReason !== undefined ? { rejectionReason } : {}),
           ...(verificationNotes !== undefined ? { verificationNotes } : {}),
+          // Persist the admin's internal note on the provider record, not only in the audit payload.
+          ...(adminNotes !== undefined ? { adminNotes } : {}),
         },
       });
 
+      let draftedCount = 0;
       if (isDeactivating) {
         // Deactivating partner: change all their published projects to DRAFT
-        await tx.project.updateMany({
+        const drafted = await tx.project.updateMany({
           where: {
             providerId: id,
             status: "PUBLISHED",
@@ -80,34 +113,40 @@ export async function PATCH(
             status: "DRAFT",
           },
         });
+        draftedCount = drafted.count;
       }
 
-      // Also update associated user role if approved and mark email verified so they can log in immediately
+      // Update the linked user's role (and mark email verified on approval so they can log in).
+      // updateMany so a missing/deleted user does not throw and abort the transaction.
       if (provider.userId) {
-        await tx.user.update({
+        await tx.user.updateMany({
           where: { id: provider.userId },
           data: {
             role: applicationStatus === "approved" ? "solution_partner" : "customer",
             ...(applicationStatus === "approved" ? { emailVerified: new Date() } : {}),
           },
-        }).catch(() => null);
+        });
       }
 
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: `PARTNER_${applicationStatus.toUpperCase()}`,
-          entityType: "ProjectProvider",
-          entityId: id,
-          details: {
-            applicationStatus,
-            verificationStatus,
-            rejectionReason,
-            adminNotes,
+      await createAuditLogTx(tx, {
+        userId: session.user.id,
+        action: `PARTNER_${applicationStatus.toUpperCase()}`,
+        entityType: "ProjectProvider",
+        entityId: id,
+        details: {
+          displayName: existing.displayName,
+          previousState: {
+            applicationStatus: existing.applicationStatus,
+            verificationStatus: existing.verificationStatus,
+            isActive: existing.isActive,
           },
+          applicationStatus,
+          verificationStatus: provider.verificationStatus,
+          rejectionReason: rejectionReason ?? null,
+          adminNotes: adminNotes ?? null,
+          draftedProjects: draftedCount,
         },
-      }).catch(() => null);
+      });
 
       return provider;
     });

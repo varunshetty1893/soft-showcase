@@ -1,15 +1,36 @@
 // app/api/admin/uploads/route.ts
 // Admin API endpoint for uploading project screenshots.
 // Source of truth: docs/24-image-storage.md & docs/15-api-architecture.md
+//
+// Architecture note — "new project" uploads (no projectId):
+//   Images uploaded before a project record exists are stored under
+//   soft-showcase/projects/new and returned as a temporary { id, url, storageKey }
+//   object. The caller (AdminProjectForm) must pass every storageKey back when the
+//   project is finally created (POST /api/admin/projects) so the server can move
+//   them into the project folder. Any storageKey that is never attached to a
+//   project becomes an orphan; a periodic Cloudinary admin job (or a server-side
+//   cleanup cron) is the appropriate remediation for that problem — it cannot be
+//   solved at the HTTP layer because there is no reliable "cancel" event in a
+//   stateless serverless environment.
+//
+// Architecture note — in-memory upload lock:
+//   `projectUploadLocks` serialises concurrent uploads within a single Node
+//   process instance. On Vercel each serverless invocation is isolated, so the
+//   map does NOT coordinate across concurrent instances. The lock is kept because
+//   it still eliminates races within one instance (local dev / single instance),
+//   and the double-count-check after upload provides a last-resort guard that
+//   detects over-limit uploads and triggers Cloudinary cleanup even when the lock
+//   was bypassed.
 
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
-import { validateImageFile, uploadImage } from "@/lib/storage/storage-service";
+import { validateImageFile, uploadImage, deleteImage } from "@/lib/storage/storage-service";
 import { MAX_IMAGES_PER_PROJECT } from "@/config/constants";
 
-// Mutex lock map to serialize concurrent uploads per project (Issue 28: Image Upload Race Condition)
+// Mutex lock map to serialise concurrent uploads per project within a single
+// Node process instance. See architecture note above for multi-instance caveats.
 const projectUploadLocks = new Map<string, Promise<unknown>>();
 
 async function withProjectLock<T>(projectId: string, fn: () => Promise<T>): Promise<T> {
@@ -49,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image file provided" }, { status: 400 });
     }
 
-    // 2. Validate image type, size, and real file magic bytes
+    // Validate image type, size, and real file magic bytes before touching storage.
     try {
       await validateImageFile(file);
     } catch (valErr) {
@@ -59,6 +80,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── New-project upload (no projectId yet) ─────────────────────────────────
+    // Upload to a staging folder and return a temporary descriptor. The caller is
+    // responsible for submitting every storageKey when the project is created.
+    // Orphaned images (project creation cancelled) must be cleaned up out-of-band.
     if (!projectId) {
       const result = await uploadImage(file, "soft-showcase/projects/new");
       return NextResponse.json(
@@ -77,22 +102,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Verify project exists
+    // ── Existing-project upload ───────────────────────────────────────────────
+
+    // Verify project exists before locking and uploading.
     const project = await db.project.findUnique({
       where: { id: projectId },
-      select: { id: true, title: true },
+      select: { id: true, slug: true, title: true },
     });
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Execute upload and database registration inside per-project lock to eliminate race conditions
+    // Execute upload and database registration inside per-project lock to
+    // eliminate within-instance race conditions on the image count check.
     return await withProjectLock(projectId, async () => {
-      // 3. Atomically validate image count inside lock
-      const imageCount = await db.projectImage.count({
-        where: { projectId },
-      });
+      // Check count BEFORE uploading to avoid wasting storage quota.
+      const imageCount = await db.projectImage.count({ where: { projectId } });
 
       if (imageCount >= MAX_IMAGES_PER_PROJECT) {
         return NextResponse.json(
@@ -101,22 +127,26 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 4. Upload to storage provider (Cloudinary)
+      // Upload to remote storage.
       const result = await uploadImage(file, `soft-showcase/projects/${projectId}`);
 
-      // Double-check count after upload
-      const freshCount = await db.projectImage.count({
-        where: { projectId },
-      });
+      // Re-check count after upload in case a concurrent serverless instance
+      // also uploaded between our first check and now. If the limit is exceeded,
+      // delete the just-uploaded image from Cloudinary and return an error so
+      // no orphan is left behind.
+      const freshCount = await db.projectImage.count({ where: { projectId } });
 
       if (freshCount >= MAX_IMAGES_PER_PROJECT) {
+        await deleteImage(result.storageKey).catch((e) =>
+          console.error("[uploads] Cleanup of over-limit upload failed:", e)
+        );
         return NextResponse.json(
           { error: `Maximum of ${MAX_IMAGES_PER_PROJECT} images reached.` },
           { status: 400 }
         );
       }
 
-      // If first image, enforce primary
+      // First image must always be primary.
       if (freshCount === 0) {
         isPrimary = true;
       }
@@ -128,7 +158,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Determine sort order
+      // Determine next sort order.
       const highestSort = await db.projectImage.findFirst({
         where: { projectId },
         orderBy: { sortOrder: "desc" },
@@ -136,7 +166,7 @@ export async function POST(request: NextRequest) {
       });
       const sortOrder = (highestSort?.sortOrder ?? -1) + 1;
 
-      // 5. Store image metadata in database
+      // Persist image metadata.
       const image = await db.projectImage.create({
         data: {
           projectId,
@@ -148,13 +178,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Revalidate project page and catalog caches (Issue 54)
+      // Revalidate public catalog, homepage, and project details.
       revalidatePath("/");
       revalidatePath("/projects");
-      if (project.title) {
-        const fullProj = await db.project.findUnique({ where: { id: projectId }, select: { slug: true } });
-        if (fullProj?.slug) revalidatePath(`/projects/${fullProj.slug}`);
-      }
+      if (project.slug) revalidatePath(`/projects/${project.slug}`);
 
       return NextResponse.json({ success: true, data: image }, { status: 201 });
     });
