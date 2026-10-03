@@ -16,11 +16,13 @@ import {
   UserCheck,
   Receipt,
   Headphones,
+  UserCog,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Projects", href: "/admin/projects", icon: FolderGit2 },
+  { label: "User Management", href: "/admin/users", icon: UserCog },
   { label: "Partners & Providers", href: "/admin/providers", icon: Users },
   { label: "Transactions & Evidence", href: "/admin/transactions", icon: Receipt },
   { label: "Support Tickets", href: "/admin/support", icon: Headphones },
