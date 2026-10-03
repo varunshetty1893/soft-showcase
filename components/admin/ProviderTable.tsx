@@ -9,7 +9,7 @@
 //   "Notify the partner by email" checkbox), Removed tab (with count, excluded from All Providers),
 //   Restore action, and Permanent Delete action (only on Removed tab when 0 inquiries/transactions/tickets).
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -108,6 +108,7 @@ export function ProviderTable({
 
   // Phase 2B: "⋯" menu & Remove provider modal
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openMenuPos, setOpenMenuPos] = useState<{ id: string; top: number; left: number } | null>(null);
   const [removeModalProvider, setRemoveModalProvider] = useState<ProviderRow | null>(null);
   const [removeReason, setRemoveReason] = useState("");
   const [removeConfirmName, setRemoveConfirmName] = useState("");
@@ -116,6 +117,17 @@ export function ProviderTable({
   // Phase 2B: Permanent delete modal (only from Removed tab)
   const [deleteModalProvider, setDeleteModalProvider] = useState<ProviderRow | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+  // Close ⋯ menu on scroll or click outside
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleScroll = () => {
+      setOpenMenuId(null);
+      setOpenMenuPos(null);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [openMenuId]);
 
   // Counts per tab ("All Providers" excludes removed ones per Phase 2B)
   const nonRemoved = providers.filter((p) => !p.removedAt);
@@ -599,7 +611,7 @@ export function ProviderTable({
 
       {/* Table */}
       <div className="bg-white border border-[#D9E2E4] rounded-2xl overflow-visible shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[160px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#D9E2E4] bg-[#F8FAFA] text-[#526267] text-left text-xs uppercase tracking-wider">
@@ -800,46 +812,34 @@ export function ProviderTable({
 
                         {/* Phase 2B: "⋯" More menu with Remove provider… */}
                         {!p.removedAt && (
-                          <div className="relative">
+                          <div className="relative" data-testid="provider-more-container">
                             <button
                               type="button"
                               aria-label="More provider actions"
                               data-testid={`provider-more-btn-${p.id}`}
-                              onClick={() =>
-                                setOpenMenuId((prev) => (prev === p.id ? null : p.id))
-                              }
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-[#526267] hover:text-[#102124] transition cursor-pointer"
+                              onClick={(e) => {
+                                if (openMenuId === p.id) {
+                                  setOpenMenuId(null);
+                                  setOpenMenuPos(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const openUpward = rect.bottom + 65 > window.innerHeight;
+                                  setOpenMenuId(p.id);
+                                  setOpenMenuPos({
+                                    id: p.id,
+                                    top: openUpward ? rect.top - 46 : rect.bottom + 4,
+                                    left: Math.max(12, rect.right - 192),
+                                  });
+                                }
+                              }}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border transition cursor-pointer ${
+                                openMenuId === p.id
+                                  ? "border-[#155761] bg-[#F3F7F7] text-[#155761]"
+                                  : "border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-[#526267] hover:text-[#102124]"
+                              }`}
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
-
-                            {openMenuId === p.id && (
-                              <div
-                                className="absolute right-0 mt-1.5 w-48 bg-white border border-[#D9E2E4] rounded-xl shadow-lg py-1.5 z-30 text-left"
-                                onMouseLeave={() => setOpenMenuId(null)}
-                              >
-                                <button
-                                  type="button"
-                                  disabled={!spec.canRemove}
-                                  title={
-                                    !spec.canRemove
-                                      ? "Cannot remove a provider linked to your own admin account."
-                                      : undefined
-                                  }
-                                  onClick={() => {
-                                    setOpenMenuId(null);
-                                    setRemoveModalProvider(p);
-                                    setRemoveReason("");
-                                    setRemoveConfirmName("");
-                                    setNotifyPartnerByEmail(true);
-                                  }}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Remove provider…</span>
-                                </button>
-                              </div>
-                            )}
                           </div>
                         )}
 
@@ -862,6 +862,53 @@ export function ProviderTable({
           </table>
         </div>
       </div>
+
+      {/* Floating 3-dots actions menu (Rendered outside table to prevent any scrollbars) */}
+      {openMenuId && openMenuPos && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-transparent"
+            onClick={() => {
+              setOpenMenuId(null);
+              setOpenMenuPos(null);
+            }}
+          />
+          <div
+            style={{ top: `${openMenuPos.top}px`, left: `${openMenuPos.left}px` }}
+            className="fixed w-48 bg-white border border-[#D9E2E4] rounded-xl shadow-xl py-1.5 z-50 text-left animate-in fade-in zoom-in-95 duration-100"
+            data-testid="provider-more-dropdown"
+          >
+            {(() => {
+              const p = providers.find((pr) => pr.id === openMenuId);
+              if (!p) return null;
+              const spec = getProviderStatusButtonSpec(p, currentAdminUserId);
+              return (
+                <button
+                  type="button"
+                  disabled={!spec.canRemove}
+                  title={
+                    !spec.canRemove
+                      ? "Cannot remove a provider linked to your own admin account."
+                      : undefined
+                  }
+                  onClick={() => {
+                    setOpenMenuId(null);
+                    setOpenMenuPos(null);
+                    setRemoveModalProvider(p);
+                    setRemoveReason("");
+                    setRemoveConfirmName("");
+                    setNotifyPartnerByEmail(true);
+                  }}
+                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove provider…</span>
+                </button>
+              );
+            })()}
+          </div>
+        </>
+      )}
 
       {/* ── Phase 2A: Deactivate Confirmation Modal ───────────────────────── */}
       {deactivateModalProvider && (

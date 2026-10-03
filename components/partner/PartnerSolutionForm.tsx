@@ -618,6 +618,8 @@ export function PartnerSolutionForm({
   const [error, setError] = React.useState<string | null>(null);
   const [errorItems, setErrorItems] = React.useState<SolutionErrorItem[]>([]);
   const [showErrorModal, setShowErrorModal] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  const [uploadStats, setUploadStats] = React.useState<{ current: number; total: number; percent: number } | null>(null);
 
   // ── Trimming & Auto-Fix Helpers ───────────────────────────────────────────
   const handleTrimField = (field: string) => {
@@ -747,21 +749,30 @@ export function PartnerSolutionForm({
     setNewPhotoUrl("");
     setNewPhotoCaption("");
     setError(null);
+    setFieldErrors((prev) => {
+      if (!prev.photos) return prev;
+      const next = { ...prev };
+      delete next.photos;
+      return next;
+    });
   };
 
   const processFilesUpload = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
+    const total = files.length;
     setIsUploadingPhoto(true);
-    setUploadProgress(`Preparing ${files.length} photo(s)...`);
+    setUploadStats({ current: 0, total, percent: 0 });
+    setUploadProgress(`Preparing ${total} photo(s)...`);
     setError(null);
 
     try {
       const addedPhotos: PhotoItem[] = [];
-      const total = files.length;
 
       for (let i = 0; i < total; i++) {
         const file = files[i];
+        const percent = Math.round(((i + 1) / total) * 100);
+        setUploadStats({ current: i + 1, total, percent });
         setUploadProgress(`Uploading photo ${i + 1} of ${total} (${file.name})...`);
 
         const formData = new FormData();
@@ -803,12 +814,19 @@ export function PartnerSolutionForm({
       }
 
       setPhotos((prev) => [...prev, ...addedPhotos]);
+      setFieldErrors((prev) => {
+        if (!prev.photos) return prev;
+        const next = { ...prev };
+        delete next.photos;
+        return next;
+      });
       setUploadProgress(null);
     } catch (err: any) {
       setError(err?.message || "Failed to upload image file");
     } finally {
       setIsUploadingPhoto(false);
       setUploadProgress(null);
+      setUploadStats(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -951,41 +969,29 @@ export function PartnerSolutionForm({
       .filter((faq) => faq.question && faq.question.trim() && faq.answer && faq.answer.trim())
       .map((faq, i) => ({ question: faq.question.trim(), answer: faq.answer.trim(), sortOrder: i + 1 }));
 
-    // ── Client-side Validations with instant Scroll-to-Top and Friendly Modal ──
-    const clientErrors: SolutionErrorItem[] = [];
+    // ── Client-side Field Validations ──
+    const newFieldErrors: Record<string, string> = {};
 
     if (!title.trim() || title.trim().length < 3) {
-      clientErrors.push({
-        field: "title",
-        title: "Solution Title Too Short",
-        message: "Please enter a solution title with at least 3 characters.",
-      });
+      newFieldErrors.title = "Please enter a solution title.";
+    }
+
+    if (!categoryId) {
+      newFieldErrors.categoryId = "Please select a category.";
     }
 
     if (!shortDescription.trim() || shortDescription.trim().length < 10) {
-      clientErrors.push({
-        field: "shortDescription",
-        title: "Short Description Needed",
-        message: "Please enter a short description of at least 10 characters.",
-      });
+      newFieldErrors.shortDescription = "Please enter a short description (at least 10 characters).";
     }
 
     if (!fullDescription.trim() || fullDescription.trim().length < 50) {
-      clientErrors.push({
-        field: "fullDescription",
-        title: "Overview Description Too Short",
-        message: `Please enter an overview description of at least 50 characters (currently ${fullDescription.trim().length} characters).`,
-      });
+      newFieldErrors.fullDescription = "Please enter an overview description (at least 50 characters).";
     }
 
     if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice <= 0) {
-        clientErrors.push({
-          field: "price",
-          title: "Valid Selling Price Required",
-          message: "Please enter a valid selling price amount greater than zero.",
-        });
+        newFieldErrors.price = "Please enter a valid price.";
       } else if (
         priceMode === "FIXED" &&
         originalPrice &&
@@ -993,73 +999,74 @@ export function PartnerSolutionForm({
         Number(originalPrice) > 0 &&
         Number(originalPrice) < numPrice
       ) {
-        clientErrors.push({
-          field: "originalPrice",
-          title: "Invalid Price Offer / Discount",
-          message: `Your regular price before discount (₹${Number(originalPrice).toLocaleString("en-IN")}) cannot be lower than your final selling price (₹${numPrice.toLocaleString("en-IN")}). Use the "Swap Prices" button in the Pricing section or clear the offer.`,
-        });
+        newFieldErrors.originalPrice = "Regular price before discount cannot be lower than the selling price.";
       }
     }
 
     if (photos.length === 0) {
-      clientErrors.push({
-        field: "photos",
-        title: "Cover Photo Required",
-        message: "Please add or upload at least one image or screenshot of your solution.",
-      });
+      newFieldErrors.photos = "Cover photo is required. Please upload or add at least one screenshot or cover image.";
     }
 
     if (activeWhatsIncluded.length > 20) {
-      clientErrors.push({
-        field: "whatsIncluded",
-        title: "Too Many Items in What's Included",
-        message: `You currently have ${activeWhatsIncluded.length} items. The system limit is 20. Please keep your top 20 main deliverables.`,
-        currentCount: activeWhatsIncluded.length,
-        maxLimit: 20,
-        canTrim: true,
-      });
+      newFieldErrors.whatsIncluded = `Too many items in What's Included (${activeWhatsIncluded.length}/20). Maximum 20 allowed.`;
     }
 
     if (activeFeatures.length > 25) {
-      clientErrors.push({
-        field: "features",
-        title: "Too Many Key Features",
-        message: `You currently have ${activeFeatures.length} features. The system limit is 25. Please keep your top 25 most important features.`,
-        currentCount: activeFeatures.length,
-        maxLimit: 25,
-        canTrim: true,
-      });
+      newFieldErrors.features = `Too many features (${activeFeatures.length}/25). Maximum 25 allowed.`;
     }
 
     if (activeSpecs.length > 25) {
-      clientErrors.push({
-        field: "specifications",
-        title: "Too Many Technical Specifications",
-        message: `You have ${activeSpecs.length} specifications. The system limit is 25 items.`,
-        currentCount: activeSpecs.length,
-        maxLimit: 25,
-        canTrim: true,
-      });
+      newFieldErrors.specifications = `Too many technical specifications (${activeSpecs.length}/25). Maximum 25 allowed.`;
     }
 
     if (activeFaqs.length > 20) {
-      clientErrors.push({
-        field: "faqs",
-        title: "Too Many FAQs",
-        message: `You have ${activeFaqs.length} FAQs. The system limit is 20 questions.`,
-        currentCount: activeFaqs.length,
-        maxLimit: 20,
-        canTrim: true,
-      });
+      newFieldErrors.faqs = `Too many FAQs (${activeFaqs.length}/20). Maximum 20 allowed.`;
     }
 
-    if (clientErrors.length > 0) {
-      setErrorItems(clientErrors);
-      setError("Please review and adjust the highlighted items below before saving.");
-      setShowErrorModal(true);
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      setError(null);
+      setErrorItems([]);
+      setShowErrorModal(false);
+
+      const fieldOrder = [
+        "title",
+        "categoryId",
+        "shortDescription",
+        "fullDescription",
+        "price",
+        "originalPrice",
+        "photos",
+        "whatsIncluded",
+        "features",
+        "specifications",
+        "faqs",
+      ];
+      const firstInvalid = fieldOrder.find((f) => newFieldErrors[f]) || Object.keys(newFieldErrors)[0];
+      const targetId =
+        firstInvalid === "photos"
+          ? "section-photos"
+          : firstInvalid === "price" || firstInvalid === "originalPrice"
+          ? "section-pricing"
+          : firstInvalid === "whatsIncluded"
+          ? "section-whats-included"
+          : firstInvalid === "features"
+          ? "section-features"
+          : firstInvalid === "specifications"
+          ? "section-specifications"
+          : firstInvalid === "faqs"
+          ? "section-faqs"
+          : `field-${firstInvalid}`;
+
       if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus?.();
+        }
       }
+
+      toast.error(newFieldErrors[firstInvalid]);
       setLoading(false);
       return;
     }
@@ -1166,12 +1173,46 @@ export function PartnerSolutionForm({
           technologies: validTechIds.length,
         });
 
-        setErrorItems(parsed);
-        setError("Please review and adjust the highlighted items below before saving.");
-        setShowErrorModal(true);
-        toast.error(resData.error || "Please check the highlighted validation errors.");
-        if (typeof window !== "undefined") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
+        const serverFieldErrors: Record<string, string> = {};
+        if (parsed.length > 0) {
+          for (const item of parsed) {
+            serverFieldErrors[item.field] = item.message;
+          }
+        }
+        if (resData.details?.fieldErrors) {
+          for (const [k, v] of Object.entries(resData.details.fieldErrors)) {
+            if (Array.isArray(v) && v.length > 0) {
+              serverFieldErrors[k] = String(v[0]);
+            }
+          }
+        }
+
+        if (Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors(serverFieldErrors);
+          const firstField = Object.keys(serverFieldErrors)[0];
+          const targetId =
+            firstField === "photos" || firstField === "images"
+              ? "section-photos"
+              : firstField === "price" || firstField === "originalPrice"
+              ? "section-pricing"
+              : firstField === "whatsIncluded"
+              ? "section-whats-included"
+              : firstField === "features"
+              ? "section-features"
+              : firstField === "specifications"
+              ? "section-specifications"
+              : firstField === "faqs"
+              ? "section-faqs"
+              : `field-${firstField}`;
+
+          if (typeof window !== "undefined") {
+            const el = document.getElementById(targetId);
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          toast.error(serverFieldErrors[firstField] || resData.error || "Please check the highlighted validation errors.");
+        } else {
+          setError(resData.error || "Failed to save solution. Please check your entries.");
+          toast.error(resData.error || "Failed to save solution.");
         }
         return;
       }
@@ -1187,17 +1228,6 @@ export function PartnerSolutionForm({
       const msg = err instanceof Error ? err.message : "An unexpected error occurred while saving.";
       setError(msg);
       toast.error(msg);
-      setErrorItems([
-        {
-          field: "general",
-          title: "Submission Error",
-          message: msg,
-        },
-      ]);
-      setShowErrorModal(true);
-      if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
     } finally {
       setLoading(false);
     }
@@ -1263,68 +1293,11 @@ export function PartnerSolutionForm({
         </div>
       )}
 
-      {/* ── Error Banner ─────────────────────────────────────────────── */}
-      {error && (
-        <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs space-y-3 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-rose-200/60">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
-              <div>
-                <p className="font-bold text-sm text-rose-900">Please review solution details</p>
-                <p className="text-xs text-rose-700">
-                  {errorItems.length === 1
-                    ? "1 item needs your attention before saving:"
-                    : `${errorItems.length} items need your attention before saving:`}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowErrorModal(true)}
-                className="px-3 py-1.5 bg-white border border-rose-200 hover:bg-rose-100/50 text-rose-900 rounded-xl text-xs font-semibold shadow-2xs transition cursor-pointer"
-              >
-                View Popup Guide
-              </button>
-              {errorItems.some((e) => e.canTrim) && (
-                <button
-                  type="button"
-                  onClick={handleAutoTrimAll}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
-                >
-                  Auto-Trim to Limits
-                </button>
-              )}
-            </div>
-          </div>
-
-          {errorItems.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {errorItems.map((item, idx) => (
-                <div key={idx} className="p-3.5 bg-white rounded-xl border border-rose-200 space-y-2 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-rose-900 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                      {item.title}
-                    </span>
-                    {item.canTrim && item.maxLimit && (
-                      <button
-                        type="button"
-                        onClick={() => handleTrimField(item.field)}
-                        className="text-[11px] font-bold text-[#155761] hover:text-[#0E3E45] underline cursor-pointer"
-                      >
-                        Trim to {item.maxLimit}
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-[#526267] leading-relaxed">{item.message}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-rose-700">{error}</p>
-          )}
+      {/* ── General Error Banner (only for non-field server errors) ──────── */}
+      {error && Object.keys(fieldErrors).length === 0 && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm shadow-xs flex items-center gap-3 animate-in fade-in duration-200">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+          <p className="font-semibold text-rose-800">{error}</p>
         </div>
       )}
 
@@ -1337,22 +1310,50 @@ export function PartnerSolutionForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <Label className="text-xs font-semibold text-[#102124]">Solution Title *</Label>
+            <Label htmlFor="field-title" className="text-xs font-semibold text-[#102124]">Solution Title *</Label>
             <Input
+              id="field-title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (fieldErrors.title) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.title;
+                    return next;
+                  });
+                }
+              }}
               placeholder="e.g. AI Resume & ATS Optimizer Platform"
               required
-              className="mt-1"
+              className={`mt-1 ${fieldErrors.title ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
             />
+            {fieldErrors.title && (
+              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{fieldErrors.title}</span>
+              </p>
+            )}
           </div>
 
           <div>
-            <Label className="text-xs font-semibold text-[#102124]">Architecture Category *</Label>
+            <Label htmlFor="field-categoryId" className="text-xs font-semibold text-[#102124]">Architecture Category *</Label>
             <select
+              id="field-categoryId"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                if (fieldErrors.categoryId) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.categoryId;
+                    return next;
+                  });
+                }
+              }}
+              className={`w-full h-10 px-3 mt-1 rounded-xl bg-white border text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761] ${
+                fieldErrors.categoryId ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : "border-[#D9E2E4]"
+              }`}
               required
             >
               {categories.map((c) => (
@@ -1361,6 +1362,12 @@ export function PartnerSolutionForm({
                 </option>
               ))}
             </select>
+            {fieldErrors.categoryId && (
+              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{fieldErrors.categoryId}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -1374,37 +1381,69 @@ export function PartnerSolutionForm({
           </div>
 
           <div className="sm:col-span-2">
-            <Label className="text-xs font-semibold text-[#102124]">
+            <Label htmlFor="field-shortDescription" className="text-xs font-semibold text-[#102124]">
               Short Teaser Description (Max 160 characters) *
             </Label>
             <Input
+              id="field-shortDescription"
               value={shortDescription}
-              onChange={(e) => setShortDescription(e.target.value)}
+              onChange={(e) => {
+                setShortDescription(e.target.value);
+                if (fieldErrors.shortDescription) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.shortDescription;
+                    return next;
+                  });
+                }
+              }}
               placeholder="A high-level 1-sentence summary displayed in search and catalog cards."
               maxLength={180}
               required
-              className="mt-1"
+              className={`mt-1 ${fieldErrors.shortDescription ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
             />
+            {fieldErrors.shortDescription && (
+              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{fieldErrors.shortDescription}</span>
+              </p>
+            )}
           </div>
 
           <div className="sm:col-span-2">
-            <Label className="text-xs font-semibold text-[#102124]">
+            <Label htmlFor="field-fullDescription" className="text-xs font-semibold text-[#102124]">
               Comprehensive Architecture &amp; System Overview *
             </Label>
             <Textarea
+              id="field-fullDescription"
               value={fullDescription}
-              onChange={(e) => setFullDescription(e.target.value)}
+              onChange={(e) => {
+                setFullDescription(e.target.value);
+                if (fieldErrors.fullDescription) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.fullDescription;
+                    return next;
+                  });
+                }
+              }}
               placeholder="Explain how the application works, setup requirements, data models, third-party services, and deployment architecture..."
               rows={6}
               required
-              className="mt-1"
+              className={`mt-1 ${fieldErrors.fullDescription ? "border-rose-400 focus:ring-rose-400 bg-rose-50/20" : ""}`}
             />
+            {fieldErrors.fullDescription && (
+              <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{fieldErrors.fullDescription}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* ── 2. Pricing & Visibility ───────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6" id="section-pricing">
         <div className="border-b border-[#F3F7F7] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-bold text-[#102124]">
@@ -1415,6 +1454,14 @@ export function PartnerSolutionForm({
             </p>
           </div>
         </div>
+
+        {/* Pricing Field Error */}
+        {(fieldErrors.price || fieldErrors.originalPrice) && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{fieldErrors.price || fieldErrors.originalPrice}</span>
+          </div>
+        )}
 
         {/* Shared Phase 4 PricingOffersFields */}
         <PricingOffersFields
@@ -1543,7 +1590,7 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 3. Project Photos & Screenshots Gallery ─────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6" id="section-photos">
         <div className="border-b border-[#F3F7F7] pb-3">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-[#102124] flex items-center gap-2">
@@ -1581,16 +1628,43 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
-        {/* Active Uploading Banner */}
-        {isUploadingPhoto && (
-          <div className="flex items-center gap-3 p-4 bg-[#DDF4EC] border border-[#2F7D78]/40 rounded-2xl text-xs text-[#155761] font-semibold animate-pulse shadow-xs">
-            <Loader2 className="w-5 h-5 animate-spin shrink-0 text-[#2F7D78]" />
-            <div className="space-y-0.5">
-              <p className="font-bold">{uploadProgress || "Uploading & Optimizing Photo(s)..."}</p>
-              <p className="text-[11px] text-[#2D5B60] font-normal">
-                Transferring screenshots to secure storage and generating gallery thumbnails. Please wait a moment.
+        {/* Inline Field Error for Cover Photo */}
+        {fieldErrors.photos && (
+          <div
+            id="error-photos"
+            className="p-4 bg-rose-50 border border-rose-300 rounded-2xl text-xs text-rose-800 flex items-start gap-3 font-medium animate-in fade-in duration-150 shadow-xs"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+            <div>
+              <p className="font-bold text-rose-900 text-sm">Cover Photo Required</p>
+              <p className="text-rose-700 text-xs mt-0.5 leading-relaxed">
+                {fieldErrors.photos}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Single Authoritative Upload Status Displayer */}
+        {isUploadingPhoto && (
+          <div className="p-4 bg-[#F0FAF7] border border-[#2F7D78]/30 rounded-2xl space-y-2.5 shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-center justify-between text-xs font-semibold text-[#155761]">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#2F7D78]" />
+                <span className="font-bold">{uploadProgress || "Uploading screenshots..."}</span>
+              </div>
+              <span className="font-mono text-xs font-bold text-[#2F7D78]">
+                {uploadStats ? `${uploadStats.percent}%` : "In Progress"}
+              </span>
+            </div>
+            <div className="w-full bg-[#D9E2E4] h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-[#155761] h-full rounded-full transition-all duration-300"
+                style={{ width: `${uploadStats?.percent ?? 50}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-[#526267]">
+              Optimizing resolution and securing image assets. Please wait a moment.
+            </p>
           </div>
         )}
 
@@ -1604,7 +1678,9 @@ export function PartnerSolutionForm({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`space-y-3 p-4 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
-              dragActive
+              fieldErrors.photos
+                ? "border-rose-400 bg-rose-50/20"
+                : dragActive
                 ? "border-[#155761] bg-[#F3F7F7]"
                 : "border-[#D9E2E4] bg-white hover:border-[#155761]/50 hover:bg-[#F8FAFA]"
             }`}
@@ -1614,11 +1690,6 @@ export function PartnerSolutionForm({
                 <Upload className="w-3.5 h-3.5 text-[#155761]" />
                 Upload Photos from Device
               </Label>
-              {isUploadingPhoto && (
-                <span className="text-[11px] font-bold text-[#155761] flex items-center gap-1">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...
-                </span>
-              )}
             </div>
             <p className="text-[11px] text-[#526267]">
               Drag &amp; drop screenshots here or click anywhere in this box to browse (PNG, JPG, WebP up to 5MB each). Recommended 1200×675 px (16:9).
@@ -1631,25 +1702,10 @@ export function PartnerSolutionForm({
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
             />
-            {isUploadingPhoto && (
-              <div className="p-3 bg-[#EBF7F5] border border-[#2F7D78]/30 rounded-xl space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-bold text-[#155761]">
-                  <span className="flex items-center gap-1.5">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2F7D78]" />
-                    {uploadProgress || "Uploading & processing photo(s)..."}
-                  </span>
-                  <span>Please wait</span>
-                </div>
-                <div className="w-full bg-[#D9E2E4] h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#155761] h-full w-2/3 animate-pulse rounded-full" />
-                </div>
-              </div>
-            )}
             <Button
               type="button"
               variant="outline"
               disabled={isUploadingPhoto}
-              isLoading={isUploadingPhoto}
               onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();
@@ -1659,7 +1715,7 @@ export function PartnerSolutionForm({
               {isUploadingPhoto ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#155761]" />
-                  <span>{uploadProgress || "Uploading Photo(s)... Please wait"}</span>
+                  <span>Uploading in progress...</span>
                 </>
               ) : (
                 <>
@@ -1711,7 +1767,7 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
-        {/* Photos Grid & Uploading Skeleton Cards */}
+        {/* Photos Grid */}
         {photos.length === 0 && !isUploadingPhoto ? (
           <div className="text-center py-8 px-4 rounded-2xl border-2 border-dashed border-[#D9E2E4] bg-[#F8FAFA]">
             <ImageIcon className="w-8 h-8 text-[#526267] mx-auto mb-2 opacity-50" />
@@ -1722,21 +1778,6 @@ export function PartnerSolutionForm({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {isUploadingPhoto && (
-              <div className="relative aspect-video rounded-2xl border-2 border-dashed border-[#155761] bg-[#F3F7F7] flex flex-col items-center justify-center gap-2.5 p-4 text-center shadow-md animate-pulse">
-                <div className="w-10 h-10 rounded-full bg-[#155761]/10 flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#155761]" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-[#155761] block">
-                    {uploadProgress || "Uploading screenshot..."}
-                  </span>
-                  <span className="text-[11px] text-[#526267] mt-0.5 block">
-                    Processing screenshot &amp; adding to gallery
-                  </span>
-                </div>
-              </div>
-            )}
             {photos.map((photo, idx) => (
               <div
                 key={photo.id}
@@ -1976,7 +2017,6 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
-      {/* ── 5. Deliverables ("What's Included") ───────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-whats-included">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F7F7] pb-3">
           <div className="flex items-center gap-2.5">
@@ -2008,6 +2048,13 @@ export function PartnerSolutionForm({
             </button>
           )}
         </div>
+
+        {fieldErrors.whatsIncluded && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{fieldErrors.whatsIncluded}</span>
+          </div>
+        )}
 
         <div className="space-y-2">
           {whatsIncluded.map((item, idx) => (
@@ -2087,6 +2134,13 @@ export function PartnerSolutionForm({
           )}
         </div>
 
+        {fieldErrors.features && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{fieldErrors.features}</span>
+          </div>
+        )}
+
         <div className="space-y-2">
           {features.map((f, idx) => (
             <div
@@ -2130,10 +2184,17 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 7. Technical Specifications ───────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-specifications">
         <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
           7. Technical Specifications (Key-Value)
         </h2>
+
+        {fieldErrors.specifications && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{fieldErrors.specifications}</span>
+          </div>
+        )}
 
         <div className="space-y-2">
           {specifications.map((s, idx) => (
@@ -2181,11 +2242,18 @@ export function PartnerSolutionForm({
       </div>
 
       {/* ── 8. FAQs ───────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-4" id="section-faqs">
         <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3 flex items-center gap-2">
           <HelpCircle className="w-4 h-4 text-[#155761]" />
           8. Frequently Asked Questions
         </h2>
+
+        {fieldErrors.faqs && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2 font-medium animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{fieldErrors.faqs}</span>
+          </div>
+        )}
 
         <div className="space-y-3">
           {faqs.map((faq, idx) => (

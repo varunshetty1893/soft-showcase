@@ -562,11 +562,18 @@ export default function ProjectForm({
       if (!res.ok) {
         if (data.details) {
           setErrors(data.details);
+          if (typeof window !== "undefined") {
+            const firstKey = Object.keys(data.details)[0];
+            const el =
+              document.getElementById(firstKey) ||
+              document.getElementById(`field-${firstKey}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.focus?.();
+            }
+          }
         }
-        toast.error(data.error ?? "Validation failed. Please check the form fields.");
-        if (typeof window !== "undefined") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+        toast.error(data.error ?? "Validation failed. Please check the highlighted fields.");
         return;
       }
 
@@ -1406,7 +1413,12 @@ export default function ProjectForm({
       </div>
 
       {/* ── Section: Project Images ──────────────────────────────────────────── */}
-      <div className={sectionClass}>
+      <div className={sectionClass} id="field-images">
+        {errors.images?.map((e) => (
+          <p key={e} className={errorClass}>
+            {e}
+          </p>
+        ))}
         <ImageUploader
           projectId={projectId}
           initialImages={images}
