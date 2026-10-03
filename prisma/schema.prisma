@@ -353,6 +353,7 @@ enum NotificationStatus {
   PENDING
   SENT
   FAILED
+  THROTTLED
 }
 
 enum ContactMethod {
@@ -425,6 +426,7 @@ model CustomProjectRequest {
   budget                 String?
   additionalRequirements String?             @db.Text
   status                 CustomRequestStatus @default(NEW)
+  notificationStatus     NotificationStatus  @default(PENDING)
   adminNotes             String?             @db.Text
 
   customer User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
