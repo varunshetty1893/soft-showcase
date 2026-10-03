@@ -204,9 +204,7 @@ export async function POST(req: NextRequest) {
             requiredFeatures: customRequest.requiredFeatures,
             additionalRequirements: customRequest.additionalRequirements,
           });
-          if (adminEmailRes.skipped) {
-            notificationStatus = "PENDING";
-          } else if (adminEmailRes.success) {
+          if (adminEmailRes.success) {
             notificationStatus = "SENT";
             emailDispatched = true;
           } else {
@@ -238,7 +236,7 @@ export async function POST(req: NextRequest) {
               projectTitle: customRequest.projectTitle,
             }
           );
-          if (custEmailRes.success && !custEmailRes.skipped) {
+          if (custEmailRes.success) {
             emailDispatched = true;
           }
         } catch (err) {

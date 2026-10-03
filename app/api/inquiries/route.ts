@@ -241,8 +241,6 @@ export async function POST(req: NextRequest) {
     // 7. Send Emails (Provider notification + Customer confirmation)
     let notificationStatus: "SENT" | "FAILED" | "PENDING" | "THROTTLED" =
       isBurstThrottled ? "THROTTLED" : "PENDING";
-    let emailSkipped = false;
-
     const emailPayload: InquiryEmailData = {
       inquiry: {
         name: inquiry.name,
@@ -269,10 +267,7 @@ export async function POST(req: NextRequest) {
       } else {
         try {
           const providerEmailResult = await sendProviderInquiryEmail(emailPayload);
-          if (providerEmailResult.skipped) {
-            emailSkipped = true;
-            notificationStatus = "PENDING";
-          } else if (providerEmailResult.success) {
+          if (providerEmailResult.success) {
             notificationStatus = "SENT";
           } else {
             notificationStatus = "FAILED";
@@ -317,7 +312,6 @@ export async function POST(req: NextRequest) {
 
     // 9. Return success response (B10: honest message when email is skipped or throttled)
     const responseMessage =
-      emailSkipped ||
       notificationStatus === "PENDING" ||
       notificationStatus === "THROTTLED"
         ? "Your inquiry has been saved and routed to the provider's dashboard."
