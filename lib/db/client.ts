@@ -15,9 +15,12 @@ function loadMockPrismaClient(): PrismaClient {
   if (typeof globalForPrisma.__createMockPrismaClient === "function") {
     return globalForPrisma.__createMockPrismaClient();
   }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createMockPrismaClient } = require("./mock/mock-store");
-  return createMockPrismaClient();
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createMockPrismaClient } = require("./mock/mock-store");
+    return createMockPrismaClient();
+  }
+  throw new Error("[Database] Mock database is disabled in production.");
 }
 
 function getClient(): PrismaClient {

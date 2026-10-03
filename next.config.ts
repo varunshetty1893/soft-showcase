@@ -52,7 +52,9 @@ const nextConfig: NextConfig = {
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";
     const allowAIStudioPreview =
-      !isProduction || process.env.ALLOW_AI_STUDIO_PREVIEW === "true";
+      !isProduction &&
+      (process.env.ALLOW_AI_STUDIO_PREVIEW === "true" ||
+        process.env.ALLOW_AI_STUDIO_PREVIEW === undefined);
 
     const scriptSrc = isProduction
       ? "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com"

@@ -722,7 +722,7 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
       </div>
 
       {/* Pagination Footer */}
-      {filteredProjects.length > 0 && totalPages > 1 && (
+      {filteredProjects.length > 0 && (
         <div className="p-4 rounded-2xl border border-[#D9E2E4] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#526267] shadow-xs">
           <div>
             Showing <span className="font-semibold text-[#102124]">{(currentPage - 1) * pageSize + 1}</span>–
@@ -732,7 +732,7 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-[#526267] mr-1">
-              Page {currentPage} of {totalPages}
+              Page {currentPage} of {Math.max(1, totalPages)}
             </span>
 
             <Button
@@ -741,7 +741,7 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
               size="sm"
               disabled={currentPage <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="text-xs h-8 gap-1 cursor-pointer"
+              className="text-xs h-8 gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               Previous
@@ -753,7 +753,7 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
               size="sm"
               disabled={currentPage >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="text-xs h-8 gap-1 cursor-pointer"
+              className="text-xs h-8 gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
               <ChevronRight className="w-3.5 h-3.5" />

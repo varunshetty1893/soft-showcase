@@ -16,7 +16,7 @@ export function Pagination({ currentPage, totalPages }: PaginationProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (totalPages <= 1) return null;
+  if (totalPages <= 0) return null;
 
   const navigateToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -31,14 +31,14 @@ export function Pagination({ currentPage, totalPages }: PaginationProps) {
         size="sm"
         disabled={currentPage <= 1}
         onClick={() => navigateToPage(currentPage - 1)}
-        className="gap-1 px-3"
+        className="gap-1 px-3 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <ChevronLeft className="w-4 h-4" />
         <span>Previous</span>
       </Button>
 
       <span className="text-xs text-gray-500 font-medium px-2">
-        Page {currentPage} of {totalPages}
+        Page {currentPage} of {Math.max(1, totalPages)}
       </span>
 
       <Button
@@ -46,7 +46,7 @@ export function Pagination({ currentPage, totalPages }: PaginationProps) {
         size="sm"
         disabled={currentPage >= totalPages}
         onClick={() => navigateToPage(currentPage + 1)}
-        className="gap-1 px-3"
+        className="gap-1 px-3 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span>Next</span>
         <ChevronRight className="w-4 h-4" />

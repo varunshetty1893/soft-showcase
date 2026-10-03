@@ -1,24 +1,5 @@
 {
-  "node": {
-    "008229a528439769e171c2db6fc295bcd8732a03bf": {
-      "workers": {
-        "app/page": {
-          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fapp%2Fapplet%2Fcomponents%2Flayout%2FNavbar.tsx%22%2C%5B%7B%22id%22%3A%22008229a528439769e171c2db6fc295bcd8732a03bf%22%2C%22exportedName%22%3A%22%24%24RSC_SERVER_ACTION_0%22%2C%22filename%22%3A%22components%2Flayout%2FNavbar.tsx%22%7D%5D%5D%5D&__client_imported__=!",
-          "async": false
-        },
-        "app/projects/page": {
-          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fapp%2Fapplet%2Fcomponents%2Flayout%2FNavbar.tsx%22%2C%5B%7B%22id%22%3A%22008229a528439769e171c2db6fc295bcd8732a03bf%22%2C%22exportedName%22%3A%22%24%24RSC_SERVER_ACTION_0%22%2C%22filename%22%3A%22components%2Flayout%2FNavbar.tsx%22%7D%5D%5D%5D&__client_imported__=!",
-          "async": false
-        }
-      },
-      "layer": {
-        "app/page": "rsc",
-        "app/projects/page": "rsc"
-      },
-      "filename": "components/layout/Navbar.tsx",
-      "exportedName": "$$RSC_SERVER_ACTION_0"
-    }
-  },
+  "node": {},
   "edge": {},
-  "encryptionKey": "8NP62TU2mFcQbEs4PXDm0TBPA9QruHw4xDuE0HcpvCE="
+  "encryptionKey": "Hp3NHWndIIC+KhAL/sExTjIcHswOKSKmUnQFTfImZ9s="
 }

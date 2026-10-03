@@ -692,19 +692,22 @@ export default function ProjectTable() {
       </div>
 
       {/* Pagination */}
-      {data && data.totalPages > 1 && (
+      {data && data.total > 0 && (
         <div className="flex items-center justify-between text-xs text-[#526267] pt-2">
           <span>
             Showing {(page - 1) * 20 + 1}–{Math.min(page * 20, data.total)} of{" "}
             {data.total} projects
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-[#526267] mr-1">
+              Page {page} of {Math.max(1, data.totalPages)}
+            </span>
             <Button
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="text-xs h-8"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="text-xs h-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ← Previous
             </Button>
@@ -712,8 +715,8 @@ export default function ProjectTable() {
               variant="outline"
               size="sm"
               disabled={page >= data.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="text-xs h-8"
+              onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+              className="text-xs h-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next →
             </Button>

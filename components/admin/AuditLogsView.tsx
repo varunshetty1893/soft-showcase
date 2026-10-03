@@ -835,7 +835,7 @@ export default function AuditLogsView({
         )}
 
         {/* Pagination Footer (Preserves all filters & pageSize) */}
-        {totalPages > 1 && (
+        {total > 0 && (
           <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
             <span>
               Page <strong className="text-gray-900">{currentPage}</strong> of{" "}
