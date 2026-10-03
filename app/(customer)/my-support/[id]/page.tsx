@@ -7,7 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
 import { ArrowLeft } from "lucide-react";
-import { SupportThreadViewer } from "@/components/partner/SupportThreadViewer";
+import { CustomerSupportThreadViewer } from "@/components/customer/CustomerSupportThreadViewer";
 import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -77,12 +77,11 @@ export default async function CustomerTicketDetailPage({
         </div>
       </div>
 
-      <SupportThreadViewer
+      <CustomerSupportThreadViewer
         ticketId={ticket.id}
         initialMessages={ticket.messages}
         currentUserId={session.user.id}
         ticketStatus={ticket.status}
-        isAdminView={false}
       />
     </div>
   );

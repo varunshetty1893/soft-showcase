@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
           where: { identifier: resetIdentifier },
         });
 
-        if (existingTokens.some((rec) => rec.attempts >= 5)) {
+        if (existingTokens.some((rec: { attempts: number }) => rec.attempts >= 5)) {
           await db.verificationToken
             .deleteMany({ where: { identifier: resetIdentifier } })
             .catch(() => null);
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
         where: { identifier: resetIdentifier },
       });
 
-      const activeRecord = tokenRecords.find((rec) => now <= rec.expires);
+      const activeRecord = tokenRecords.find((rec: { expires: Date; token: string; attempts: number }) => now <= rec.expires);
 
       if (!activeRecord) {
         return NextResponse.json(
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
 
-      await db.$transaction(async (tx) => {
+      await db.$transaction(async (tx: any) => {
         await tx.user.update({
           where: { email },
           data: {

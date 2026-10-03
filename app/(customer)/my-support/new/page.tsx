@@ -6,7 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { ArrowLeft } from "lucide-react";
-import { SupportTicketForm } from "@/components/partner/SupportTicketForm";
+import { CustomerSupportTicketForm } from "@/components/customer/CustomerSupportTicketForm";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ export default async function CustomerNewSupportPage() {
         </div>
       </div>
 
-      <SupportTicketForm returnUrl="/my-support" />
+      <CustomerSupportTicketForm returnUrl="/my-support" />
     </div>
   );
 }
