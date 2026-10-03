@@ -157,6 +157,8 @@ export async function getCustomerProfile(userId: string) {
       id: true,
       name: true,
       email: true,
+      whatsapp: true,
+      contactEmail: true,
       image: true,
       isAdmin: true,
       createdAt: true,
