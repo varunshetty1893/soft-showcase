@@ -1,7 +1,62 @@
 // lib/db/queries/transactions.ts
-// Database queries for transactions and payment evidence.
+// Database queries for transactions and payment evidence.import { Prisma, TransactionPaymentStatus } from "@prisma/client";
+import { Prisma, TransactionPaymentStatus } from "@prisma/client";
 
 import { db } from "@/lib/db/client";
+
+type AdminTransactionFilters = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  paymentStatus?: string;
+};
+
+export async function getAdminTransactionsPaginated(filters: AdminTransactionFilters = {}) {
+  const page = Math.max(1, Math.floor(filters.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(filters.pageSize ?? 25)));
+  const search = filters.search?.trim();
+  const where: Prisma.TransactionWhereInput = {};
+
+  if (
+    filters.paymentStatus &&
+    filters.paymentStatus !== "ALL" &&
+    Object.values(TransactionPaymentStatus).includes(filters.paymentStatus as TransactionPaymentStatus)
+  ) {
+    where.paymentStatus = filters.paymentStatus as TransactionPaymentStatus;
+  }
+
+  if (search) {
+    where.OR = [
+      { transactionNumber: { contains: search, mode: "insensitive" } },
+      { utrNumber: { contains: search, mode: "insensitive" } },
+      { customerName: { contains: search, mode: "insensitive" } },
+      { customerEmail: { contains: search, mode: "insensitive" } },
+      { partner: { is: { OR: [
+        { displayName: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ] } } },
+      { solution: { is: { title: { contains: search, mode: "insensitive" } } } },
+    ];
+  }
+
+  const [transactions, total] = await db.$transaction([
+    db.transaction.findMany({
+      where,
+      include: {
+        partner: { select: { id: true, displayName: true, email: true, whatsappNumber: true } },
+        solution: { select: { id: true, title: true, slug: true, price: true } },
+        customer: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    db.transaction.count({ where }),
+  ]);
+
+  return { transactions, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
 
 export async function getAllTransactions(filters?: {
   paymentStatus?: string;
