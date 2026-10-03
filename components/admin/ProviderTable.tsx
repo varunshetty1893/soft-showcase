@@ -313,7 +313,7 @@ export function ProviderTable({
         body: JSON.stringify({
           isActive: false,
           applicationStatus: "rejected",
-          verificationStatus: "unverified",
+          verificationStatus: "rejected",
           rejectionReason: rejectionReason.trim() || "Application did not meet platform criteria.",
         }),
       });

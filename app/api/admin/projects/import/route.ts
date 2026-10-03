@@ -259,7 +259,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Resolve or create provider
+    // Resolve or create provider. An import may create a draft project, but it
+    // must never silently approve a real person or expose their contact data.
     let finalProvider = existingProvider;
     let providerCreated = false;
     if (!finalProvider) {
@@ -268,11 +269,11 @@ export async function POST(request: NextRequest) {
           displayName: providerName,
           email: providerEmail,
           whatsappNumber: providerWhatsapp,
-          showWhatsapp: true,
+          showWhatsapp: false,
           showEmail: false,
-          isActive: true,
-          applicationStatus: "approved",
-          verificationStatus: "verified",
+          isActive: false,
+          applicationStatus: "pending",
+          verificationStatus: "pending",
           providerConsentConfirmed: false,
           providerConsentConfirmedAt: null,
         },

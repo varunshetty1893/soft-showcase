@@ -173,13 +173,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (status === "PUBLISHED" && providerId) {
-      await db.projectProvider
-        .update({
-          where: { id: providerId },
-          data: { isActive: true, applicationStatus: "approved" },
-        })
-        .catch(() => null);
+    // Publishing must never alter the provider's approval state as a side effect.
+    // The provider must already be active, approved, consented, and not removed.
+    if (status === "PUBLISHED") {
+      const provider = await db.projectProvider.findUnique({
+        where: { id: providerId },
+        select: {
+          id: true,
+          isActive: true,
+          applicationStatus: true,
+          providerConsentConfirmed: true,
+          removedAt: true,
+        },
+      });
+
+      if (!provider) {
+        return NextResponse.json({ error: "Select a valid provider before publishing." }, { status: 422 });
+      }
+
+      if (
+        provider.removedAt ||
+        !provider.isActive ||
+        provider.applicationStatus !== "approved" ||
+        !provider.providerConsentConfirmed
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "A project can be published only for an active, approved provider with confirmed consent.",
+          },
+          { status: 422 }
+        );
+      }
     }
 
     const effectiveDealType = priceMode === "FIXED" ? (dealType ?? "NONE") : "NONE";
