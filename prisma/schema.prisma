@@ -24,6 +24,8 @@ model User {
   image         String?
   passwordHash  String?
   tokenVersion  Int       @default(0)
+  whatsapp      String?
+  contactEmail  String?
   isAdmin       Boolean   @default(false)
   role          String    @default("customer") // "customer" | "solution_partner" | "admin"
 
