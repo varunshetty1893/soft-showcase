@@ -25,6 +25,10 @@ import {
   Tag,
   CalendarPlus,
   XCircle,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
@@ -74,6 +78,12 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
   const [projects, setProjects] = React.useState<PartnerSolutionItem[]>(initialProjects);
   const [togglingId, setTogglingId] = React.useState<string | null>(null);
 
+  // Search & Pagination state
+  const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<string>("ALL");
+  const [page, setPage] = React.useState(1);
+  const pageSize = 9;
+
   // Delete solution state
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [deletingTitle, setDeletingTitle] = React.useState<string>("");
@@ -90,6 +100,28 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
   React.useEffect(() => {
     setProjects(initialProjects);
   }, [initialProjects]);
+
+  const filteredProjects = React.useMemo(() => {
+    return projects.filter((p) => {
+      if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesTitle = p.title.toLowerCase().includes(q);
+        const matchesSlug = p.slug.toLowerCase().includes(q);
+        const matchesCategory = p.category?.name?.toLowerCase().includes(q) ?? false;
+        const matchesDesc = (p.shortDescription || "").toLowerCase().includes(q);
+        if (!matchesTitle && !matchesSlug && !matchesCategory && !matchesDesc) return false;
+      }
+      return true;
+    });
+  }, [projects, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const handleDeleteSolution = async () => {
     if (!deletingId) return;
@@ -325,10 +357,75 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {projects.map((proj) => {
-          const primaryImg = proj.images?.[0]?.url || null;
+    <div className="space-y-5">
+      {/* Search Bar & Filter Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-[#D9E2E4] shadow-xs">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by solution, category..."
+            className="w-full h-9 pl-9 pr-8 bg-[#F8FAFA] border border-[#D9E2E4] text-[#102124] rounded-xl text-xs focus:outline-none focus:border-[#155761] placeholder:text-[#526267]"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setPage(1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#526267] hover:text-[#102124]"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          {[
+            { label: "All", value: "ALL" },
+            { label: "Published", value: "PUBLISHED" },
+            { label: "Drafts", value: "DRAFT" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => {
+                setStatusFilter(tab.value);
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                statusFilter === tab.value
+                  ? "bg-[#155761] text-white shadow-2xs"
+                  : "bg-white text-[#526267] border border-[#D9E2E4] hover:bg-[#F3F7F7]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredProjects.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-[#D9E2E4] p-10 text-center shadow-xs space-y-2">
+          <Layers className="w-8 h-8 text-[#526267] mx-auto opacity-50" />
+          <h4 className="text-sm font-bold text-[#102124]">No Solutions Found</h4>
+          <p className="text-xs text-[#526267] max-w-sm mx-auto">
+            {search
+              ? `No solutions matched "${search}". Try searching with a different term.`
+              : `No solutions found under "${statusFilter}".`}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedProjects.map((proj) => {
+              const primaryImg = proj.images?.[0]?.url || null;
           const isToggling = togglingId === proj.id;
           const moderationHold = hasAdminModerationHold(proj);
 
@@ -623,6 +720,49 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
           );
         })}
       </div>
+
+      {/* Pagination Footer */}
+      {filteredProjects.length > 0 && totalPages > 1 && (
+        <div className="p-4 rounded-2xl border border-[#D9E2E4] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#526267] shadow-xs">
+          <div>
+            Showing <span className="font-semibold text-[#102124]">{(currentPage - 1) * pageSize + 1}</span>–
+            <span className="font-semibold text-[#102124]">{Math.min(currentPage * pageSize, filteredProjects.length)}</span> of{" "}
+            <span className="font-semibold text-[#102124]">{filteredProjects.length}</span> solutions
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-[#526267] mr-1">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="text-xs h-8 gap-1 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Previous
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="text-xs h-8 gap-1 cursor-pointer"
+            >
+              Next
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+    )}
 
       {/* Phase 4: End Offer Now Confirmation Modal */}
       {endingOfferProject && (

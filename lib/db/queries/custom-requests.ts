@@ -12,11 +12,25 @@ export async function getAdminCustomRequests(options: {
   page?: number;
   status?: CustomRequestStatus;
   pageSize?: number;
+  search?: string;
 }) {
-  const { page = 1, status, pageSize = ADMIN_PAGE_SIZE } = options;
+  const { page = 1, status, pageSize = ADMIN_PAGE_SIZE, search } = options;
   const skip = (page - 1) * pageSize;
 
-  const where = status ? { status } : {};
+  const where: any = {};
+  if (status) {
+    where.status = status;
+  }
+  if (search && search.trim()) {
+    const q = search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { projectTitle: { contains: q, mode: "insensitive" } },
+      { category: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ];
+  }
 
   const [requests, total] = await Promise.all([
     db.customProjectRequest.findMany({

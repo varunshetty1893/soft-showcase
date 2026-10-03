@@ -1,30 +1,44 @@
 // app/admin/transactions/page.tsx
-// Admin view of all partner transactions and payment proofs.
+// Admin view of all partner transactions and payment proofs with search and pagination.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
-import { getAllTransactions } from "@/lib/db/queries/transactions";
+import { getAdminTransactionsPaginated } from "@/lib/db/queries/transactions";
 import { Receipt } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
+import { TableSearchBar } from "@/components/common/TableSearchBar";
+import { TablePagination } from "@/components/common/TablePagination";
 
 export const metadata: Metadata = {
   title: `Transaction Management — Admin — ${APP_NAME}`,
   robots: { index: false },
 };
 
-export default async function AdminTransactionsPage() {
+export default async function AdminTransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; search?: string; status?: string }>;
+}) {
   await requireAdmin(true);
 
-  const transactions = await getAllTransactions();
+  const { page: pageStr, search: searchStr, status: statusStr } = await searchParams;
+  const page = parseInt(pageStr || "1", 10) || 1;
+  const search = searchStr || undefined;
+  const status = statusStr || undefined;
 
-  const verified = transactions.filter((t: any) => t.paymentStatus === "VERIFIED" || t.paymentStatus === "COMPLETED");
-  const pending = transactions.filter((t: any) => t.paymentStatus === "PENDING" || t.paymentStatus === "EVIDENCE_SUBMITTED" || t.paymentStatus === "UNDER_REVIEW");
+  const pageSize = 20;
+  const { transactions, total, totalPages } = await getAdminTransactionsPaginated({
+    page,
+    pageSize,
+    search,
+    paymentStatus: status,
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* ── Page Header ────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-200">
         <div>
@@ -39,14 +53,17 @@ export default async function AdminTransactionsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold">
-            {verified.length} Verified
-          </span>
-          <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-xl font-bold">
-            {pending.length} Pending Review
-          </span>
+        <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-gray-600 shadow-xs self-start sm:self-auto">
+          {total} Total Transactions
         </div>
+      </div>
+
+      {/* ── Search Bar & Filter ────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <TableSearchBar
+          placeholder="Search by transaction #, UTR, customer, partner, or solution..."
+          className="sm:max-w-md"
+        />
       </div>
 
       {/* ── Table Section ──────────────────────────────────────────────── */}
@@ -55,7 +72,9 @@ export default async function AdminTransactionsPage() {
           <Receipt className="w-8 h-8 text-gray-400 mx-auto" />
           <h3 className="text-base font-bold text-gray-900">No Transactions Found</h3>
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            Transactions recorded by Solution Partners will appear here for administrative verification.
+            {search
+              ? `No transactions match "${search}". Try searching by a different keyword or UTR.`
+              : "Transactions recorded by Solution Partners will appear here for administrative verification."}
           </p>
         </div>
       ) : (
@@ -130,6 +149,15 @@ export default async function AdminTransactionsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Footer */}
+          <TablePagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={total}
+            pageSize={pageSize}
+            itemName="transactions"
+          />
         </div>
       )}
     </div>

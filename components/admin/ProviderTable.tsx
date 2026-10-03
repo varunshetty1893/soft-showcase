@@ -27,6 +27,10 @@ import {
   Trash2,
   Power,
   Loader2,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -96,6 +100,9 @@ export function ProviderTable({
   const [providers, setProviders] = useState<ProviderRow[]>(initial);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   // Detail & Reject modals (existing pending workflow)
   const [selectedProvider, setSelectedProvider] = useState<ProviderRow | null>(null);
@@ -147,25 +154,43 @@ export function ProviderTable({
   const rejectedCount = nonRemoved.filter((p) => p.applicationStatus === "rejected").length;
   const removedCount = removedProviders.length;
 
+  const searchLower = search.trim().toLowerCase();
   const filteredProviders = providers.filter((p) => {
-    if (activeTab === "removed") return Boolean(p.removedAt);
-    // All non-removed tabs exclude soft-removed providers
-    if (p.removedAt) return false;
-
-    if (activeTab === "pending") return p.applicationStatus === "pending";
-    if (activeTab === "active") return p.isActive && p.applicationStatus === "approved";
-    if (activeTab === "inactive") {
-      return (
-        (!p.isActive ||
-          p.applicationStatus === "deactivated" ||
-          p.applicationStatus === "suspended") &&
-        p.applicationStatus !== "pending" &&
-        p.applicationStatus !== "rejected"
-      );
+    if (activeTab === "removed") {
+      if (!p.removedAt) return false;
+    } else {
+      if (p.removedAt) return false;
+      if (activeTab === "pending" && p.applicationStatus !== "pending") return false;
+      if (activeTab === "active" && !(p.isActive && p.applicationStatus === "approved")) return false;
+      if (activeTab === "inactive") {
+        const isInactive =
+          (!p.isActive ||
+            p.applicationStatus === "deactivated" ||
+            p.applicationStatus === "suspended") &&
+          p.applicationStatus !== "pending" &&
+          p.applicationStatus !== "rejected";
+        if (!isInactive) return false;
+      }
+      if (activeTab === "rejected" && p.applicationStatus !== "rejected") return false;
     }
-    if (activeTab === "rejected") return p.applicationStatus === "rejected";
-    return true; // "all"
+
+    if (searchLower) {
+      const matchName = p.displayName.toLowerCase().includes(searchLower);
+      const matchEmail = p.email.toLowerCase().includes(searchLower);
+      const matchPhone = (p.whatsappNumber || "").toLowerCase().includes(searchLower);
+      const matchLocation = (p.location || "").toLowerCase().includes(searchLower);
+      return matchName || matchEmail || matchPhone || matchLocation;
+    }
+
+    return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredProviders.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedProviders = filteredProviders.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // ── Phase 2A: Single-click Activate or Confirmed Deactivate ────────────────
   async function handleToggleActive(provider: ProviderRow, targetActive: boolean, reason?: string) {
@@ -517,96 +542,142 @@ export function ProviderTable({
 
   return (
     <div className="space-y-4">
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#D9E2E4] pb-3">
-        <button
-          type="button"
-          onClick={() => setActiveTab("all")}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "all"
-              ? "bg-[#155761] text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          All Providers ({nonRemoved.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("pending")}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === "pending"
-              ? "bg-amber-600 text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          <span>Pending Applications</span>
-          {pendingCount > 0 && (
-            <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                activeTab === "pending" ? "bg-white text-amber-800" : "bg-amber-100 text-amber-900"
-              }`}
+      {/* Search Bar & Filter Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="w-4 h-4 text-[#526267] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search by provider, email, WhatsApp, or location..."
+            className="w-full h-10 pl-10 pr-9 bg-white border border-[#D9E2E4] text-[#102124] rounded-xl text-xs sm:text-sm focus:outline-none focus:border-[#155761] placeholder:text-[#526267] shadow-2xs transition-colors"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setPage(1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#526267] hover:text-[#102124] p-1"
             >
-              {pendingCount}
-            </span>
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
-        </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("active")}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "active"
-              ? "bg-[#2F7D78] text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          Active & Approved ({activeCount})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("inactive")}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "inactive"
-              ? "bg-[#526267] text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          Inactive / Deactivated ({inactiveCount})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("rejected")}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-            activeTab === "rejected"
-              ? "bg-rose-600 text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          Rejected ({rejectedCount})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("removed")}
-          data-testid="providers-tab-removed"
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
-            activeTab === "removed"
-              ? "bg-rose-800 text-white shadow-xs"
-              : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
-          }`}
-        >
-          <span>Removed</span>
-          <span
-            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-              activeTab === "removed" ? "bg-white text-rose-900" : "bg-rose-100 text-rose-900"
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("all");
+              setPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              activeTab === "all"
+                ? "bg-[#155761] text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
             }`}
           >
-            {removedCount}
-          </span>
-        </button>
+            All Providers ({nonRemoved.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("pending");
+              setPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeTab === "pending"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
+            }`}
+          >
+            <span>Pending Applications</span>
+            {pendingCount > 0 && (
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  activeTab === "pending" ? "bg-white text-amber-800" : "bg-amber-100 text-amber-900"
+                }`}
+              >
+                {pendingCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("active");
+              setPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              activeTab === "active"
+                ? "bg-[#2F7D78] text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
+            }`}
+          >
+            Active & Approved ({activeCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("inactive");
+              setPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              activeTab === "inactive"
+                ? "bg-[#526267] text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
+            }`}
+          >
+            Inactive / Deactivated ({inactiveCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("rejected");
+              setPage(1);
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+              activeTab === "rejected"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
+            }`}
+          >
+            Rejected ({rejectedCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("removed");
+              setPage(1);
+            }}
+            data-testid="providers-tab-removed"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeTab === "removed"
+                ? "bg-rose-800 text-white shadow-xs"
+                : "bg-white text-[#526267] border border-[#D9E2E4] hover:text-[#102124]"
+            }`}
+          >
+            <span>Removed</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === "removed" ? "bg-white text-rose-900" : "bg-rose-100 text-rose-900"
+              }`}
+            >
+              {removedCount}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -623,7 +694,7 @@ export function ProviderTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#D9E2E4]">
-              {filteredProviders.map((p) => {
+              {paginatedProviders.map((p) => {
                 const spec = getProviderStatusButtonSpec(p, currentAdminUserId);
                 const isBusy = loadingId === p.id;
                 const publishedCount = p.publishedProjectsCount ?? p._count.projects;
@@ -861,6 +932,47 @@ export function ProviderTable({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredProviders.length > 0 && totalPages > 1 && (
+          <div className="p-4 border-t border-[#D9E2E4] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#526267]">
+            <div>
+              Showing <span className="font-semibold text-[#102124]">{(currentPage - 1) * pageSize + 1}</span>–
+              <span className="font-semibold text-[#102124]">{Math.min(currentPage * pageSize, filteredProviders.length)}</span> of{" "}
+              <span className="font-semibold text-[#102124]">{filteredProviders.length}</span> providers
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-[#526267] mr-1">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="text-xs h-8 gap-1"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Previous
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="text-xs h-8 gap-1"
+              >
+                Next
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Floating 3-dots actions menu (Rendered outside table to prevent any scrollbars) */}

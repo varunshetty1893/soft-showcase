@@ -12,6 +12,9 @@ import {
   Tag,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { TableSearchBar } from "@/components/common/TableSearchBar";
+import { TablePagination } from "@/components/common/TablePagination";
+import { ADMIN_PAGE_SIZE } from "@/config/constants";
 
 export const metadata: Metadata = {
   title: "Custom Requests — Admin | Soft Showcase",
@@ -30,15 +33,17 @@ const STATUS_FILTERS: { label: string; value?: CustomRequestStatus }[] = [
 export default async function AdminCustomRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; status?: string; search?: string }>;
 }) {
-  const { page: pageStr, status: statusStr } = await searchParams;
+  const { page: pageStr, status: statusStr, search: searchStr } = await searchParams;
   const page = parseInt(pageStr || "1", 10);
   const status = (statusStr as CustomRequestStatus) || undefined;
+  const search = searchStr || undefined;
 
   const { requests, total, totalPages } = await getAdminCustomRequests({
     page: isNaN(page) ? 1 : page,
     status,
+    search,
   });
 
   return (
@@ -58,28 +63,38 @@ export default async function AdminCustomRequestsPage({
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((f) => {
-          const isActive = f.value ? status === f.value : !status;
-          const href = f.value
-            ? `/admin/custom-requests?status=${f.value}`
-            : `/admin/custom-requests`;
+      {/* Search Bar & Filter Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <TableSearchBar
+          placeholder="Search by customer, title, email, or category..."
+          className="sm:max-w-xs"
+        />
 
-          return (
-            <Link
-              key={f.label}
-              href={href}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
-                isActive
-                  ? "bg-[#155761] text-white font-semibold shadow-xs"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {f.label}
-            </Link>
-          );
-        })}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
+          {STATUS_FILTERS.map((f) => {
+            const isActive = f.value ? status === f.value : !status;
+            const params = new URLSearchParams();
+            if (f.value) params.set("status", f.value);
+            if (search) params.set("search", search);
+            const href = params.toString()
+              ? `/admin/custom-requests?${params.toString()}`
+              : `/admin/custom-requests`;
+
+            return (
+              <Link
+                key={f.label}
+                href={href}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "bg-[#155761] text-white font-semibold shadow-xs"
+                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Custom Requests Table */}
@@ -89,7 +104,9 @@ export default async function AdminCustomRequestsPage({
             <FileQuestion className="w-8 h-8 text-gray-400 mx-auto mb-3" />
             <p className="font-semibold text-gray-900">No requests found</p>
             <p className="text-xs text-gray-500 mt-1">
-              {status
+              {search
+                ? `No requests match "${search}". Try a different keyword.`
+                : status
                 ? `No custom requests match the "${status}" status filter.`
                 : "No custom software requests have been submitted yet."}
             </p>
@@ -200,29 +217,13 @@ export default async function AdminCustomRequestsPage({
         )}
 
         {/* Pagination Footer */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            <div className="flex items-center gap-2">
-              {page > 1 && (
-                <Link href={`/admin/custom-requests?page=${page - 1}${
-                    status ? `&status=${status}` : ""
-                  }`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
-                    Previous
-                  </Link>
-              )}
-              {page < totalPages && (
-                <Link href={`/admin/custom-requests?page=${page + 1}${
-                    status ? `&status=${status}` : ""
-                  }`} className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs" })}>
-                    Next
-                  </Link>
-              )}
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={ADMIN_PAGE_SIZE}
+          itemName="requests"
+        />
       </div>
     </div>
   );

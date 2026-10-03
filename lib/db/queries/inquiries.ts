@@ -23,16 +23,30 @@ export async function createInquiry(data: {
 }
 
 /**
- * Get inquiries for admin listing with pagination.
+ * Get inquiries for admin listing with pagination and search.
  */
 export async function getAdminInquiries(options: {
   page?: number;
   status?: InquiryStatus;
+  search?: string;
 }) {
-  const { page = 1, status } = options;
+  const { page = 1, status, search } = options;
   const skip = (page - 1) * ADMIN_PAGE_SIZE;
 
-  const where = status ? { status } : {};
+  const where: any = {};
+  if (status) {
+    where.status = status;
+  }
+  if (search && search.trim()) {
+    const q = search.trim();
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { message: { contains: q, mode: "insensitive" } },
+      { project: { title: { contains: q, mode: "insensitive" } } },
+      { provider: { displayName: { contains: q, mode: "insensitive" } } },
+    ];
+  }
 
   const [inquiries, total] = await Promise.all([
     db.inquiry.findMany({
