@@ -63,7 +63,9 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
   const params = await searchParams;
 
   const currentPage = parseInt(params.page || "1", 10) || 1;
-  const categorySlug = params.category;
+  // Keep previously shared `ai-ml` links working while using one canonical
+  // category slug everywhere else.
+  const categorySlug = params.category === "ai-ml" ? "ai-machine-learning" : params.category;
   const techSlug = params.tech;
   const search = params.q;
 
@@ -98,11 +100,14 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
     projectsData = fetchedProjects;
     if (fetchedCategories && fetchedCategories.length > 0) {
-      categories = fetchedCategories.map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-      }));
+      categories = fetchedCategories
+        // `ai-ml` was a legacy duplicate of the canonical AI category.
+        .filter((c) => c.slug !== "ai-ml")
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+        }));
     }
   } catch (err) {
     console.warn("Could not query database for projects (DB may not be migrated yet):", err);

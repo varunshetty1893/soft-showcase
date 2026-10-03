@@ -84,6 +84,7 @@ export function InquiryForm({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const [isSuccess, setIsSuccess] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   function resetTurnstile() {
     setTurnstileToken("");
@@ -147,6 +148,11 @@ export function InquiryForm({
         return;
       }
 
+      setSuccessMessage(
+        typeof data?.data?.message === "string"
+          ? data.data.message
+          : "Your inquiry has been saved for the project provider."
+      );
       setIsSuccess(true);
       if (onSuccess) {
         onSuccess();
@@ -166,10 +172,10 @@ export function InquiryForm({
         <div className="w-12 h-12 bg-[#DDF4EC] text-[#2F7D78] border border-[#2F7D78]/25 rounded-full flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-7 h-7" />
         </div>
-        <h3 className="text-xl font-bold text-[#102124]">Inquiry Sent Successfully!</h3>
+        <h3 className="text-xl font-bold text-[#102124]">Inquiry Received</h3>
         <p className="text-sm text-[#526267] max-w-sm mx-auto leading-relaxed">
-          Your inquiry for <strong className="text-[#102124]">{projectTitle}</strong> has been
-          forwarded to the project provider. They will contact you shortly via {formData.contactMethod.toLowerCase()}.
+          <strong className="text-[#102124]">{projectTitle}:</strong>{" "}
+          {successMessage || "Your inquiry has been saved for the project provider."}
         </p>
         <div className="pt-4">
           <Button
@@ -177,6 +183,7 @@ export function InquiryForm({
             variant="outline"
             onClick={() => {
               setIsSuccess(false);
+              setSuccessMessage(null);
               setFormData({
                 name: initialContact?.name || session?.user?.name || "",
                 email: initialContact?.email || session?.user?.email || "",

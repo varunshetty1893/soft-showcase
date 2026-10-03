@@ -87,7 +87,7 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
         className={`w-full gap-2 text-sm font-bold bg-[#155761] hover:bg-[#10474F] text-white transition-all cursor-pointer ${className}`}
       >
         <Lock className="w-4 h-4" />
-        <span>Sign In to Buy / Access</span>
+        <span>Sign In to Save Project</span>
       </Button>
     );
   }
@@ -97,7 +97,7 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
       <button
         type="button"
         onClick={handleToggle}
-        title={inCart ? "Remove from cart" : "Add to cart"}
+        title={inCart ? "Remove saved project" : "Save project"}
         className={`p-2 rounded-xl border transition-all cursor-pointer ${
           inCart
             ? "bg-[#DDF4EC] text-[#155761] border-[#2F7D78]/30 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
@@ -132,12 +132,12 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
       {inCart ? (
         <>
           <Check className="w-4 h-4 text-[#2F7D78]" />
-          <span>In Your Cart (Click to Remove)</span>
+          <span>Saved (Click to Remove)</span>
         </>
       ) : (
         <>
           <ShoppingCart className="w-4 h-4" />
-          <span>Add to Saved Cart</span>
+          <span>Save Project</span>
         </>
       )}
     </Button>

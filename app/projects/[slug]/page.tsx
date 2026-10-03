@@ -301,15 +301,15 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 <div className="space-y-2 text-xs text-[#526267]">
                   <div className="flex items-center gap-2 text-emerald-700 font-semibold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>In Stock • Direct Builder Handover</span>
+                    <span>Available for provider discussion</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#155761] shrink-0" />
-                    <span>Verified Solution Partner: <strong className="text-[#102124] ml-0.5">{project.provider.displayName}</strong></span>
+                    <span>Approved Solution Partner: <strong className="text-[#102124] ml-0.5">{project.provider.displayName}</strong></span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4 text-[#526267] shrink-0" />
-                    <span>Direct WhatsApp &amp; Authenticated Email</span>
+                    <span>WhatsApp and email inquiry options</span>
                   </div>
                 </div>
 

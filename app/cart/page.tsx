@@ -10,16 +10,16 @@ import { CartPageContent } from "@/components/cart/CartPageContent";
 import { APP_NAME, APP_URL } from "@/config/constants";
 
 export const metadata: Metadata = {
-  title: "Saved Projects & Cart — Soft Showcase",
+  title: "Saved Projects — Soft Showcase",
   description:
-    "Review your shortlisted software solutions, calculate project investments, and connect directly with creators.",
+    "Review your shortlisted software projects and open each listing to contact its provider.",
   alternates: {
     canonical: `${APP_URL}/cart`,
   },
   openGraph: {
-    title: `Saved Projects & Cart — ${APP_NAME}`,
+    title: `Saved Projects — ${APP_NAME}`,
     description:
-      "Review your shortlisted software solutions, calculate project investments, and connect directly with creators.",
+      "Review your shortlisted software projects and open each listing to contact its provider.",
     url: `${APP_URL}/cart`,
     siteName: APP_NAME,
     type: "website",
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
         url: `${APP_URL}/logo.png`,
         width: 800,
         height: 600,
-        alt: `${APP_NAME} Cart`,
+        alt: `${APP_NAME} Saved Projects`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `Saved Projects & Cart — ${APP_NAME}`,
+    title: `Saved Projects — ${APP_NAME}`,
     description:
-      "Review your shortlisted software solutions, calculate project investments, and connect directly with creators.",
+      "Review your shortlisted software projects and open each listing to contact its provider.",
     images: [`${APP_URL}/logo.png`],
   },
 };

@@ -93,7 +93,7 @@ export function RegisterForm() {
     }
 
     // Client-side Zod validation
-    const validation = RegisterSchema.safeParse({ name, email, password, confirmPassword });
+    const validation = RegisterSchema.safeParse({ name, email, password, confirmPassword, acceptedTerms: agreedToTerms });
 
     if (!validation.success) {
       const errors: Record<string, string> = {};
@@ -117,6 +117,7 @@ export function RegisterForm() {
           email: email.trim().toLowerCase(),
           password,
           confirmPassword,
+          acceptedTerms: agreedToTerms,
         }),
       });
 
@@ -137,6 +138,11 @@ export function RegisterForm() {
   }
 
   async function handleGoogleSignIn() {
+    if (!agreedToTerms) {
+      setErrorMessage("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
+
     setGoogleLoading(true);
     setErrorMessage(null);
     try {
@@ -374,7 +380,7 @@ export function RegisterForm() {
               <Link href="/privacy" className="text-[#155761] font-semibold hover:text-[#2F7D78] underline underline-offset-2 transition-colors">
                 Privacy Policy
               </Link>
-              , and consent to receive curated product updates.
+              .
             </span>
           </label>
         </div>

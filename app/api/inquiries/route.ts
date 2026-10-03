@@ -312,10 +312,13 @@ export async function POST(req: NextRequest) {
 
     // 9. Return success response (B10: honest message when email is skipped or throttled)
     const responseMessage =
-      notificationStatus === "PENDING" ||
-      notificationStatus === "THROTTLED"
-        ? "Your inquiry has been saved and routed to the provider's dashboard."
-        : "Your inquiry has been sent to the project provider.";
+      notificationStatus === "SENT"
+        ? "Your inquiry has been sent to the project provider."
+        : notificationStatus === "FAILED"
+          ? "Your inquiry has been saved in the provider's dashboard, but the email notification could not be delivered."
+          : notificationStatus === "THROTTLED"
+            ? "Your inquiry has been saved in the provider's dashboard. The email notification is temporarily delayed."
+            : "Your inquiry has been saved in the provider's dashboard and is awaiting email delivery.";
 
     return NextResponse.json(
       {

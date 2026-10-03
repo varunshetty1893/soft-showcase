@@ -68,6 +68,7 @@ export function CustomProjectForm({
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   function resetTurnstile() {
     setTurnstileToken("");
@@ -160,6 +161,11 @@ export function CustomProjectForm({
         throw new Error(data.error || "Failed to submit custom project request.");
       }
 
+      setSuccessMessage(
+        typeof data?.message === "string"
+          ? data.message
+          : "Your custom project request has been saved for review."
+      );
       setSuccess(true);
     } catch (err: unknown) {
       resetTurnstile();
@@ -183,8 +189,7 @@ export function CustomProjectForm({
           Request Received Successfully!
         </h2>
         <p className="mt-3 text-sm text-[#526267] max-w-md mx-auto leading-relaxed">
-          Thank you for trusting <strong>Soft Showcase</strong> with your software vision.
-          Our team will analyze your requirements and reach out via email or WhatsApp soon.
+          {successMessage || "Your custom project request has been saved for review."}
         </p>
 
         <div className="mt-8 flex justify-center gap-4">

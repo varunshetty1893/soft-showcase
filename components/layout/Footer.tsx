@@ -66,7 +66,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/projects?category=ai-ml"
+                  href="/projects?category=ai-machine-learning"
                   className="hover:text-[#155761] transition-colors"
                 >
                   AI & Machine Learning

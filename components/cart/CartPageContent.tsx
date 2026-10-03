@@ -11,7 +11,6 @@ import {
   ShoppingCart,
   Trash2,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
   Sparkles,
   ExternalLink,
@@ -41,7 +40,7 @@ export function CartPageContent() {
           <div className="flex items-center gap-2 mb-1">
             <ShoppingCart className="w-6 h-6 text-[#155761]" />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#102124]">
-              Saved Projects &amp; Cart
+              Saved Projects
             </h1>
           </div>
           <p className="text-sm text-[#526267]">
@@ -56,7 +55,7 @@ export function CartPageContent() {
             className="self-start sm:self-auto text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Clear Cart
+            Clear Saved Projects
           </button>
         )}
       </div>
@@ -67,7 +66,7 @@ export function CartPageContent() {
           <div className="w-16 h-16 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] flex items-center justify-center mx-auto mb-4 text-[#155761]">
             <ShoppingCart className="w-8 h-8 opacity-60" />
           </div>
-          <h2 className="text-lg font-bold text-[#102124] mb-2">Your cart is currently empty</h2>
+          <h2 className="text-lg font-bold text-[#102124] mb-2">You have no saved projects yet</h2>
           <p className="text-sm text-[#526267] max-w-sm mx-auto mb-6 leading-relaxed">
             Explore hundreds of verified software projects, developer toolkits, and web applications ready for deployment.
           </p>
@@ -170,7 +169,7 @@ export function CartPageContent() {
                     type="button"
                     onClick={() => removeFromCart(item.id)}
                     className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                    title="Remove from cart"
+                    title="Remove saved project"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -183,7 +182,7 @@ export function CartPageContent() {
           <div className="space-y-6 lg:sticky lg:top-24">
             <div className="bg-white rounded-2xl border border-[#D9E2E4] p-6 shadow-xs space-y-5">
               <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
-                Order &amp; Inquiry Summary
+                Saved Projects Summary
               </h2>
 
               <div className="space-y-3 text-xs">
@@ -193,7 +192,7 @@ export function CartPageContent() {
                 </div>
 
                 <div className="flex justify-between items-center text-[#526267]">
-                  <span>Estimated Total (Fixed projects)</span>
+                  <span>Listed prices (fixed-price projects)</span>
                   <span className="text-sm font-bold text-[#155761]">
                     {totalEstimatedPrice > 0
                       ? formatPrice(totalEstimatedPrice)
@@ -201,20 +200,16 @@ export function CartPageContent() {
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center text-[#526267]">
-                  <span>Platform Fee</span>
-                  <span className="font-bold text-emerald-700">₹0 (Zero Middleman)</span>
-                </div>
               </div>
 
               <div className="pt-2 border-t border-[#F3F7F7] space-y-2">
                 <div className="flex items-center gap-2 text-xs text-[#2F7D78]">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Direct builder contact via WhatsApp &amp; Email</span>
+                  <span>Contact options are available from each project page</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-[#526267]">
-                  <ShieldCheck className="w-4 h-4 text-[#155761] shrink-0" />
-                  <span>Verified project source code &amp; handover</span>
+                  <CheckCircle2 className="w-4 h-4 text-[#155761] shrink-0" />
+                  <span>Payment, delivery, and handover are agreed directly with the provider</span>
                 </div>
               </div>
 

@@ -32,7 +32,7 @@ const categoryTagsMap: Record<string, string[]> = {
   "landing-page": ["High-Converting", "Tailwind", "SEO"],
   "admin-panel": ["Analytics", "CRUD", "NextAuth"],
   "api-backend": ["REST", "Microservices", "PostgreSQL"],
-  "ai-ml": ["LLM Ops", "Agents", "OpenAI"],
+  "ai-machine-learning": ["LLM Ops", "Agents", "OpenAI"],
   other: ["Developer Tools", "Utilities", "Libraries"],
 };
 

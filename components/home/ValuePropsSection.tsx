@@ -61,7 +61,7 @@ export function ValuePropsSection() {
               Direct Maker Channels
             </h3>
             <p className="text-xs sm:text-sm text-[#526267] leading-relaxed">
-              Reach creators directly via encrypted WhatsApp and authenticated email without commission fees.
+              Contact creators through their enabled WhatsApp or email inquiry channels. Payment and delivery are agreed directly with the provider.
             </p>
           </div>
 

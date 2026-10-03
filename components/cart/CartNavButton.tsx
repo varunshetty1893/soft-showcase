@@ -17,8 +17,8 @@ export function CartNavButton() {
     <Link
       href="/cart"
       className="relative flex items-center justify-center p-2 rounded-xl text-[#526267] hover:text-[#155761] hover:bg-[#F3F7F7] border border-transparent hover:border-[#D9E2E4] transition-all cursor-pointer"
-      title="View Saved Projects & Cart"
-      aria-label="View Cart"
+      title="View Saved Projects"
+      aria-label="View Saved Projects"
     >
       <ShoppingCart className="w-5 h-5" />
       {mounted && totalCount > 0 && (

@@ -1,5 +1,5 @@
 // app/api/projects/[slug]/whatsapp/route.ts
-// Public API route to safely resolve provider WhatsApp deep link.
+// Authenticated API route to safely resolve a provider WhatsApp deep link.
 // Source of truth: docs/20-whatsapp-architecture.md & docs/15-api-architecture.md
 
 import { NextRequest, NextResponse } from "next/server";
@@ -7,11 +7,17 @@ import { db } from "@/lib/db/client";
 import { getRequestIp, whatsappLimiter } from "@/lib/utils/rate-limit";
 import { generateWhatsAppUrl } from "@/lib/whatsapp/whatsapp";
 import { APP_URL } from "@/config/constants";
+import { getCurrentUser } from "@/lib/auth/session";
 
 type Params = { params: Promise<{ slug: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
   try {
+    const user = await getCurrentUser();
+    if (!user?.id) {
+      return NextResponse.json({ error: "Sign in to contact this provider." }, { status: 401 });
+    }
+
     // 1. Rate limiting by client IP
     const ip = await getRequestIp(request);
     const rateLimitResult = await whatsappLimiter.check(ip);

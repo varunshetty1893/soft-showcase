@@ -4,16 +4,7 @@
 
 import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
-
-const DEFAULT_CATEGORIES = [
-  { name: "AI & Machine Learning", slug: "ai-machine-learning", sortOrder: 1 },
-  { name: "SaaS & Web Applications", slug: "saas-web-applications", sortOrder: 2 },
-  { name: "E-Commerce & Retail", slug: "ecommerce-retail", sortOrder: 3 },
-  { name: "Developer Tools & APIs", slug: "developer-tools-apis", sortOrder: 4 },
-  { name: "FinTech & Analytics", slug: "fintech-analytics", sortOrder: 5 },
-  { name: "Enterprise & CRM", slug: "enterprise-crm", sortOrder: 6 },
-  { name: "Mobile Applications", slug: "mobile-applications", sortOrder: 7 },
-];
+import { DEFAULT_CATEGORIES } from "@/config/categories";
 
 export async function ensureDefaultCategories() {
   await ensureAdditiveSchema();

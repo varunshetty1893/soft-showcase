@@ -46,8 +46,8 @@ export const DEFAULT_CATEGORIES = [
     sortOrder: 6,
   },
   {
-    name: "AI / ML",
-    slug: "ai-ml",
+    name: "AI / Machine Learning",
+    slug: "ai-machine-learning",
     description: "AI-powered tools, chatbots, and machine learning projects",
     iconName: "Brain",
     sortOrder: 7,
