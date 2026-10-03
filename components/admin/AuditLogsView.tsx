@@ -124,7 +124,7 @@ function buildSearchParamsString(
   return sp.toString();
 }
 
-export default function AuditLogsView({
+export function AuditLogsView({
   logs,
   total,
   totalPages,
@@ -877,3 +877,5 @@ export default function AuditLogsView({
     </div>
   );
 }
+
+export default AuditLogsView;

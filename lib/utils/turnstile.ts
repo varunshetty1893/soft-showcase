@@ -1,55 +1,37 @@
 // lib/utils/turnstile.ts
 // Cloudflare Turnstile token validation helper for unauthenticated submissions.
 // Zero external dependencies (uses native fetch).
-// Source of truth: Cloudflare Turnstile Server-side Validation API (N1).
+// Source of truth: Cloudflare Turnstile Server-side Validation API.
+
+import { getEnv } from "@/lib/config/env";
 
 export interface TurnstileVerificationResult {
   success: boolean;
+  unreachable?: boolean;
   errorCodes?: string[];
   challengeTs?: string;
   hostname?: string;
-  unreachable?: boolean;
-}
-
-function getExpectedAppHostname(explicitHostname?: string): string | null {
-  if (explicitHostname && explicitHostname.trim()) {
-    return explicitHostname.trim().toLowerCase();
-  }
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.AUTH_URL ||
-    process.env.NEXTAUTH_URL;
-  if (!appUrl) return null;
-  try {
-    return new URL(appUrl).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
 }
 
 /**
  * Validates a Turnstile token against Cloudflare's siteverify endpoint.
- * - In production, a missing TURNSTILE_SECRET_KEY ALWAYS fails closed (error code: "not-configured").
- * - In development/test (NODE_ENV !== "production"), if TURNSTILE_SECRET_KEY is not set, bypasses cleanly.
- * - Verifies that the returned hostname matches the configured application hostname when present.
+ * In development or test environments where TURNSTILE_SECRET_KEY is not configured,
+ * verification gracefully succeeds to facilitate local testing.
  */
 export async function verifyTurnstileToken(
   token?: string | null,
-  clientIp?: string,
-  expectedHostname?: string
+  clientIp?: string
 ): Promise<TurnstileVerificationResult> {
-  const isProd = process.env.NODE_ENV === "production";
-  const secretKey = process.env.TURNSTILE_SECRET_KEY?.trim();
+  const env = getEnv();
+  const secretKey = env.TURNSTILE_SECRET_KEY || process.env.TURNSTILE_SECRET_KEY;
 
+  // In development / test without Turnstile secret configured, bypass
   if (!secretKey) {
-    if (!isProd) {
+    if (process.env.NODE_ENV !== "production") {
       return { success: true };
     }
-    console.error("[Turnstile] Error: TURNSTILE_SECRET_KEY is not configured in production. Failing closed.");
-    return {
-      success: false,
-      errorCodes: ["not-configured"],
-    };
+    console.error("[Turnstile] Error: TURNSTILE_SECRET_KEY is not configured in production.");
+    return { success: false, errorCodes: ["not-configured"] };
   }
 
   if (!token || typeof token !== "string" || !token.trim()) {
@@ -61,7 +43,7 @@ export async function verifyTurnstileToken(
 
   try {
     const formData = new URLSearchParams();
-    formData.append("secret", secretKey);
+    formData.append("secret", secretKey.trim());
     formData.append("response", token.trim());
     if (clientIp && !clientIp.startsWith("fp_")) {
       formData.append("remoteip", clientIp);
@@ -73,64 +55,57 @@ export async function verifyTurnstileToken(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
+      // 5-second timeout to prevent request hanging
       signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) {
       console.warn(`[Turnstile] Verification HTTP error: ${res.status}`);
-      return {
-        success: false,
-        errorCodes: [`http-${res.status}`],
-        unreachable: res.status >= 500,
-      };
+      return { success: false, unreachable: true, errorCodes: [`http-${res.status}`] };
     }
 
     const data = await res.json();
-    const errorCodes: string[] | undefined = data["error-codes"];
-    const returnedHostname: string | undefined = data.hostname;
+    const isSuccess = Boolean(data.success);
 
-    if (!data.success) {
+    if (!isSuccess) {
       return {
         success: false,
-        errorCodes: errorCodes && errorCodes.length > 0 ? errorCodes : ["invalid-input-response"],
+        errorCodes: data["error-codes"] || ["turnstile-failed"],
         challengeTs: data.challenge_ts,
-        hostname: returnedHostname,
+        hostname: data.hostname,
       };
     }
 
-    // Verify returned hostname matches the app host when present (N1)
-    if (returnedHostname) {
-      const normalizedReturned = returnedHostname.trim().toLowerCase();
-      const targetHost = getExpectedAppHostname(expectedHostname);
-      if (targetHost) {
-        const isLocalDevHost =
-          !isProd && (normalizedReturned === "localhost" || normalizedReturned === "127.0.0.1");
-        if (normalizedReturned !== targetHost && !isLocalDevHost) {
-          console.warn(
-            `[Turnstile] Hostname mismatch: expected "${targetHost}", got "${normalizedReturned}"`
-          );
+    // Hostname validation in production
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (process.env.NODE_ENV === "production" && appUrl && data.hostname) {
+      try {
+        const expectedHost = new URL(appUrl).hostname;
+        if (data.hostname !== expectedHost) {
+          console.warn(`[Turnstile] Hostname mismatch: got ${data.hostname}, expected ${expectedHost}`);
           return {
             success: false,
             errorCodes: ["hostname-mismatch"],
-            challengeTs: data.challenge_ts,
-            hostname: returnedHostname,
+            hostname: data.hostname,
           };
         }
+      } catch {
+        // Ignore URL parsing errors
       }
     }
 
     return {
       success: true,
-      errorCodes,
       challengeTs: data.challenge_ts,
-      hostname: returnedHostname,
+      hostname: data.hostname,
     };
   } catch (err: unknown) {
     console.error("[Turnstile] Verification exception:", err);
+    // On unexpected network timeout / connectivity error, mark unreachable
     return {
-      success: false,
-      errorCodes: ["network-error"],
+      success: process.env.NODE_ENV !== "production",
       unreachable: true,
+      errorCodes: ["network-error"],
     };
   }
 }

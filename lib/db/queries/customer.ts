@@ -4,18 +4,55 @@
 
 import { db } from "@/lib/db/client";
 
+// ─── Verified Record Linking ──────────────────────────────────────────────────
+
+/**
+ * Links unlinked past guest inquiries, custom requests, and transactions to a verified customer account.
+ * Called explicitly after email verification or registration (not during read queries).
+ */
+export async function linkVerifiedUserRecords(
+  userId: string,
+  email: string
+): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || !userId) return;
+
+  await Promise.all([
+    db.inquiry.updateMany({
+      where: { email: normalized, customerId: null },
+      data: { customerId: userId },
+    }),
+    (db.customProjectRequest as any).updateMany({
+      where: { email: { equals: normalized, mode: "insensitive" }, customerId: null },
+      data: { customerId: userId, linkedAt: new Date() },
+    }),
+    db.transaction.updateMany({
+      where: { customerEmail: normalized, customerId: null },
+      data: { customerId: userId },
+    }),
+  ]).catch((err) => {
+    console.warn("[linkVerifiedUserRecords] Failed to link records:", err);
+  });
+}
+
 // ─── Inquiries ────────────────────────────────────────────────────────────────
 
 /**
  * Fetch all inquiries submitted by a specific user.
- * Scoped strictly by customerId.
+ * Strictly scoped by customerId without read-time auto-linking.
  */
 export async function getCustomerInquiries(
   userId: string,
+  emailOrOptions?: string | null | { page?: number; pageSize?: number },
   options?: { page?: number; pageSize?: number }
 ) {
-  const page = options?.page || 1;
-  const pageSize = options?.pageSize || 50;
+  const opts =
+    typeof emailOrOptions === "object" && emailOrOptions !== null
+      ? emailOrOptions
+      : options;
+
+  const page = opts?.page || 1;
+  const pageSize = opts?.pageSize || 50;
   const skip = (page - 1) * pageSize;
 
   return db.inquiry.findMany({
@@ -59,26 +96,42 @@ export async function getCustomerInquiries(
 // ─── Custom Project Requests ──────────────────────────────────────────────────
 
 /**
- * Fetch custom project requests for a customer by customerId with pagination.
- * Scoped strictly to authenticated account customerId (Issue B5).
+ * Fetch custom project requests for a customer with pagination.
+ * Scoped by customerId (or email if an email address is provided).
  */
+export interface CustomerProjectRequestItem {
+  id: string;
+  projectTitle: string;
+  category: string | null;
+  technologyPreferences: string[];
+  description: string;
+  requiredFeatures: string;
+  status: any;
+  budget: string | null;
+  deadline: string | null;
+  createdAt: Date;
+}
+
 export async function getCustomerRequests(
-  userId: string,
+  identifier: string,
   options?: { page?: number; pageSize?: number }
-) {
+): Promise<CustomerProjectRequestItem[]> {
   const page = options?.page || 1;
   const pageSize = options?.pageSize || 50;
   const skip = (page - 1) * pageSize;
 
-  return db.customProjectRequest.findMany({
-    where: { customerId: userId },
+  const isEmail = identifier.includes("@");
+  const where = isEmail
+    ? { email: { equals: identifier.trim().toLowerCase(), mode: "insensitive" as const } }
+    : { customerId: identifier };
+
+  return (db.customProjectRequest as any).findMany({
+    where,
     orderBy: { createdAt: "desc" },
     skip,
     take: pageSize,
     select: {
       id: true,
-      customerId: true,
-      linkedAt: true,
       projectTitle: true,
       category: true,
       technologyPreferences: true,
@@ -89,13 +142,13 @@ export async function getCustomerRequests(
       deadline: true,
       createdAt: true,
     },
-  });
+  }) as Promise<CustomerProjectRequestItem[]>;
 }
 
 // ─── Customer Profile & Stats ─────────────────────────────────────────────────
 
 /**
- * Fetch user details for the customer profile page including DB-persisted contact details.
+ * Fetch user details for the customer profile page.
  */
 export async function getCustomerProfile(userId: string) {
   return db.user.findUnique({
@@ -104,8 +157,6 @@ export async function getCustomerProfile(userId: string) {
       id: true,
       name: true,
       email: true,
-      whatsapp: true,
-      contactEmail: true,
       image: true,
       isAdmin: true,
       createdAt: true,
@@ -115,41 +166,18 @@ export async function getCustomerProfile(userId: string) {
 
 /**
  * Get summary counts for the customer area badges and profile overview.
- * Scoped strictly by customerId.
  */
-export async function getCustomerStats(userId: string) {
+export async function getCustomerStats(userId: string, email: string) {
   const [inquiryCount, requestCount] = await Promise.all([
     db.inquiry.count({
-      where: { customerId: userId },
+      where: {
+        OR: [{ customerId: userId }, { email: email.toLowerCase() }],
+      },
     }),
     db.customProjectRequest.count({
-      where: { customerId: userId },
+      where: { email: { equals: email, mode: "insensitive" } },
     }),
   ]);
 
   return { inquiryCount, requestCount };
-}
-
-/**
- * Link guest inquiries, custom requests, and transactions to a verified user account.
- * Executed strictly once upon verified sign-in.
- */
-export async function linkVerifiedUserRecords(userId: string, email: string) {
-  if (!userId || !email) return;
-  const normalizedEmail = email.toLowerCase().trim();
-
-  await Promise.all([
-    db.inquiry.updateMany({
-      where: { email: normalizedEmail, customerId: null },
-      data: { customerId: userId },
-    }).catch((err) => console.error("[Linking] Failed to link guest inquiries:", err)),
-    db.customProjectRequest.updateMany({
-      where: { email: { equals: normalizedEmail, mode: "insensitive" }, customerId: null },
-      data: { customerId: userId, linkedAt: new Date() },
-    }).catch((err) => console.error("[Linking] Failed to link guest custom requests:", err)),
-    db.transaction.updateMany({
-      where: { customerEmail: normalizedEmail, customerId: null },
-      data: { customerId: userId },
-    }).catch((err) => console.error("[Linking] Failed to link guest transactions:", err)),
-  ]);
 }

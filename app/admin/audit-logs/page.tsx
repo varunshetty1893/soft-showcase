@@ -1,13 +1,10 @@
 // app/admin/audit-logs/page.tsx
-// Admin audit log viewer page (Phase 5).
-// Server-rendered and driven by URL search params so results are shareable and survive Back/refresh.
-// Source of truth: docs/32-audit-logging.md & Phase 5 specification.
+// Admin audit log viewer page with Phase 5 search, filters, readable actors/entities, and CSV export.
+// Source of truth: docs/32-audit-logging.md & docs/08-page-specifications.md
 
 import type { Metadata } from "next";
 import { getAdminAuditLogs } from "@/lib/db/audit";
-import AuditLogsView, {
-  type SerializedAuditLogRow,
-} from "@/components/admin/AuditLogsView";
+import { AuditLogsView } from "@/components/admin/AuditLogsView";
 
 export const metadata: Metadata = {
   title: "Audit Logs — Admin | Soft Showcase",
@@ -30,25 +27,9 @@ export default async function AdminAuditLogsPage({
     filterOptions,
   } = await getAdminAuditLogs(rawParams);
 
-  const serializedLogs: SerializedAuditLogRow[] = logs.map((row) => ({
-    id: row.id,
-    userId: row.userId,
-    action: row.action,
-    actionCategory: row.actionCategory,
-    entityType: row.entityType,
-    entityId: row.entityId,
-    details: row.details,
-    createdAtIso:
-      row.createdAt instanceof Date
-        ? row.createdAt.toISOString()
-        : new Date(row.createdAt).toISOString(),
-    actor: row.actor,
-    entity: row.entity,
-  }));
-
   return (
     <AuditLogsView
-      logs={serializedLogs}
+      logs={logs}
       total={total}
       totalPages={totalPages}
       currentPage={currentPage}
