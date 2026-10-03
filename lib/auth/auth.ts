@@ -161,7 +161,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         await db.user.update({
           where: { id: user.id },
           data: { emailVerified: userVerified || new Date() },
-        }).catch((e) => console.error("[Auth] Error setting emailVerified on createUser:", e));
+        }).catch((e: unknown) => console.error("[Auth] Error setting emailVerified on createUser:", e));
         await bootstrapAdminOnVerification(user.id, normalizedEmail);
         await linkVerifiedUserRecords(user.id, normalizedEmail);
       }
@@ -190,7 +190,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // If existing user has a credentials password set and no linked Google account,
             // prevent silent account takeover. Require user to log in with password.
             const hasGoogleAccount = existingUser.accounts.some(
-              (acc) => acc.provider === "google"
+              (acc: { provider: string }) => acc.provider === "google"
             );
             if (existingUser.passwordHash && !hasGoogleAccount) {
               console.warn(

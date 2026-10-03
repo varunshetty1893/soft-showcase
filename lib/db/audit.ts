@@ -264,8 +264,8 @@ export function parseAuditLogFilters(raw: Record<string, unknown>): AuditLogFilt
   };
 }
 
-export function buildAuditPrismaWhere(filters: AuditLogFilterState): Prisma.AuditLogWhereInput {
-  const conditions: Prisma.AuditLogWhereInput[] = [];
+export function buildAuditPrismaWhere(filters: AuditLogFilterState): Record<string, any> {
+  const conditions: Record<string, any>[] = [];
 
   if (filters.q) {
     conditions.push({
@@ -583,7 +583,7 @@ export async function createAuditLog(options: AuditOptions): Promise<void> {
         action: options.action,
         entityType: options.entityType,
         entityId: options.entityId ?? undefined,
-        details: redactedDetails ? (redactedDetails as Prisma.InputJsonValue) : Prisma.JsonNull,
+        details: (redactedDetails as any) ?? undefined,
         searchText,
       } as any,
     });
@@ -598,7 +598,7 @@ export async function createAuditLog(options: AuditOptions): Promise<void> {
  * privileged change can never be committed without its audit trail.
  */
 export async function createAuditLogTx(
-  tx: Prisma.TransactionClient,
+  tx: any,
   options: AuditOptions
 ): Promise<void> {
   const redactedDetails = options.details ? redactPayload(options.details) : null;
@@ -616,7 +616,7 @@ export async function createAuditLogTx(
       action: options.action,
       entityType: options.entityType,
       entityId: options.entityId ?? undefined,
-      details: redactedDetails ? (redactedDetails as Prisma.InputJsonValue) : Prisma.JsonNull,
+      details: (redactedDetails as any) ?? undefined,
       searchText,
     } as any,
   });
