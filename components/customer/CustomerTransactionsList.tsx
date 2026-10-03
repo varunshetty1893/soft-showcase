@@ -103,7 +103,14 @@ export function CustomerTransactionsList({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth touch-pan-x"
+          onWheel={(e) => {
+            if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
           {[
             { label: "All Orders", value: "ALL" },
             { label: "Verified", value: "VERIFIED" },

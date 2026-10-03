@@ -133,7 +133,14 @@ export function CustomerHeader({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#D9E2E4] pb-px overflow-x-auto">
+      <div
+        className="flex items-center gap-2 border-b border-[#D9E2E4] pb-px overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth touch-pan-x"
+        onWheel={(e) => {
+          if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+            e.currentTarget.scrollLeft += e.deltaY;
+          }
+        }}
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = pathname === tab.href;
