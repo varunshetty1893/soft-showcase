@@ -688,7 +688,7 @@ export function ProviderTable({
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-[#D9E2E4] rounded-2xl overflow-visible shadow-xs">
+      <div className="bg-white border border-[#D9E2E4] rounded-2xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto min-h-[160px]">
           <table className="w-full text-sm">
             <thead>
@@ -713,7 +713,7 @@ export function ProviderTable({
                       p.applicationStatus === "pending" && !p.removedAt ? "bg-amber-50/20" : ""
                     }`}
                   >
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-[#102124]">{p.displayName}</span>
                         {p.userId && (
@@ -737,7 +737,7 @@ export function ProviderTable({
                       )}
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2.5">
                       <div className="text-[#102124] font-medium text-xs">{p.email}</div>
                       {p.whatsappNumber && (
                         <div className="text-[11px] text-[#526267] mt-0.5">
@@ -746,13 +746,13 @@ export function ProviderTable({
                       )}
                     </td>
 
-                    <td className="px-4 py-4 text-[#526267] font-semibold">
+                    <td className="px-4 py-2.5 text-[#526267] font-semibold">
                       {p._count.projects}
                     </td>
 
-                    <td className="px-4 py-4">{renderStatusBadge(p)}</td>
+                    <td className="px-4 py-2.5">{renderStatusBadge(p)}</td>
 
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-2.5">
                       <div className="flex items-center justify-end gap-2 flex-wrap relative">
                         {/* View Details */}
                         <button
