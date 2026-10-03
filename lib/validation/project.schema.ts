@@ -290,21 +290,8 @@ function applyPricingOfferSuperRefine(
     }
 
     const nowMs = Date.now();
-    if (TIME_LIMITED_DEAL_TYPES.has(dealType)) {
-      if (!data.dealEndsAt) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `${dealType} requires an end date in the future`,
-          path: ["dealEndsAt"],
-        });
-      } else if (data.dealEndsAt.getTime() <= nowMs) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Offer end date must be in the future",
-          path: ["dealEndsAt"],
-        });
-      }
-    } else if (data.dealEndsAt && data.dealEndsAt.getTime() <= nowMs) {
+    // Offer dates are optional. If an end date is specified, it must be in the future.
+    if (data.dealEndsAt && data.dealEndsAt.getTime() <= nowMs) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Offer end date must be in the future",

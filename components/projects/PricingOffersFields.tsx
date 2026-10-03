@@ -37,10 +37,10 @@ interface PricingOffersFieldsProps {
 
 const DEAL_TYPE_OPTIONS: { value: DealTypeValue; label: string; hint: string }[] = [
   { value: "NONE", label: "No Promotional Tag (Standard / Permanent Reference)", hint: "No time-limited offer badge" },
-  { value: "LIMITED_DEAL", label: "Limited Deal", hint: "Requires a future end date" },
-  { value: "LAUNCH_OFFER", label: "Launch Offer", hint: "Requires a future end date" },
-  { value: "FESTIVE_SALE", label: "Festive Sale", hint: "Requires a future end date" },
-  { value: "EARLY_BIRD", label: "Early Bird", hint: "Requires a future end date" },
+  { value: "LIMITED_DEAL", label: "Limited Deal", hint: "Optional future end date" },
+  { value: "LAUNCH_OFFER", label: "Launch Offer", hint: "Optional future end date" },
+  { value: "FESTIVE_SALE", label: "Festive Sale", hint: "Optional future end date" },
+  { value: "EARLY_BIRD", label: "Early Bird", hint: "Optional future end date" },
   { value: "CLEARANCE", label: "Clearance", hint: "Optional end date" },
   { value: "CUSTOM", label: "Custom Offer Label…", hint: "Custom badge (max 24 chars), optional end date" },
 ];
@@ -52,7 +52,7 @@ export function PricingOffersFields({
 }: PricingOffersFieldsProps) {
   const isFixed = value.priceMode === "FIXED";
   const isPaid = value.priceMode === "FIXED" || value.priceMode === "STARTING_FROM";
-  const requiresEndDate = TIME_LIMITED_DEAL_TYPES.has(value.dealType);
+  const requiresEndDate = false;
 
   const startsAtLocal = React.useMemo(
     () =>
@@ -300,21 +300,18 @@ export function PricingOffersFields({
 
               <div>
                 <label className={labelClass}>
-                  Offer Ends At (IST){requiresEndDate ? " *" : " (Optional)"}
+                  Offer Ends At (IST, Optional)
                 </label>
                 <input
                   type="datetime-local"
                   value={endsAtLocal}
                   onChange={(e) => onChange({ dealEndsAt: e.target.value })}
                   className={fieldClass}
-                  required={requiresEndDate}
                 />
                 <p className="text-[11px] text-[#526267] mt-1 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-[#155761]" />
                   <span>
-                    {requiresEndDate
-                      ? "Required for time-limited deals. Automatically reverts to regular price when passed."
-                      : "Optional. A countdown timer is shown only when an end date is set."}
+                    Optional. A countdown timer is shown only when an end date is set.
                   </span>
                 </p>
                 {getFieldError("dealEndsAt") && (

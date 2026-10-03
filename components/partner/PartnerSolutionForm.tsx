@@ -19,6 +19,8 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowDownAZ,
+  GripVertical,
   Loader2,
   Info,
   X,
@@ -429,6 +431,8 @@ export function PartnerSolutionForm({
   const [dragActive, setDragActive] = React.useState(false);
   const [loadedImages, setLoadedImages] = React.useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [draggedPhotoIdx, setDraggedPhotoIdx] = React.useState<number | null>(null);
+  const [dragOverPhotoIdx, setDragOverPhotoIdx] = React.useState<number | null>(null);
 
   // ── Import JSON State ─────────────────────────────────────────────────────
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
@@ -760,7 +764,12 @@ export function PartnerSolutionForm({
   const processFilesUpload = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
-    const total = files.length;
+    // Natural sort incoming files by file.name (e.g. 01, 02, 03... or A, B, C...)
+    const sortedFiles = Array.from(files).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+    );
+
+    const total = sortedFiles.length;
     setIsUploadingPhoto(true);
     setUploadStats({ current: 0, total, percent: 0 });
     setUploadProgress(`Preparing ${total} photo(s)...`);
@@ -770,7 +779,7 @@ export function PartnerSolutionForm({
       const addedPhotos: PhotoItem[] = [];
 
       for (let i = 0; i < total; i++) {
-        const file = files[i];
+        const file = sortedFiles[i];
         const percent = Math.round(((i + 1) / total) * 100);
         setUploadStats({ current: i + 1, total, percent });
         setUploadProgress(`Uploading photo ${i + 1} of ${total} (${file.name})...`);
@@ -813,13 +822,27 @@ export function PartnerSolutionForm({
         });
       }
 
-      setPhotos((prev) => [...prev, ...addedPhotos]);
+      // Auto-sort combined list naturally by altText / filename (numbers 1-9, alphabets A-Z)
+      const combined = [...photos, ...addedPhotos].sort((a, b) => {
+        const labelA = a.altText || a.url || "";
+        const labelB = b.altText || b.url || "";
+        return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: "base" });
+      });
+
+      // Set first item in sorted order as primary cover thumbnail
+      const updated = combined.map((p, idx) => ({
+        ...p,
+        isPrimary: idx === 0,
+      }));
+
+      setPhotos(updated);
       setFieldErrors((prev) => {
         if (!prev.photos) return prev;
         const next = { ...prev };
         delete next.photos;
         return next;
       });
+      toast.success(`${addedPhotos.length} photo(s) uploaded and auto-sorted by name.`);
       setUploadProgress(null);
     } catch (err: any) {
       setError(err?.message || "Failed to upload image file");
@@ -900,6 +923,32 @@ export function PartnerSolutionForm({
       const copy = [...prev];
       const [moved] = copy.splice(index, 1);
       copy.splice(newIdx, 0, moved);
+      return copy;
+    });
+  };
+
+  const handleAutoSortPhotos = () => {
+    if (photos.length <= 1) return;
+    setPhotos((prev) => {
+      const sorted = [...prev].sort((a, b) => {
+        const labelA = a.altText || a.url || "";
+        const labelB = b.altText || b.url || "";
+        return labelA.localeCompare(labelB, undefined, { numeric: true, sensitivity: "base" });
+      });
+      return sorted.map((p, idx) => ({
+        ...p,
+        isPrimary: idx === 0,
+      }));
+    });
+    toast.success("Photos auto-sorted in natural order (1–9, A–Z).");
+  };
+
+  const handleReorderPhotos = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
+    setPhotos((prev) => {
+      const copy = [...prev];
+      const [moved] = copy.splice(fromIdx, 1);
+      copy.splice(toIdx, 0, moved);
       return copy;
     });
   };
@@ -1767,6 +1816,27 @@ export function PartnerSolutionForm({
           </div>
         </div>
 
+        {/* Photos Grid Toolbar */}
+        {photos.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 pb-1">
+            <p className="text-xs text-[#526267] flex items-center gap-1.5">
+              <GripVertical className="w-3.5 h-3.5 text-[#155761]" />
+              <span>Click, hold &amp; drag cards to reorder, use arrow buttons, or auto-sort.</span>
+            </p>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAutoSortPhotos}
+              className="text-xs h-8 gap-1.5 rounded-xl border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] text-[#155761] font-semibold cursor-pointer shadow-2xs self-start sm:self-auto"
+            >
+              <ArrowDownAZ className="w-3.5 h-3.5 text-[#155761]" />
+              <span>Auto-Sort (1–9, A–Z)</span>
+            </Button>
+          </div>
+        )}
+
         {/* Photos Grid */}
         {photos.length === 0 && !isUploadingPhoto ? (
           <div className="text-center py-8 px-4 rounded-2xl border-2 border-dashed border-[#D9E2E4] bg-[#F8FAFA]">
@@ -1778,102 +1848,155 @@ export function PartnerSolutionForm({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {photos.map((photo, idx) => (
-              <div
-                key={photo.id}
-                className={`relative rounded-2xl border transition-all overflow-hidden flex flex-col justify-between bg-white ${
-                  photo.isPrimary
-                    ? "border-[#155761] ring-2 ring-[#155761]/30 shadow-md"
-                    : "border-[#D9E2E4] shadow-2xs hover:border-[#BEDEE1]"
-                }`}
-              >
-                {/* Thumbnail Preview with loading indicator */}
-                <div className="relative aspect-video w-full bg-slate-100 overflow-hidden group">
-                  {!loadedImages[photo.id] && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] z-5">
-                      <Loader2 className="w-5 h-5 animate-spin text-[#155761] mb-1.5" />
-                      <span className="text-[10px] font-semibold text-[#526267]">Loading preview...</span>
-                    </div>
-                  )}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo.url}
-                    alt={photo.altText || "Project photo"}
-                    onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
-                    onError={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
-                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                      loadedImages[photo.id] ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
+            {photos.map((photo, idx) => {
+              const isDragging = draggedPhotoIdx === idx;
+              const isDragOver = dragOverPhotoIdx === idx;
 
-                  {/* Primary Cover Badge */}
-                  {photo.isPrimary ? (
-                    <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-[#155761] text-white text-[11px] font-bold shadow-md flex items-center gap-1.5 backdrop-blur-xs">
-                      <Star className="w-3.5 h-3.5 fill-current text-amber-300" />
-                      Primary Cover
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrimaryPhoto(photo.id)}
-                      className="absolute top-2 left-2 px-2 py-1 rounded-full bg-black/60 hover:bg-[#155761] text-white text-[11px] font-medium shadow-xs transition-colors flex items-center gap-1 backdrop-blur-xs cursor-pointer opacity-90 hover:opacity-100"
+              return (
+                <div
+                  key={photo.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedPhotoIdx(idx);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverPhotoIdx !== idx) setDragOverPhotoIdx(idx);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverPhotoIdx === idx) setDragOverPhotoIdx(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedPhotoIdx !== null && draggedPhotoIdx !== idx) {
+                      handleReorderPhotos(draggedPhotoIdx, idx);
+                    }
+                    setDraggedPhotoIdx(null);
+                    setDragOverPhotoIdx(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedPhotoIdx(null);
+                    setDragOverPhotoIdx(null);
+                  }}
+                  className={`relative rounded-2xl border transition-all overflow-hidden flex flex-col justify-between bg-white cursor-grab active:cursor-grabbing select-none ${
+                    isDragging
+                      ? "opacity-40 border-dashed border-[#155761] ring-2 ring-[#155761]"
+                      : isDragOver
+                      ? "border-[#155761] ring-2 ring-[#155761] ring-offset-2 scale-[1.02] shadow-lg"
+                      : photo.isPrimary
+                      ? "border-[#155761] ring-2 ring-[#155761]/30 shadow-md"
+                      : "border-[#D9E2E4] shadow-2xs hover:border-[#BEDEE1]"
+                  }`}
+                >
+                  {/* Thumbnail Preview with loading indicator */}
+                  <div className="relative aspect-video w-full bg-slate-100 overflow-hidden group">
+                    {!loadedImages[photo.id] && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F8FAFA] text-[#526267] z-5">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#155761] mb-1.5" />
+                        <span className="text-[10px] font-semibold text-[#526267]">Loading preview...</span>
+                      </div>
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={photo.altText || "Project photo"}
+                      onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                      onError={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                      className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none ${
+                        loadedImages[photo.id] ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+
+                    {/* Primary Cover Badge */}
+                    {photo.isPrimary ? (
+                      <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-[#155761] text-white text-[11px] font-bold shadow-md flex items-center gap-1.5 backdrop-blur-xs z-10">
+                        <Star className="w-3.5 h-3.5 fill-current text-amber-300" />
+                        Primary Cover
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSetPrimaryPhoto(photo.id);
+                        }}
+                        className="absolute top-2 left-2 px-2 py-1 rounded-full bg-black/60 hover:bg-[#155761] text-white text-[11px] font-medium shadow-xs transition-colors flex items-center gap-1 backdrop-blur-xs cursor-pointer opacity-90 hover:opacity-100 z-10"
+                      >
+                        <Star className="w-3 h-3" />
+                        Make Primary
+                      </button>
+                    )}
+
+                    {/* Drag Handle & 4-Way Reorder Controls */}
+                    <div
+                      className="absolute top-2 right-2 flex items-center gap-1 bg-black/65 backdrop-blur-xs p-1 rounded-xl shadow-xs z-10"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Star className="w-3 h-3" />
-                      Make Primary
-                    </button>
-                  )}
+                      {/* Drag Handle indicator */}
+                      <span
+                        className="flex items-center gap-0.5 text-[10px] text-white/90 px-1 py-0.5 cursor-grab active:cursor-grabbing font-medium"
+                        title="Click, hold & drag to reorder"
+                      >
+                        <GripVertical className="w-3.5 h-3.5 text-white/80" />
+                        <span className="hidden sm:inline">Drag</span>
+                      </span>
 
-                  {/* 4-Way Reorder Controls */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl shadow-xs">
-                    {/* Move 1 step left */}
-                    {idx > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMovePhoto(idx, "left")}
-                        title="Move 1 step left (←)"
-                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                      >
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {/* Move earlier / Up */}
-                    {idx > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMovePhoto(idx, "up")}
-                        title="Move earlier / Up (↑)"
-                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {/* Move later / Down */}
-                    {idx < photos.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMovePhoto(idx, "down")}
-                        title="Move later / Down (↓)"
-                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {/* Move 1 step right */}
-                    {idx < photos.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMovePhoto(idx, "right")}
-                        title="Move 1 step right (→)"
-                        className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
-                      >
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                      <span className="w-px h-3.5 bg-white/20" />
+
+                      {/* Move 1 step left */}
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMovePhoto(idx, "left")}
+                          title="Move 1 step left (←)"
+                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {/* Move earlier / Up */}
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMovePhoto(idx, "up")}
+                          title="Move earlier / Up (↑)"
+                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {/* Move later / Down */}
+                      {idx < photos.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMovePhoto(idx, "down")}
+                          title="Move later / Down (↓)"
+                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {/* Move 1 step right */}
+                      {idx < photos.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMovePhoto(idx, "right")}
+                          title="Move 1 step right (→)"
+                          className="w-6 h-6 rounded-md hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Photo Details & Actions */}
-                <div className="p-3.5 space-y-2.5">
+                  {/* Photo Details & Actions */}
+                  <div
+                    className="p-3.5 space-y-2.5 bg-white"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                   <div>
                     <Label className="text-[11px] font-semibold text-[#526267]">
                       Caption / Alt Text

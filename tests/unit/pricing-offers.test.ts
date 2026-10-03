@@ -86,9 +86,9 @@ describe("Phase 4 — Pricing Offers & Effective Pricing", () => {
       "FESTIVE_SALE",
       "EARLY_BIRD",
     ] as const)(
-      "requires a future dealEndsAt for time-bound offer type %s",
+      "allows offer type %s to omit dealEndsAt, but rejects a past dealEndsAt if provided",
       (dealType) => {
-        // Missing end date
+        // Missing end date is allowed (optional offer dates)
         const missingEnd = validatePricingOfferInput(
           {
             priceMode: "FIXED",
@@ -99,9 +99,9 @@ describe("Phase 4 — Pricing Offers & Effective Pricing", () => {
           },
           now
         );
-        expect(missingEnd.dealEndsAt).toBeDefined();
+        expect(missingEnd.dealEndsAt).toBeUndefined();
 
-        // Past end date
+        // Past end date is rejected
         const pastEnd = validatePricingOfferInput(
           {
             priceMode: "FIXED",

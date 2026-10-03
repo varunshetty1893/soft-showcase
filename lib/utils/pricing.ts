@@ -567,13 +567,8 @@ export function validatePricingOfferInput(
       }
     }
 
-    if (TIME_LIMITED_DEAL_TYPES.has(dealType)) {
-      if (!endsAt) {
-        errors.dealEndsAt = "An end date and time in the future is required for this limited offer.";
-      } else if (endsAt.getTime() <= now.getTime()) {
-        errors.dealEndsAt = "Offer end date and time must be in the future.";
-      }
-    } else if (endsAt && endsAt.getTime() <= now.getTime()) {
+    // Offer dates are optional. If an end date is specified, it must be in the future.
+    if (endsAt && endsAt.getTime() <= now.getTime()) {
       errors.dealEndsAt = "Offer end date and time must be in the future.";
     }
 
