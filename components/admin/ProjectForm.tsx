@@ -1419,11 +1419,17 @@ export default function ProjectForm({
             {e}
           </p>
         ))}
-        <ImageUploader
-          projectId={projectId}
-          initialImages={images}
-          onImagesChange={setImages}
-        />
+        {projectId ? (
+          <ImageUploader
+            projectId={projectId}
+            initialImages={images}
+            onImagesChange={setImages}
+          />
+        ) : (
+          <p className="text-sm text-[#526267]">
+            Save the project first, then add images from its edit page.
+          </p>
+        )}
       </div>
 
       {/* ── Submit Bar ───────────────────────────────────────────────────────── */}
