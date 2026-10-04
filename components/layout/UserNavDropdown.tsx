@@ -219,7 +219,7 @@ export function UserNavDropdown({ user, onSignOut }: UserNavDropdownProps) {
             </Link>
 
             <Link
-              href="/my-requests"
+              href="/custom-project?tab=requests"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-[#102124] hover:bg-[#F3F7F7] transition-colors"
             >

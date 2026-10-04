@@ -43,10 +43,11 @@ const PUBLIC_NAV = [
 
 const CUSTOMER_NAV = [
   { label: "Browse Projects", href: "/projects" },
-  { label: "Categories",      href: "/#categories" },
-  { label: "How It Works",    href: "/#how-it-works" },
-  { label: "Partners",        href: "/become-a-partner" },
+  { label: "Custom Build",    href: "/custom-project" },
+  { label: "My Orders",       href: "/my-transactions" },
+  { label: "Help & Support",  href: "/my-support" },
 ];
+
 
 const PARTNER_NAV = [
   { label: "Browse Projects", href: "/projects" },
@@ -93,6 +94,9 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
   const isActive = (href: string) => {
     if (href.startsWith("/#")) return false;
     if (href === "/projects") return pathname.startsWith("/projects");
+    if (href === "/custom-project") return pathname.startsWith("/custom-project") || pathname.startsWith("/my-requests");
+    if (href === "/my-transactions") return pathname.startsWith("/my-transactions");
+    if (href === "/my-support") return pathname.startsWith("/my-support");
     if (href === "/partner/dashboard")
       return (
         pathname.startsWith("/partner") &&
@@ -106,12 +110,13 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
   // Mobile customer quick-links (icons + labels shown in mobile drawer)
   const mobileCustomerLinks = [
-    { label: "My Requests",      href: "/my-requests",       Icon: FileCode2 },
-    { label: "My Inquiries",     href: "/my-inquiries",      Icon: MessageSquare },
-    { label: "Orders & Receipts",href: "/my-transactions",   Icon: Receipt },
+    { label: "Browse Projects",  href: "/projects",          Icon: FileCode2 },
+    { label: "Custom Build",     href: "/custom-project",    Icon: Sparkles },
+    { label: "My Orders",        href: "/my-transactions",   Icon: Receipt },
     { label: "Help & Support",   href: "/my-support",        Icon: Headphones },
     { label: "Profile Settings", href: "/profile",           Icon: User },
   ];
+
 
 
   const mobilePartnerLinks = [
@@ -177,21 +182,6 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
 
           {user ? (
             <div className="flex items-center gap-2">
-              {/* Contextual CTA per persona */}
-              {!user.isAdmin && !isPartner && (
-                <Link
-                  href="/custom-project"
-                  className={buttonVariants({
-                    variant: "primary",
-                    size: "sm",
-                    className: "gap-1.5 text-xs font-semibold shadow-xs",
-                  })}
-                >
-                  Custom Build
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              )}
-
               {user.isAdmin && (
                 <Link
                   href="/admin"
@@ -205,6 +195,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   Admin Panel
                 </Link>
               )}
+
 
               <UserNavDropdown
                 user={{
@@ -331,21 +322,7 @@ export function NavbarClient({ user, signOutAction }: NavbarClientProps) {
                   </Link>
                 ))}
 
-                {/* Customer CTA */}
-                {!user.isAdmin && !isPartner && (
-                  <Link
-                    href="/custom-project"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={buttonVariants({
-                      variant: "primary",
-                      size: "md",
-                      className: "w-full mt-2 gap-1.5 font-semibold",
-                    })}
-                  >
-                    <FileCode2 className="w-4 h-4" />
-                    Request a Custom Build
-                  </Link>
-                )}
+
 
                 {/* Sign out */}
                 <div className="pt-2">
