@@ -162,7 +162,7 @@ export async function getAllProviders(options?: { page?: number; pageSize?: numb
 
   // Also count published projects per provider for accurate deactivation impact preview
   const enriched = await Promise.all(
-    providers.map(async (p) => {
+    providers.map(async (p: any) => {
       let publishedProjectsCount = 0;
       try {
         publishedProjectsCount = await db.project.count({
