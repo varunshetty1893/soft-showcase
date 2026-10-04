@@ -137,6 +137,28 @@ export async function getAllProviders(options?: { page?: number; pageSize?: numb
     console.warn("Could not auto-sync partner users to providers:", syncErr);
   }
 
+  // Self-healing: if any user was converted to 'customer', automatically deactivate their provider
+  try {
+    await db.projectProvider.updateMany({
+      where: {
+        user: {
+          role: "customer",
+          isAdmin: false,
+        },
+        OR: [
+          { isActive: true },
+          { applicationStatus: "approved" },
+        ],
+      },
+      data: {
+        isActive: false,
+        applicationStatus: "deactivated",
+      },
+    });
+  } catch (syncCustomerErr) {
+    console.warn("Could not deactivate customer providers:", syncCustomerErr);
+  }
+
   const providers = await db.projectProvider.findMany({
     orderBy: { displayName: "asc" },
     skip,

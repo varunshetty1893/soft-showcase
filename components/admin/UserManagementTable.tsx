@@ -385,7 +385,11 @@ export function UserManagementTable({
       case "set_role": {
         const ok = await doAction(user.id, { action: "set_role", role: newRole, reason });
         if (ok) {
-          updateUserLocally(user.id, { role: newRole, isAdmin: newRole === "admin" });
+          updateUserLocally(user.id, {
+            role: newRole,
+            isAdmin: newRole === "admin",
+            partnerProfile: newRole === "solution_partner" ? user.partnerProfile : null,
+          });
           toast.success(`Role updated to "${newRole}".`);
         }
         break;
@@ -401,7 +405,7 @@ export function UserManagementTable({
       case "remove_admin": {
         const ok = await doAction(user.id, { action: "remove_admin", reason });
         if (ok) {
-          updateUserLocally(user.id, { role: "customer", isAdmin: false });
+          updateUserLocally(user.id, { role: "customer", isAdmin: false, partnerProfile: null });
           toast.success("Admin privileges removed.");
         }
         break;
@@ -541,7 +545,7 @@ export function UserManagementTable({
                                   You
                                 </span>
                               )}
-                              {(user.partnerProfile || user.role === "solution_partner") && (
+                              {user.role === "solution_partner" && (
                                 <Link
                                   href={`/admin/providers?q=${encodeURIComponent(user.email)}`}
                                   title={
@@ -681,7 +685,7 @@ export function UserManagementTable({
                                     </button>
 
                                     {/* View in Partners & Providers */}
-                                    {(user.partnerProfile || user.role === "solution_partner") && (
+                                    {user.role === "solution_partner" && (
                                       <Link
                                         href={`/admin/providers?q=${encodeURIComponent(user.email)}`}
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[#155761] hover:bg-[#F3F7F7] cursor-pointer transition font-medium"

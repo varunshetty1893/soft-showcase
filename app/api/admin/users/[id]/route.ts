@@ -98,9 +98,14 @@ export async function PATCH(
               },
             });
           }
-        } else if (role === "customer" && target.role === "solution_partner") {
+        } else if (role !== "solution_partner") {
           const existing = await db.projectProvider.findFirst({
-            where: { OR: [{ userId: id }, { email: target.email }] },
+            where: {
+              OR: [
+                { userId: id },
+                { email: { equals: target.email, mode: "insensitive" } },
+              ],
+            },
           });
           if (existing) {
             await db.projectProvider.update({
@@ -109,6 +114,10 @@ export async function PATCH(
                 isActive: false,
                 applicationStatus: "deactivated",
               },
+            });
+            await db.project.updateMany({
+              where: { providerId: existing.id, status: "PUBLISHED" },
+              data: { status: "DRAFT" },
             });
           }
         }
@@ -133,6 +142,23 @@ export async function PATCH(
           where: { id },
           data: { role: "customer", isAdmin: false },
         });
+        const existing = await db.projectProvider.findFirst({
+          where: {
+            OR: [
+              { userId: id },
+              { email: { equals: target.email, mode: "insensitive" } },
+            ],
+          },
+        });
+        if (existing) {
+          await db.projectProvider.update({
+            where: { id: existing.id },
+            data: {
+              isActive: false,
+              applicationStatus: "deactivated",
+            },
+          });
+        }
         auditAction = "USER_ADMIN_REVOKED";
         auditDetails = { email: target.email, reason };
         break;
