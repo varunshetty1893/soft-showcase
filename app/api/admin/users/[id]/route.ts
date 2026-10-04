@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdmin(true);
+    await requireAdmin(true);
     const { id } = await params;
     const user = await getUserById(id);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -34,10 +34,9 @@ export async function PATCH(
     const actorId = session.user.id;
 
     const body = await req.json();
-    const { action, role, isAdmin: makeAdmin, reason } = body as {
+    const { action, role, reason } = body as {
       action: "set_role" | "make_admin" | "remove_admin" | "revoke_sessions" | "delete_account";
       role?: string;
-      isAdmin?: boolean;
       reason?: string;
     };
 

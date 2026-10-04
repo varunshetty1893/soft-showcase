@@ -12,9 +12,7 @@ import {
   Receipt,
   Headphones,
   Shield,
-  PlusCircle,
 } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
 
 interface CustomerHeaderProps {
   user: {

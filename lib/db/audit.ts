@@ -3,7 +3,7 @@
 // Source of truth: docs/32-audit-logging.md & Phase 5 Audit Logs Specification
 
 import { db } from "@/lib/db/client";
-import { Prisma } from "@prisma/client";
+
 
 export interface AuditOptions {
   userId?: string | null;

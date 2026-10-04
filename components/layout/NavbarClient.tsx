@@ -8,8 +8,8 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Menu, X, ArrowUpRight, LayoutDashboard, LogOut,
-  KeyRound, User, Sparkles, Layers, FileCode2,
-  Receipt, MessageSquare, Headphones, ShoppingBag,
+  User, Sparkles, Layers, FileCode2,
+  Receipt, Headphones,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { UserNavDropdown } from "@/components/layout/UserNavDropdown";

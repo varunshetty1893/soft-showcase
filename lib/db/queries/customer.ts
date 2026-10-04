@@ -171,7 +171,7 @@ export async function getCustomerProfile(userId: string) {
 /**
  * Get summary counts for the customer area badges and profile overview.
  */
-export async function getCustomerStats(userId: string, _email?: string) {
+export async function getCustomerStats(userId: string) {
   // Scope strictly by userId — never by email — to prevent data leakage when
   // an account is deleted and later recreated with the same email address.
   const [inquiryCount, requestCount, transactionCount] = await Promise.all([

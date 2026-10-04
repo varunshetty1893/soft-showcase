@@ -66,7 +66,6 @@ export function SupportFilterBar() {
 
   const handleReset = () => {
     setSearch("");
-    const params = new URLSearchParams();
     startTransition(() => {
       router.push(pathname);
     });

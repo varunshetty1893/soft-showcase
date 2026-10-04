@@ -81,10 +81,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check existing User
-    const existingUser = await db.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    // Check if this email already has a user account (used for flow guidance in OTP handling)
+    await db.user.findUnique({ where: { email: normalizedEmail } });
 
     // Check existing Provider
     const existingProvider = await db.projectProvider.findUnique({

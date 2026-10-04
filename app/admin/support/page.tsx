@@ -7,7 +7,6 @@ import { requireAdmin } from "@/lib/auth/session";
 import { getAdminSupportTicketsPaginated } from "@/lib/db/queries/support";
 import { Headphones, MessageSquare, ArrowRight } from "lucide-react";
 import { APP_NAME } from "@/config/constants";
-import { TableSearchBar } from "@/components/common/TableSearchBar";
 import { TablePagination } from "@/components/common/TablePagination";
 import { SupportFilterBar } from "@/components/admin/SupportFilterBar";
 

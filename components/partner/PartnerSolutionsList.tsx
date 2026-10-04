@@ -13,7 +13,6 @@ import { useRouter } from "next/navigation";
 import {
   Layers,
   Edit2,
-  ExternalLink,
   MessageSquare,
   Star,
   Loader2,

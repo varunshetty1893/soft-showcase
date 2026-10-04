@@ -6,7 +6,6 @@ import {
   Mail,
   MessageCircle,
   Clock,
-  Check,
   ChevronDown,
   Search,
   X,
