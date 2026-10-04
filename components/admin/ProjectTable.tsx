@@ -25,6 +25,9 @@ import {
   CalendarPlus,
   XCircle,
   X,
+  MoreHorizontal,
+  CheckSquare,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -117,6 +120,137 @@ export default function ProjectTable() {
       return true;
     });
   }, [data?.projects, ownerFilter]);
+
+  // Multi-selection & Bulk Actions
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+
+  // Row Action Menu Dropdown state (matching UserManagementTable)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{
+    top: number;
+    right: number;
+    openUpwards: boolean;
+  } | null>(null);
+
+  // Close action menu on window scroll
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleScroll = () => {
+      setOpenMenuId(null);
+      setMenuAnchor(null);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [openMenuId]);
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === visibleProjects.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleProjects.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  async function handleBulkFeature(featured: boolean) {
+    if (selectedIds.size === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/projects/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectIds: Array.from(selectedIds),
+          patch: { featured },
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to update projects");
+      toast.success(
+        `${selectedIds.size} project${selectedIds.size > 1 ? "s" : ""} ${
+          featured ? "marked as featured" : "unfeatured"
+        }.`
+      );
+      setSelectedIds(new Set());
+      fetchProjects();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update selected projects"
+      );
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }
+
+  async function handleBulkArchive() {
+    if (selectedIds.size === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/projects/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectIds: Array.from(selectedIds),
+          patch: { status: "ARCHIVED" },
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to archive projects");
+      toast.success(
+        `${selectedIds.size} project${selectedIds.size > 1 ? "s" : ""} archived.`
+      );
+      setSelectedIds(new Set());
+      fetchProjects();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to archive selected projects"
+      );
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }
+
+  async function confirmBulkDelete() {
+    if (selectedIds.size === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/projects/bulk", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectIds: Array.from(selectedIds),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to delete projects");
+      toast.success(
+        `${selectedIds.size} project${selectedIds.size > 1 ? "s" : ""} deleted permanently.`
+      );
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+      fetchProjects();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete selected projects"
+      );
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }
 
   // Archive confirmation
   const [archivingId, setArchivingId] = useState<string | null>(null);
@@ -425,6 +559,23 @@ export default function ProjectTable() {
             <option value="PARTNER">Partner-Owned</option>
           </select>
 
+          {/* Select Mode Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSelectMode((v) => !v);
+              setSelectedIds(new Set());
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+              isSelectMode
+                ? "bg-[#155761] text-white border-[#155761] shadow-xs"
+                : "bg-white text-[#526267] border-[#D9E2E4] hover:border-[#155761] hover:text-[#155761]"
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            {isSelectMode ? "Cancel Select" : "Select"}
+          </button>
+
           {(search || statusFilter || ownerFilter) && (
             <button
               type="button"
@@ -441,12 +592,77 @@ export default function ProjectTable() {
         </div>
       </div>
 
+      {/* Bulk Action Bar — appears when items are selected */}
+      {isSelectMode && selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 bg-[#EFF9F5] border border-[#BEDEE1] rounded-xl px-4 py-2.5 text-xs">
+          <span className="font-semibold text-[#155761] flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {selectedIds.size} selected
+          </span>
+          <div className="h-4 w-px bg-[#BEDEE1]" />
+          <button
+            type="button"
+            onClick={() => handleBulkFeature(true)}
+            disabled={isBulkLoading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+          >
+            <Sparkles className="w-3 h-3" />
+            Mark Featured
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkFeature(false)}
+            disabled={isBulkLoading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+          >
+            Remove Featured
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkArchive}
+            disabled={isBulkLoading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+          >
+            <Archive className="w-3 h-3" />
+            Archive All
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBulkDeleteModal(true)}
+            disabled={isBulkLoading}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition cursor-pointer disabled:opacity-50 whitespace-nowrap"
+          >
+            <Trash2 className="w-3 h-3" />
+            Delete All
+          </button>
+          {isBulkLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#155761]" />}
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-[#526267] hover:text-[#102124] text-[11px] underline cursor-pointer"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Table Card with Integrated Header, Body, and Pagination Footer */}
       <div className="rounded-2xl border border-[#D9E2E4] bg-white shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-[#F8FAFA] text-[#526267] text-[11px] uppercase tracking-wider font-semibold border-b border-[#D9E2E4]">
               <tr>
+                {isSelectMode && (
+                  <th className="pl-4 pr-2 py-3.5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === visibleProjects.length && visibleProjects.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-3.5 h-3.5 rounded border-[#D9E2E4] accent-[#155761] cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
+                )}
                 <th className="px-5 py-3.5">Project</th>
                 <th className="px-4 py-3.5">Owner</th>
                 <th className="px-4 py-3.5">Pricing &amp; Offer</th>
@@ -459,14 +675,14 @@ export default function ProjectTable() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td className="px-5 py-4" colSpan={6}>
+                    <td className="px-5 py-4" colSpan={isSelectMode ? 7 : 6}>
                       <div className="h-4 bg-[#EEF3F4] rounded-md w-2/3" />
                     </td>
                   </tr>
                 ))
               ) : visibleProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-14 text-center text-[#526267]">
+                  <td colSpan={isSelectMode ? 7 : 6} className="px-5 py-14 text-center text-[#526267]">
                     <p className="font-semibold text-sm text-[#102124] mb-1">No projects found</p>
                     <p className="text-xs text-[#526267]">
                       {search || statusFilter || ownerFilter
@@ -498,8 +714,23 @@ export default function ProjectTable() {
                   return (
                     <tr
                       key={project.id}
-                      className="hover:bg-[#F8FAFA] transition-colors group"
+                      className={`hover:bg-[#F8FAFA] transition-colors group ${
+                        isSelectMode && selectedIds.has(project.id)
+                          ? "bg-[#EFF9F5]"
+                          : ""
+                      }`}
                     >
+                      {/* Checkbox (select mode) */}
+                      {isSelectMode && (
+                        <td className="pl-4 pr-2 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(project.id)}
+                            onChange={() => toggleSelectOne(project.id)}
+                            className="w-3.5 h-3.5 rounded border-[#D9E2E4] accent-[#155761] cursor-pointer"
+                          />
+                        </td>
+                      )}
                       {/* Project */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3.5">
@@ -683,10 +914,11 @@ export default function ProjectTable() {
                         </button>
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions — ⋯ dropdown */}
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {project.status !== "PUBLISHED" && (
+                          {/* Quick Publish / View button */}
+                          {project.status !== "PUBLISHED" ? (
                             <button
                               type="button"
                               onClick={() => handleQuickPublish(project)}
@@ -695,8 +927,7 @@ export default function ProjectTable() {
                             >
                               {togglingStatusId === project.id ? "Publishing…" : "Publish"}
                             </button>
-                          )}
-                          {project.status === "PUBLISHED" && (
+                          ) : (
                             <Link
                               href={`/projects/${project.slug}`}
                               target="_blank"
@@ -706,37 +937,98 @@ export default function ProjectTable() {
                               View
                             </Link>
                           )}
-                          <Link
-                            href={`/admin/projects/${project.id}/edit`}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#155761] hover:text-[#10474F] border border-[#155761]/30 hover:bg-[#155761]/5 px-2.5 py-1 rounded-lg transition whitespace-nowrap"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            {isPartnerOwned ? "Moderate" : "Edit"}
-                          </Link>
-                          {project.status !== "ARCHIVED" && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setArchivingId(project.id);
-                                setArchivingTitle(project.title);
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 hover:text-amber-900 border border-amber-200 hover:bg-amber-50 px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
-                            >
-                              <Archive className="w-3 h-3" />
-                              Archive
-                            </button>
-                          )}
+
+                          {/* ⋯ Menu Button */}
                           <button
                             type="button"
-                            onClick={() => {
-                              setDeletingId(project.id);
-                              setDeletingTitle(project.title);
+                            onClick={(e) => {
+                              if (openMenuId === project.id) {
+                                setOpenMenuId(null);
+                                setMenuAnchor(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const openUpwards = window.innerHeight - rect.bottom < 200;
+                                setMenuAnchor({
+                                  top: openUpwards ? rect.top - 6 : rect.bottom + 6,
+                                  right: window.innerWidth - rect.right,
+                                  openUpwards,
+                                });
+                                setOpenMenuId(project.id);
+                              }
                             }}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 hover:text-white border border-rose-200 hover:border-rose-600 hover:bg-rose-600 px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
+                            className="w-8 h-8 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] flex items-center justify-center text-[#526267] cursor-pointer transition shadow-xs"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Delete
+                            <MoreHorizontal className="w-4 h-4" />
                           </button>
+
+                          {/* ⋯ Dropdown */}
+                          {openMenuId === project.id && menuAnchor && (
+                            <>
+                              {/* Backdrop */}
+                              <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setMenuAnchor(null);
+                                }}
+                              />
+                              <div
+                                style={{
+                                  position: "fixed",
+                                  top: menuAnchor.openUpwards ? undefined : `${menuAnchor.top}px`,
+                                  bottom: menuAnchor.openUpwards
+                                    ? `${window.innerHeight - menuAnchor.top}px`
+                                    : undefined,
+                                  right: `${menuAnchor.right}px`,
+                                }}
+                                className="z-50 w-48 bg-white border border-[#D9E2E4] rounded-xl shadow-2xl overflow-hidden animate-in fade-in duration-150"
+                              >
+                                {/* Edit / Moderate */}
+                                <Link
+                                  href={`/admin/projects/${project.id}/edit`}
+                                  onClick={() => { setOpenMenuId(null); setMenuAnchor(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[#102124] hover:bg-[#F3F7F7] cursor-pointer transition"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-[#155761]" />
+                                  {isPartnerOwned ? "Moderate" : "Edit"}
+                                </Link>
+
+                                {/* Archive */}
+                                {project.status !== "ARCHIVED" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setMenuAnchor(null);
+                                      setArchivingId(project.id);
+                                      setArchivingTitle(project.title);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-amber-800 hover:bg-amber-50 cursor-pointer transition"
+                                  >
+                                    <Archive className="w-3.5 h-3.5" />
+                                    Archive
+                                  </button>
+                                )}
+
+                                <div className="border-t border-[#D9E2E4]" />
+
+                                {/* Delete */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setMenuAnchor(null);
+                                    setDeletingId(project.id);
+                                    setDeletingTitle(project.title);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-rose-700 hover:bg-rose-50 cursor-pointer transition"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete Permanently
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -943,6 +1235,45 @@ export default function ProjectTable() {
                 className="text-xs"
               >
                 {isDeleting ? "Deleting…" : "Permanently Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete confirmation modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#D9E2E4] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-base font-bold text-rose-700 mb-2 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              Delete {selectedIds.size} Project{selectedIds.size > 1 ? "s" : ""}?
+            </h3>
+            <p className="text-xs text-[#526267] mb-6 leading-relaxed">
+              You are about to permanently delete{" "}
+              <strong className="text-[#102124]">
+                {selectedIds.size} project{selectedIds.size > 1 ? "s" : ""}
+              </strong>
+              . This action cannot be undone. All inquiries linked to these projects will also be removed.
+            </p>
+            <div className="flex gap-2.5 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBulkDeleteModal(false)}
+                disabled={isBulkLoading}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmBulkDelete}
+                disabled={isBulkLoading}
+                className="text-xs"
+              >
+                {isBulkLoading ? "Deleting…" : `Delete ${selectedIds.size} Project${selectedIds.size > 1 ? "s" : ""}`}
               </Button>
             </div>
           </div>

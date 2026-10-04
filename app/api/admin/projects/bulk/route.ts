@@ -296,3 +296,78 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bulk update failed" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await requireAdmin();
+    const body = await req.json().catch(() => null);
+    if (!body || !Array.isArray(body.projectIds) || body.projectIds.length === 0) {
+      return NextResponse.json(
+        { error: "projectIds must be a non-empty array of project ids." },
+        { status: 400 }
+      );
+    }
+
+    const projectIds: string[] = Array.from(
+      new Set(body.projectIds.filter((id: unknown): id is string => typeof id === "string" && Boolean(id.trim())))
+    );
+
+    const projects = await db.project.findMany({
+      where: { id: { in: projectIds } },
+      select: { id: true, title: true, slug: true },
+    });
+
+    if (projects.length === 0) {
+      return NextResponse.json(
+        { error: "No matching projects found to delete." },
+        { status: 404 }
+      );
+    }
+
+    const foundIds = projects.map((p) => p.id);
+
+    await db.$transaction(async (tx) => {
+      await tx.transaction.updateMany({
+        where: { solutionId: { in: foundIds } },
+        data: { solutionId: null },
+      });
+
+      await tx.inquiry.deleteMany({
+        where: { projectId: { in: foundIds } },
+      });
+
+      await tx.project.deleteMany({
+        where: { id: { in: foundIds } },
+      });
+
+      for (const p of projects) {
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: "PROJECT_DELETED",
+            entityType: "Project",
+            entityId: p.id,
+            details: { title: p.title, slug: p.slug, bulk: true },
+          },
+        });
+      }
+    });
+
+    try {
+      revalidatePath("/");
+      revalidatePath("/projects");
+      revalidatePath("/admin/projects");
+    } catch {
+      // ignore
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: projects.length,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) return authErrorResponse(error);
+    console.error("DELETE /api/admin/projects/bulk error:", error);
+    return NextResponse.json({ error: "Failed to delete selected projects" }, { status: 500 });
+  }
+}

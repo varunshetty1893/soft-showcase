@@ -9,6 +9,7 @@ import { Headphones, MessageSquare, ArrowRight } from "lucide-react";
 import { APP_NAME } from "@/config/constants";
 import { TableSearchBar } from "@/components/common/TableSearchBar";
 import { TablePagination } from "@/components/common/TablePagination";
+import { SupportFilterBar } from "@/components/admin/SupportFilterBar";
 
 export const metadata: Metadata = {
   title: `Support Tickets — Admin — ${APP_NAME}`,
@@ -18,14 +19,15 @@ export const metadata: Metadata = {
 export default async function AdminSupportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; search?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; search?: string; status?: string; role?: string }>;
 }) {
   await requireAdmin(true);
 
-  const { page: pageStr, search: searchStr, status: statusStr } = await searchParams;
+  const { page: pageStr, search: searchStr, status: statusStr, role: roleStr } = await searchParams;
   const page = parseInt(pageStr || "1", 10) || 1;
   const search = searchStr || undefined;
   const status = statusStr || undefined;
+  const role = roleStr || undefined;
 
   const pageSize = 20;
   const { tickets, total, totalPages } = await getAdminSupportTicketsPaginated({
@@ -33,6 +35,7 @@ export default async function AdminSupportPage({
     pageSize,
     search,
     status,
+    requesterRole: role,
   });
 
   return (
@@ -56,13 +59,8 @@ export default async function AdminSupportPage({
         </div>
       </div>
 
-      {/* ── Search Bar ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <TableSearchBar
-          placeholder="Search by ticket #, subject, requester, or category..."
-          className="sm:max-w-md"
-        />
-      </div>
+      {/* ── Search & Filter Bar ─────────────────────────────────────────── */}
+      <SupportFilterBar />
 
       {/* ── Tickets List ───────────────────────────────────────────────── */}
       {tickets.length === 0 ? (
