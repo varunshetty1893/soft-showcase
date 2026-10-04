@@ -18,7 +18,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function AdminProvidersPage() {
+export default async function AdminProvidersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string }>;
+}) {
+  const { q } = (await searchParams) || {};
   let providers: ProviderTableRow[] = [];
   const currentUser = await getCurrentUser();
 
@@ -51,7 +56,11 @@ export default async function AdminProvidersPage() {
       </div>
 
       {/* ── Table Section ──────────────────────────────────────────────── */}
-      <ProviderTable providers={providers} currentAdminUserId={currentUser?.id} />
+      <ProviderTable
+        providers={providers}
+        currentAdminUserId={currentUser?.id}
+        initialSearch={q || ""}
+      />
     </div>
   );
 }

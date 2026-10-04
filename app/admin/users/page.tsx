@@ -16,10 +16,19 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; role?: string }>;
+}) {
+  const { q, role } = (await searchParams) || {};
   const currentUser = await getCurrentUser();
 
-  const { users, total } = await getAllUsers({ pageSize: 10 });
+  const { users, total } = await getAllUsers({
+    pageSize: 10,
+    q: q || undefined,
+    role: role || undefined,
+  });
 
   // Quick stat counts
   const [totalCustomers, totalPartners, totalAdmins] = await Promise.all([
@@ -111,6 +120,8 @@ export default async function AdminUsersPage() {
         initialUsers={serialized as any}
         initialTotal={total}
         currentAdminId={currentUser?.id ?? ""}
+        initialSearch={q || ""}
+        initialRole={role || "all"}
       />
     </div>
   );

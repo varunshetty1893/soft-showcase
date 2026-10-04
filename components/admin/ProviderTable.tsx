@@ -31,6 +31,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -90,9 +91,11 @@ function isProviderConfirmMatch(
 export function ProviderTable({
   providers: initial,
   currentAdminUserId,
+  initialSearch = "",
 }: {
   providers: ProviderRow[];
   currentAdminUserId?: string;
+  initialSearch?: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -100,9 +103,16 @@ export function ProviderTable({
   const [providers, setProviders] = useState<ProviderRow[]>(initial);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearch(initialSearch);
+      setPage(1);
+    }
+  }, [initialSearch]);
 
   // Detail & Reject modals (existing pending workflow)
   const [selectedProvider, setSelectedProvider] = useState<ProviderRow | null>(null);
@@ -717,9 +727,13 @@ export function ProviderTable({
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-[#102124]">{p.displayName}</span>
                         {p.userId && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4]">
-                            Partner Portal
-                          </span>
+                          <Link
+                            href={`/admin/users?q=${encodeURIComponent(p.email)}`}
+                            title="View linked account in User Management"
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-[#F3F7F7] text-[#155761] font-semibold border border-[#D9E2E4] hover:bg-[#BEDEE1]/50 hover:underline transition"
+                          >
+                            Partner Portal ↗
+                          </Link>
                         )}
                         {currentAdminUserId && p.userId === currentAdminUserId && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">
@@ -1002,27 +1016,42 @@ export function ProviderTable({
               if (!p) return null;
               const spec = getProviderStatusButtonSpec(p, currentAdminUserId);
               return (
-                <button
-                  type="button"
-                  disabled={!spec.canRemove}
-                  title={
-                    !spec.canRemove
-                      ? "Cannot remove a provider linked to your own admin account."
-                      : undefined
-                  }
-                  onClick={() => {
-                    setOpenMenuId(null);
-                    setOpenMenuPos(null);
-                    setRemoveModalProvider(p);
-                    setRemoveReason("");
-                    setRemoveConfirmName("");
-                    setNotifyPartnerByEmail(true);
-                  }}
-                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove provider…</span>
-                </button>
+                <div className="flex flex-col">
+                  {p.userId && (
+                    <Link
+                      href={`/admin/users?q=${encodeURIComponent(p.email)}`}
+                      className="w-full px-3.5 py-2 text-xs font-semibold text-[#155761] hover:bg-[#F3F7F7] flex items-center gap-2 cursor-pointer transition"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        setOpenMenuPos(null);
+                      }}
+                    >
+                      <Users className="w-3.5 h-3.5 text-[#155761]" />
+                      <span>View in Users</span>
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!spec.canRemove}
+                    title={
+                      !spec.canRemove
+                        ? "Cannot remove a provider linked to your own admin account."
+                        : undefined
+                    }
+                    onClick={() => {
+                      setOpenMenuId(null);
+                      setOpenMenuPos(null);
+                      setRemoveModalProvider(p);
+                      setRemoveReason("");
+                      setRemoveConfirmName("");
+                      setNotifyPartnerByEmail(true);
+                    }}
+                    className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove provider…</span>
+                  </button>
+                </div>
               );
             })()}
           </div>

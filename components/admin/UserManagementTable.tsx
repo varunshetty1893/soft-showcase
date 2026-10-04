@@ -6,7 +6,8 @@
 // - Stats chips: inquiries, requests, tickets, transactions
 // - Confirmation modals with reason input for destructive actions
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import Link from "next/link";
 import {
   Search,
   Shield,
@@ -63,6 +64,8 @@ interface Props {
   initialUsers: UserRow[];
   initialTotal: number;
   currentAdminId: string;
+  initialSearch?: string;
+  initialRole?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -249,17 +252,35 @@ type ModalState =
   | { type: "delete_account"; user: UserRow }
   | null;
 
-export function UserManagementTable({ initialUsers, initialTotal, currentAdminId }: Props) {
+export function UserManagementTable({
+  initialUsers,
+  initialTotal,
+  currentAdminId,
+  initialSearch = "",
+  initialRole = "all",
+}: Props) {
   const toast = useToast();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [total, setTotal] = useState(initialTotal);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [search, setSearch] = useState(initialSearch);
+  const [roleFilter, setRoleFilter] = useState(initialRole);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      setSearch(initialSearch);
+    }
+  }, [initialSearch]);
+
+  useEffect(() => {
+    if (initialRole !== undefined) {
+      setRoleFilter(initialRole);
+    }
+  }, [initialRole]);
 
   const [fetching, setFetching] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -520,13 +541,18 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                                   You
                                 </span>
                               )}
-                              {user.partnerProfile && (
-                                <span
-                                  title={`Partner: ${user.partnerProfile.displayName} (${user.partnerProfile.applicationStatus})`}
-                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[#DDF4EC] text-[#155761] border border-[#BEDEE1] font-semibold"
+                              {(user.partnerProfile || user.role === "solution_partner") && (
+                                <Link
+                                  href={`/admin/providers?q=${encodeURIComponent(user.email)}`}
+                                  title={
+                                    user.partnerProfile
+                                      ? `Partner: ${user.partnerProfile.displayName} (${user.partnerProfile.applicationStatus}) — Click to view in Partners & Providers`
+                                      : `Partner Account — Click to view in Partners & Providers`
+                                  }
+                                  className="text-[9px] px-1.5 py-0.5 rounded bg-[#DDF4EC] text-[#155761] border border-[#BEDEE1] font-semibold hover:bg-[#BEDEE1]/60 hover:underline transition"
                                 >
-                                  Partner
-                                </span>
+                                  Partner ↗
+                                </Link>
                               )}
                             </div>
                             <div className="text-[11px] text-[#526267] mt-0.5 truncate max-w-[240px]">
@@ -653,6 +679,21 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                                       <UserCheck className="w-3.5 h-3.5 text-[#155761]" />
                                       Change Role
                                     </button>
+
+                                    {/* View in Partners & Providers */}
+                                    {(user.partnerProfile || user.role === "solution_partner") && (
+                                      <Link
+                                        href={`/admin/providers?q=${encodeURIComponent(user.email)}`}
+                                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-[#155761] hover:bg-[#F3F7F7] cursor-pointer transition font-medium"
+                                        onClick={() => {
+                                          setOpenMenuId(null);
+                                          setMenuAnchor(null);
+                                        }}
+                                      >
+                                        <Users className="w-3.5 h-3.5 text-[#155761]" />
+                                        View in Partners & Providers
+                                      </Link>
+                                    )}
 
                                     {/* Grant/Remove Admin */}
                                     {user.isAdmin ? (

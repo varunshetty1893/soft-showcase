@@ -63,6 +63,56 @@ export async function PATCH(
           where: { id },
           data: { role, isAdmin: role === "admin" },
         });
+
+        // Keep ProjectProvider in sync with solution_partner role
+        if (role === "solution_partner") {
+          const existing = await db.projectProvider.findFirst({
+            where: { OR: [{ userId: id }, { email: target.email }] },
+          });
+
+          if (existing) {
+            await db.projectProvider.update({
+              where: { id: existing.id },
+              data: {
+                userId: id,
+                isActive: true,
+                applicationStatus: "approved",
+                verificationStatus: existing.verificationStatus === "rejected" ? "not_required" : existing.verificationStatus,
+                removedAt: null,
+                removedById: null,
+                removalReason: null,
+              },
+            });
+          } else {
+            await db.projectProvider.create({
+              data: {
+                userId: id,
+                displayName: target.name || target.email.split("@")[0],
+                email: target.email,
+                whatsappNumber: target.whatsapp || null,
+                isActive: true,
+                applicationStatus: "approved",
+                verificationStatus: "verified",
+                approvedAt: new Date(),
+                approvedBy: actorId,
+              },
+            });
+          }
+        } else if (role === "customer" && target.role === "solution_partner") {
+          const existing = await db.projectProvider.findFirst({
+            where: { OR: [{ userId: id }, { email: target.email }] },
+          });
+          if (existing) {
+            await db.projectProvider.update({
+              where: { id: existing.id },
+              data: {
+                isActive: false,
+                applicationStatus: "deactivated",
+              },
+            });
+          }
+        }
+
         auditAction = "USER_ROLE_UPDATED";
         auditDetails = { prevRole: target.role, newRole: role, reason };
         break;

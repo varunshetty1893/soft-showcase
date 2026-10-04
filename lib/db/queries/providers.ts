@@ -77,6 +77,49 @@ export async function getAllProviders(options?: { page?: number; pageSize?: numb
   const pageSize = options?.pageSize || 100;
   const skip = (page - 1) * pageSize;
 
+  // Self-healing: ensure any user with role 'solution_partner' has a linked ProjectProvider
+  try {
+    const unlinkedPartners = await db.user.findMany({
+      where: {
+        role: "solution_partner",
+        partnerProfile: null,
+      },
+      select: { id: true, name: true, email: true, whatsapp: true },
+    });
+
+    for (const u of unlinkedPartners) {
+      const match = await db.projectProvider.findFirst({
+        where: { OR: [{ email: u.email }, { userId: u.id }] },
+      });
+      if (match) {
+        await db.projectProvider.update({
+          where: { id: match.id },
+          data: {
+            userId: u.id,
+            isActive: true,
+            applicationStatus: "approved",
+            removedAt: null,
+          },
+        });
+      } else {
+        await db.projectProvider.create({
+          data: {
+            userId: u.id,
+            displayName: u.name || u.email.split("@")[0],
+            email: u.email,
+            whatsappNumber: u.whatsapp || null,
+            isActive: true,
+            applicationStatus: "approved",
+            verificationStatus: "verified",
+            approvedAt: new Date(),
+          },
+        });
+      }
+    }
+  } catch (syncErr) {
+    console.warn("Could not auto-sync partner users to providers:", syncErr);
+  }
+
   const providers = await db.projectProvider.findMany({
     orderBy: { displayName: "asc" },
     skip,
