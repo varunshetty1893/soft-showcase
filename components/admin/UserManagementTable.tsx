@@ -266,6 +266,7 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
   const [modal, setModal] = useState<ModalState>(null);
   const [newRole, setNewRole] = useState("customer");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number; openUpwards: boolean } | null>(null);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -471,8 +472,8 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
       </p>
 
       {/* Table Card */}
-      <div className="bg-white border border-[#D9E2E4] rounded-2xl shadow-xs">
-        <div className="overflow-x-auto [scrollbar-width:thin] min-h-[300px]">
+      <div className="bg-white border border-[#D9E2E4] rounded-2xl shadow-xs overflow-hidden">
+        <div className="overflow-x-auto [scrollbar-width:thin]">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-[#D9E2E4] bg-[#F8FAFA] text-[#526267] text-left text-xs uppercase tracking-wider font-semibold">
@@ -498,9 +499,8 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                   </td>
                 </tr>
               ) : (
-                users.map((user, idx) => {
+                users.map((user) => {
                   const isSelf = user.id === currentAdminId;
-                  const openUpwards = idx >= users.length - 2 && users.length >= 2;
                   return (
                     <tr
                       key={user.id}
@@ -602,27 +602,44 @@ export function UserManagementTable({ initialUsers, initialTotal, currentAdminId
                           {!isSelf && (
                             <div className="relative">
                               <button
-                                onClick={() =>
-                                  setOpenMenuId((prev) => (prev === user.id ? null : user.id))
-                                }
+                                onClick={(e) => {
+                                  if (openMenuId === user.id) {
+                                    setOpenMenuId(null);
+                                    setMenuAnchor(null);
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const openUpwards = window.innerHeight - rect.bottom < 240;
+                                    setMenuAnchor({
+                                      top: openUpwards ? rect.top - 6 : rect.bottom + 6,
+                                      right: window.innerWidth - rect.right,
+                                      openUpwards,
+                                    });
+                                    setOpenMenuId(user.id);
+                                  }
+                                }}
                                 className="w-8 h-8 rounded-lg border border-[#D9E2E4] bg-white hover:bg-[#F3F7F7] flex items-center justify-center text-[#526267] cursor-pointer transition shadow-xs"
                               >
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
 
-                              {openMenuId === user.id && (
+                              {openMenuId === user.id && menuAnchor && (
                                 <>
                                   {/* Backdrop */}
                                   <div
-                                    className="fixed inset-0 z-20"
-                                    onClick={() => setOpenMenuId(null)}
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setMenuAnchor(null);
+                                    }}
                                   />
                                   <div
-                                    className={`absolute right-0 ${
-                                      openUpwards
-                                        ? "bottom-9 origin-bottom-right slide-in-from-bottom-2"
-                                        : "top-9 origin-top-right slide-in-from-top-2"
-                                    } z-30 w-52 bg-white border border-[#D9E2E4] rounded-xl shadow-xl overflow-hidden animate-in fade-in duration-150`}
+                                    style={{
+                                      position: "fixed",
+                                      top: menuAnchor.openUpwards ? undefined : `${menuAnchor.top}px`,
+                                      bottom: menuAnchor.openUpwards ? `${window.innerHeight - menuAnchor.top}px` : undefined,
+                                      right: `${menuAnchor.right}px`,
+                                    }}
+                                    className="z-50 w-52 bg-white border border-[#D9E2E4] rounded-xl shadow-2xl overflow-hidden animate-in fade-in duration-150"
                                   >
                                     {/* Set Role */}
                                     <button
