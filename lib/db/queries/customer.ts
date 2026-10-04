@@ -120,9 +120,11 @@ export async function getCustomerRequests(
   const pageSize = options?.pageSize || 50;
   const skip = (page - 1) * pageSize;
 
+  // Always scope by customerId (userId) — never by email for authenticated users.
+  // This ensures deleted+recreated accounts start fresh and don't see old records.
   const isEmail = identifier.includes("@");
   const where = isEmail
-    ? { email: { equals: identifier.trim().toLowerCase(), mode: "insensitive" as const } }
+    ? { email: { equals: identifier.trim().toLowerCase(), mode: "insensitive" as const }, customerId: null as any }
     : { customerId: identifier };
 
   return (db.customProjectRequest as any).findMany({
@@ -169,17 +171,14 @@ export async function getCustomerProfile(userId: string) {
 /**
  * Get summary counts for the customer area badges and profile overview.
  */
-export async function getCustomerStats(userId: string, email: string) {
-  const [inquiryCount, requestCount] = await Promise.all([
-    db.inquiry.count({
-      where: {
-        OR: [{ customerId: userId }, { email: email.toLowerCase() }],
-      },
-    }),
-    db.customProjectRequest.count({
-      where: { email: { equals: email, mode: "insensitive" } },
-    }),
+export async function getCustomerStats(userId: string, _email?: string) {
+  // Scope strictly by userId — never by email — to prevent data leakage when
+  // an account is deleted and later recreated with the same email address.
+  const [inquiryCount, requestCount, transactionCount] = await Promise.all([
+    db.inquiry.count({ where: { customerId: userId } }),
+    (db.customProjectRequest as any).count({ where: { customerId: userId } }),
+    db.transaction.count({ where: { customerId: userId } }),
   ]);
 
-  return { inquiryCount, requestCount };
+  return { inquiryCount, requestCount, transactionCount };
 }

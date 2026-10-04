@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { Settings } from "lucide-react";
 import { PartnerProfileForm } from "@/components/partner/PartnerProfileForm";
 import { APP_NAME } from "@/config/constants";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 
 export default async function PartnerProfilePage() {
   const { partner } = await getEffectivePartnerContext();
+  const currentUser = await getCurrentUser();
 
   return (
     <div className="space-y-6">
@@ -31,7 +33,7 @@ export default async function PartnerProfilePage() {
         </div>
       </div>
 
-      <PartnerProfileForm partner={partner} />
+      <PartnerProfileForm partner={partner} userEmail={currentUser?.email || undefined} />
     </div>
   );
 }

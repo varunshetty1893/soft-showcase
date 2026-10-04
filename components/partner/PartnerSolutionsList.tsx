@@ -29,6 +29,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  EyeOff,
+  Eye,
+  Globe,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
@@ -661,45 +664,61 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
               </div>
 
               {/* Footer Actions */}
-              <div className="px-4 py-2.5 bg-[#F8FAFA] border-t border-[#D9E2E4] flex items-center justify-between gap-2">
+              <div className="px-4 py-3 bg-[#F8FAFA] border-t border-[#D9E2E4] flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
+                  {/* Publish / Move to Draft toggle */}
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(proj)}
-                    disabled={isToggling || (moderationHold && proj.status !== "PUBLISHED")}
+                    disabled={togglingId === proj.id || (moderationHold && proj.status !== "PUBLISHED")}
                     title={
                       moderationHold && proj.status !== "PUBLISHED"
                         ? "Under admin moderation hold. Edit content and wait for admin review."
-                        : undefined
+                        : proj.status === "PUBLISHED"
+                        ? "Move this solution back to draft (unpublish)"
+                        : "Publish this solution publicly"
                     }
-                    className={`h-7 px-2.5 text-xs font-bold rounded-lg border transition-colors ${
+                    className={`h-7 px-3 text-xs font-semibold rounded-lg border inline-flex items-center gap-1.5 transition-all ${
                       moderationHold && proj.status !== "PUBLISHED"
                         ? "bg-amber-50 text-amber-800 border-amber-200 opacity-75 cursor-not-allowed"
                         : proj.status === "PUBLISHED"
-                        ? "bg-white hover:bg-gray-100 text-[#526267] border-[#D9E2E4] cursor-pointer"
+                        ? "bg-white hover:bg-gray-50 text-[#526267] border-[#D9E2E4] hover:border-gray-400 cursor-pointer"
                         : "bg-[#2F7D78] hover:bg-[#24635F] text-white border-[#2F7D78] shadow-2xs cursor-pointer"
                     }`}
                   >
-                    {proj.status === "PUBLISHED"
-                      ? "Move to Draft"
-                      : moderationHold
-                      ? "Held by Admin"
-                      : "Publish Now"}
+                    {togglingId === proj.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : proj.status === "PUBLISHED" ? (
+                      <EyeOff className="w-3 h-3" />
+                    ) : moderationHold ? (
+                      <ShieldAlert className="w-3 h-3" />
+                    ) : (
+                      <Globe className="w-3 h-3" />
+                    )}
+                    <span>
+                      {proj.status === "PUBLISHED"
+                        ? "Move to Draft"
+                        : moderationHold
+                        ? "Held by Admin"
+                        : "Publish Now"}
+                    </span>
                   </button>
+
                   {proj.status === "PUBLISHED" && (
-                    <Link
+                    <a
                       href={`/projects/${proj.slug}`}
                       target="_blank"
-                      className="text-xs font-semibold text-[#526267] hover:text-[#155761] flex items-center gap-1"
+                      rel="noopener noreferrer"
+                      className="h-7 px-2.5 inline-flex items-center gap-1 text-xs font-semibold text-[#155761] hover:text-[#0E3E45] bg-white border border-[#D9E2E4] hover:border-[#155761]/50 rounded-lg transition"
                     >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>View</span>
-                    </Link>
+                      <Eye className="w-3 h-3" />
+                      <span>View Live</span>
+                    </a>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <Link
+                  <a
                     href={`/partner/solutions/${proj.id}/edit`}
                     className={buttonVariants({
                       variant: "outline",
@@ -709,7 +728,7 @@ export function PartnerSolutionsList({ initialProjects }: PartnerSolutionsListPr
                   >
                     <Edit2 className="w-3 h-3" />
                     <span>Edit</span>
-                  </Link>
+                  </a>
                   <button
                     type="button"
                     onClick={() => {

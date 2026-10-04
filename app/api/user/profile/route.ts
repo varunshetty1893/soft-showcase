@@ -181,8 +181,19 @@ export async function DELETE(request: NextRequest) {
     const userId = targetUser.id;
     const userEmail = targetUser.email;
 
+    // Find any partner profile associated with this user or email
+    const providers = await db.projectProvider.findMany({
+      where: {
+        OR: [{ userId }, { email: userEmail }],
+      },
+      select: { id: true },
+    });
+
+    const providerIds = providers.map((p) => p.id);
+
     // Safely disassociate or clean up foreign relations
     await db.$transaction([
+      // Disassociate customer records so personal identity is removed from audit trails
       db.inquiry.updateMany({
         where: { customerId: userId },
         data: { customerId: null },
@@ -195,9 +206,27 @@ export async function DELETE(request: NextRequest) {
         where: { customerId: userId },
         data: { customerId: null },
       }),
+      // Archive all published/draft projects of this partner so they are unlisted
+      ...(providerIds.length > 0
+        ? [
+            db.project.updateMany({
+              where: { providerId: { in: providerIds } },
+              data: { status: "ARCHIVED" },
+            }),
+          ]
+        : []),
+      // Retire partner profiles and free email unique constraint so re-registering starts 100% fresh
       db.projectProvider.updateMany({
-        where: { userId },
-        data: { userId: null, isActive: false },
+        where: {
+          OR: [{ userId }, { email: userEmail }],
+        },
+        data: {
+          userId: null,
+          isActive: false,
+          applicationStatus: "deactivated",
+          removedAt: new Date(),
+          removalReason: reason || "User initiated self-deletion",
+        },
       }),
       db.supportTicket.deleteMany({
         where: { requesterId: userId },
@@ -212,6 +241,16 @@ export async function DELETE(request: NextRequest) {
         where: { id: userId },
       }),
     ]);
+
+    // Free up email in projectProvider records so if the user re-registers with the same email, it never collides
+    for (const p of providers) {
+      await db.projectProvider.update({
+        where: { id: p.id },
+        data: {
+          email: `archived_${Date.now()}_${p.id}@archived.local`,
+        },
+      }).catch(() => null);
+    }
 
     // Record audit log entry
     await createAuditLog({

@@ -88,20 +88,37 @@ export async function getAllProviders(options?: { page?: number; pageSize?: numb
     });
 
     for (const u of unlinkedPartners) {
+      // Only match an active, unremoved provider already linked to this exact userId
       const match = await db.projectProvider.findFirst({
-        where: { OR: [{ email: u.email }, { userId: u.id }] },
+        where: {
+          userId: u.id,
+          removedAt: null,
+        },
       });
       if (match) {
         await db.projectProvider.update({
           where: { id: match.id },
           data: {
-            userId: u.id,
             isActive: true,
             applicationStatus: "approved",
-            removedAt: null,
           },
         });
       } else {
+        // If an old deleted/orphaned provider still holds this email, free it so the new account starts 100% fresh
+        const existingWithEmail = await db.projectProvider.findUnique({
+          where: { email: u.email },
+        });
+        if (existingWithEmail) {
+          await db.projectProvider.update({
+            where: { id: existingWithEmail.id },
+            data: {
+              email: `archived_${Date.now()}_${existingWithEmail.id}@archived.local`,
+              isActive: false,
+              removedAt: existingWithEmail.removedAt || new Date(),
+            },
+          });
+        }
+
         await db.projectProvider.create({
           data: {
             userId: u.id,

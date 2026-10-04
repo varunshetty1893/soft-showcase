@@ -31,12 +31,14 @@ export default async function MyInquiriesPage() {
     message: inq.message,
     contactMethod: inq.contactMethod,
     createdAt: inq.createdAt instanceof Date ? inq.createdAt.toISOString() : inq.createdAt,
-    project: {
-      id: inq.project.id,
-      title: inq.project.title,
-      slug: inq.project.slug,
-      images: inq.project.images,
-    },
+    project: inq.project
+      ? {
+          id: inq.project.id,
+          title: inq.project.title,
+          slug: inq.project.slug,
+          images: inq.project.images,
+        }
+      : null,
     provider: {
       id: inq.provider.id,
       displayName: inq.provider.displayName,

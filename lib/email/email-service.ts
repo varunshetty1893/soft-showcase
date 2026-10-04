@@ -225,3 +225,22 @@ export async function sendPartnerModerationEmail(data: {
     text: "Hello " + data.partnerName + "\n\nYour project \"" + data.projectTitle + "\" has been updated: " + data.actionLabel + ".\n\nAdministrator note:\n" + data.note + "\n\nReview your project: " + projectUrl,
   });
 }
+
+// ─── Inquiry Status Update ─────────────────────────────────────────────────
+
+import {
+  renderInquiryStatusUpdateEmail,
+  type InquiryStatusUpdateEmailData,
+} from "./templates/inquiry-status-update";
+
+/**
+ * Notify a customer by email when a partner updates their inquiry status.
+ * Only fires for status changes that are meaningful for the customer to know about.
+ */
+export async function sendInquiryStatusUpdateEmail(
+  customerEmail: string,
+  data: InquiryStatusUpdateEmailData
+): Promise<EmailResult> {
+  const { subject, html, text } = renderInquiryStatusUpdateEmail(data);
+  return sendEmail({ to: customerEmail, subject, html, text });
+}

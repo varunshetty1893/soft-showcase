@@ -30,7 +30,7 @@ interface CustomerInquiryItem {
     title: string;
     slug: string;
     images?: Array<{ url: string }> | null;
-  };
+  } | null;
   provider: {
     id: string;
     displayName: string;
@@ -53,7 +53,7 @@ export function CustomerInquiriesList({ initialInquiries }: CustomerInquiriesLis
       if (statusFilter !== "ALL" && inquiry.status !== statusFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchesProject = inquiry.project.title.toLowerCase().includes(q);
+        const matchesProject = inquiry.project?.title?.toLowerCase().includes(q) || false;
         const matchesProvider = inquiry.provider.displayName.toLowerCase().includes(q);
         const matchesMessage = inquiry.message.toLowerCase().includes(q);
         if (!matchesProject && !matchesProvider && !matchesMessage) return false;
@@ -153,7 +153,7 @@ export function CustomerInquiriesList({ initialInquiries }: CustomerInquiriesLis
               year: "numeric",
             });
 
-            const primaryImage = inquiry.project.images?.[0]?.url;
+            const primaryImage = inquiry.project?.images?.[0]?.url;
 
             return (
               <div
@@ -167,7 +167,7 @@ export function CustomerInquiriesList({ initialInquiries }: CustomerInquiriesLis
                       <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#D9E2E4] shrink-0">
                         <Image
                           src={primaryImage}
-                          alt={inquiry.project.title}
+                          alt={inquiry.project?.title ?? "Project"}
                           fill
                           sizes="64px"
                           unoptimized={primaryImage.startsWith("data:")}
@@ -183,13 +183,24 @@ export function CustomerInquiriesList({ initialInquiries }: CustomerInquiriesLis
 
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <Link
-                          href={`/projects/${inquiry.project.slug}`}
-                          className="font-bold text-[#102124] hover:text-[#155761] transition-colors text-base inline-flex items-center gap-1 group"
-                        >
-                          <span>{inquiry.project.title}</span>
-                          <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-[#155761] transition-opacity" />
-                        </Link>
+                        {inquiry.project ? (
+                          <Link
+                            href={`/projects/${inquiry.project.slug}`}
+                            className="font-bold text-[#102124] hover:text-[#155761] transition-colors text-base inline-flex items-center gap-1 group"
+                          >
+                            <span>{inquiry.project.title}</span>
+                            <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 text-[#155761] transition-opacity" />
+                          </Link>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[#8A9B9F] text-base line-through">
+                              Project No Longer Available
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                              Removed
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#526267]">
