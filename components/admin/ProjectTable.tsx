@@ -663,7 +663,7 @@ export default function ProjectTable() {
                     />
                   </th>
                 )}
-                <th className="px-5 py-3.5">Project</th>
+                <th className="px-5 py-3.5 w-[280px] max-w-[280px]">Project</th>
                 <th className="px-4 py-3.5">Owner</th>
                 <th className="px-4 py-3.5">Pricing &amp; Offer</th>
                 <th className="px-4 py-3.5">Status</th>
@@ -732,8 +732,8 @@ export default function ProjectTable() {
                         </td>
                       )}
                       {/* Project */}
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3.5">
+                      <td className="px-5 py-4 max-w-[280px]">
+                        <div className="flex items-center gap-3.5 min-w-0">
                           {project.images[0] ? (
                             <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 border border-[#D9E2E4] shadow-2xs">
                               <Image
@@ -750,19 +750,20 @@ export default function ProjectTable() {
                               App
                             </div>
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <Link
                               href={`/admin/projects/${project.id}/edit`}
-                              className="text-[#102124] font-bold hover:text-[#155761] transition-colors text-sm line-clamp-1 block"
+                              className="text-[#102124] font-bold hover:text-[#155761] transition-colors text-sm truncate block"
+                              title={project.title}
                             >
                               {project.title}
                             </Link>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 min-w-0">
                               <span className="px-2 py-0.5 bg-[#F3F7F7] rounded text-[10px] border border-[#D9E2E4] text-[#526267] font-medium whitespace-nowrap shrink-0">
                                 {project.category.name}
                               </span>
                               <span
-                                className="text-[#8A9A9E] text-[11px] font-mono truncate max-w-[200px] block"
+                                className="text-[#8A9A9E] text-[11px] font-mono truncate block flex-1"
                                 title={`/projects/${project.slug}`}
                               >
                                 /projects/{project.slug}

@@ -58,6 +58,31 @@ body {
   color: #102124;
 }
 
+/* Minimal & small sleek scrollbars everywhere */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #94A3B8;
+}
+
 /* Scrollbar removal utilities — hides scrollbar across all browsers while keeping elements scrollable */
 @utility no-scrollbar {
   -ms-overflow-style: none;

@@ -86,14 +86,24 @@ export function TransactionForm({ solutions }: TransactionFormProps) {
       setReceiptExtracting(true);
       try {
         const extracted = await extractReceiptData(dataUrl);
-        setExtractedData(extracted);
-        // Pre-fill form fields — user can edit them
-        if (extracted.amount) setAmount(extracted.amount);
-        if (extracted.currency) setCurrency(extracted.currency.toUpperCase());
-        if (extracted.utrNumber) setUtrNumber(extracted.utrNumber);
-        if (extracted.paymentMethod) setPaymentMethod(extracted.paymentMethod);
+        const hasFields = Boolean(
+          extracted.amount || extracted.currency || extracted.utrNumber || extracted.paymentMethod
+        );
+
+        if (hasFields) {
+          setExtractedData(extracted);
+          if (extracted.amount) setAmount(extracted.amount);
+          if (extracted.currency) setCurrency(extracted.currency.toUpperCase());
+          if (extracted.utrNumber) setUtrNumber(extracted.utrNumber);
+          if (extracted.paymentMethod) setPaymentMethod(extracted.paymentMethod);
+          toast.success("Receipt details auto-filled! Please verify below.");
+        } else {
+          setExtractedData(null);
+          toast.info("Could not auto-detect details from this screenshot. Please enter Amount and UTR manually.");
+        }
       } catch {
         // AI extraction failed — still upload the file normally
+        setExtractedData(null);
         toast.error("Could not auto-read receipt. Please fill fields manually.");
       } finally {
         setReceiptExtracting(false);

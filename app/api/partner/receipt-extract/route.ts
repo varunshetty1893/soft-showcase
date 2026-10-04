@@ -68,16 +68,25 @@ export async function POST(req: NextRequest) {
                   },
                 },
                 {
-                  text: `You are a payment receipt data extractor. Analyze this payment receipt screenshot and extract the following fields. 
-Respond ONLY with a valid JSON object (no markdown, no explanation):
+                  text: `You are a specialized payment receipt and UPI screenshot data extractor.
+Analyze this payment receipt screenshot carefully (it may be from Google Pay, PhonePe, Paytm, BHIM, Cred, Amazon Pay, or a Bank App).
+
+Extract the following fields accurately:
+1. "amount": The exact payment amount (numeric digits only, e.g. "25000", "1", "499.50"). Ignore fees/discounts.
+2. "currency": "INR" for ₹ / Indian Rupee, or 3-letter ISO currency code.
+3. "utrNumber": The 12-digit UTR number, UPI transaction ID, Google transaction ID, Bank Reference No (Ref No), or Order ID shown on the screen. (e.g. "412389102931", "CICAgID...").
+4. "paymentMethod": One of "UPI", "NEFT_RTGS", "IMPS", "WIRE_TRANSFER", "CARD", "CASH". If it has a UPI logo, GPay, PhonePe, Paytm, or UTR number, set it to "UPI".
+5. "confidence": "high" if amount and UTR are clearly visible, "medium" if only one is found, "low" if unclear.
+
+Respond ONLY with a valid JSON object (no markdown formatting, no backticks, no explanation):
 {
-  "amount": "<numeric amount as string, digits only, e.g. '25000'>",
-  "currency": "<3-letter ISO currency code, e.g. 'INR', 'USD'>",
-  "utrNumber": "<UTR/transaction reference/UPI ID/bank ref number as string>",
-  "paymentMethod": "<one of: UPI, NEFT, RTGS, IMPS, SWIFT, WIRE, CARD, CASH, or the raw text if unknown>",
-  "confidence": "<'high', 'medium', or 'low'>"
+  "amount": "<numeric amount as string, digits only>",
+  "currency": "INR",
+  "utrNumber": "<UTR/transaction ref string>",
+  "paymentMethod": "UPI",
+  "confidence": "high"
 }
-If a field is not visible in the receipt, omit it from the JSON. Do not guess.`,
+If a field is not present or not readable in the image, omit that key or set it to undefined. Do not invent values.`,
                 },
               ],
             },
