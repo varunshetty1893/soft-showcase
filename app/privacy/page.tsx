@@ -1,17 +1,16 @@
 // app/privacy/page.tsx
 // Public Privacy Policy page for Soft Showcase.
 // Accurately discloses data flows (Google OAuth, inquiry routing, cookies, localStorage).
-// Features prominent DRAFT banner per B7 requirements.
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { APP_NAME } from "@/config/constants";
-import { AlertTriangle, ChevronRight, Shield } from "lucide-react";
+import { ChevronRight, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: `Privacy Policy (Draft) — ${APP_NAME}`,
+  title: `Privacy Policy — ${APP_NAME}`,
   description:
     "Privacy Policy explaining how Soft Showcase collects, protects, and routes user data.",
 };
@@ -32,21 +31,6 @@ export default function PrivacyPage() {
             <span className="text-[#102124] font-medium">Privacy Policy</span>
           </nav>
 
-          {/* DRAFT Warning Banner */}
-          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 sm:p-6 shadow-xs flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-800 shrink-0">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
-                DRAFT — Pending Formal Legal Review
-              </h2>
-              <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
-                This document is a technical and operational draft detailing the true data-handling architecture of Soft Showcase V1. Final compliance officer appointments, statutory contact details, and cross-border transfer statements require platform owner confirmation.
-              </p>
-            </div>
-          </div>
-
           {/* Document Content */}
           <div className="bg-white rounded-3xl border border-[#D9E2E4] p-8 sm:p-12 shadow-xs space-y-8">
             <div className="border-b border-[#F3F7F7] pb-6 space-y-2">
@@ -58,7 +42,7 @@ export default function PrivacyPage() {
                 Privacy Policy
               </h1>
               <p className="text-xs text-[#526267]">
-                Last updated: October 2026 • Version 1.0 (Draft)
+                Effective Date: October 2026 • Version 1.0
               </p>
             </div>
 
@@ -119,16 +103,14 @@ export default function PrivacyPage() {
               <section className="space-y-2">
                 <h2 className="text-base font-bold text-[#102124]">5. Data Retention &amp; Rights</h2>
                 <p>
-                  You may request deletion of your account and personal inquiry records at any time by contacting our support team or opening a ticket in your customer dashboard.
+                  You may update your contact preferences or permanently delete your account at any time from your profile settings (<Link href="/profile" className="text-[#155761] hover:underline">/profile</Link>), or request assistance by opening a ticket in your <Link href="/my-support" className="text-[#155761] hover:underline">Support Dashboard</Link>.
                 </p>
               </section>
 
               <section className="space-y-2">
-                <h2 className="text-base font-bold text-[#102124]">6. Contact &amp; Data Controller</h2>
-                <p className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4] font-mono text-xs">
-                  Data Controller: [DATA_CONTROLLER_PLACEHOLDER]<br />
-                  Privacy Inquiries: [PRIVACY_CONTACT_EMAIL]<br />
-                  Jurisdiction: [JURISDICTION_PLACEHOLDER]
+                <h2 className="text-base font-bold text-[#102124]">6. Contact &amp; Privacy Inquiries</h2>
+                <p>
+                  For any privacy-related questions, data access requests, or compliance inquiries regarding <strong>{APP_NAME}</strong>, please reach out through our <Link href="/support" className="text-[#155761] font-semibold hover:underline">Help Center</Link> or submit a ticket in your <Link href="/my-support" className="text-[#155761] font-semibold hover:underline">Support Dashboard</Link>.
                 </p>
               </section>
             </div>

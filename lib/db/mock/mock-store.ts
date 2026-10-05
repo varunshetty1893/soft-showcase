@@ -166,7 +166,7 @@ export class InMemoryStore {
     {
       id: "img-2",
       projectId: "proj-2",
-      url: "https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=1200&h=800&fit=crop",
+      url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop",
       storageKey: "mock-omnicart-1",
       altText: "OmniCart Multi-Vendor Marketplace Storefront",
       isPrimary: true,
