@@ -14,7 +14,9 @@ import {
   ChevronRight,
   PlusCircle,
   ShieldCheck,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 interface PartnerSidebarProps {
   partner: {
@@ -95,6 +97,14 @@ export function PartnerSidebar({ partner }: PartnerSidebarProps) {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-[#526267] hover:bg-[#F3F7F7] hover:text-[#102124]"
+          >
+            <LogOut className="w-4.5 h-4.5 shrink-0" />
+            <span>Log out</span>
+          </button>
         </nav>
       </div>
 

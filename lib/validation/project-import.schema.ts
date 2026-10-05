@@ -197,7 +197,7 @@ export const PartnerSolutionImportSchema = z
       .optional()
       .default([]),
 
-    status: z.enum(["DRAFT", "PUBLISHED"]).optional().default("PUBLISHED"),
+    status: z.enum(["DRAFT", "PUBLISHED"]).optional().default("DRAFT"),
     featured: z.boolean().optional().default(false),
 
     // Optional provider field (if imported from admin template, it's safely ignored or used for contact details)

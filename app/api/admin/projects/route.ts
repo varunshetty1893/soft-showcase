@@ -133,8 +133,11 @@ export async function POST(req: NextRequest) {
       Array.isArray(body.images)
         ? body.images.filter((img: any) => img && typeof img.url === "string" && img.url.trim()).slice(0, 15)
         : [];
-    if (rawImages.length > 0 && !rawImages.some((img) => img.isPrimary)) {
-      rawImages[0].isPrimary = true;
+    const primaryIndex = rawImages.findIndex((img) => img.isPrimary);
+    if (rawImages.length > 0) {
+      rawImages.forEach((img, index) => {
+        img.isPrimary = index === (primaryIndex >= 0 ? primaryIndex : 0);
+      });
     }
 
     const resolvedTechIds: string[] = [];

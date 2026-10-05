@@ -3,7 +3,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Save, Trash2, AlertTriangle, X, Loader2 } from "lucide-react";
+import { Save, Trash2, AlertTriangle, X, Loader2, KeyRound } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -295,7 +296,19 @@ export function PartnerProfileForm({ partner, userEmail }: PartnerProfileFormPro
           <span>Save Studio Settings</span>
         </Button>
       </div>
-    </form>
+      </form>
+
+      {userEmail && (
+        <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-bold text-[#102124]">Password</h2>
+            <p className="mt-1 text-xs text-[#526267]">Send a secure one-time code to reset your login password.</p>
+          </div>
+          <Link href="/forgot-password" className="inline-flex shrink-0 items-center gap-2 h-9 px-4 text-xs font-bold rounded-xl bg-[#155761] text-white hover:bg-[#10474F]">
+            <KeyRound className="w-3.5 h-3.5" /> Reset password
+          </Link>
+        </div>
+      )}
 
       {/* ── Danger Zone ─────────────────────────────────────────────── */}
       {userEmail && (

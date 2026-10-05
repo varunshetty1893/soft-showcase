@@ -40,10 +40,16 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       });
 
       if (nextImage) {
-        await db.projectImage.update({
-          where: { id: nextImage.id },
-          data: { isPrimary: true },
-        });
+        await db.$transaction([
+          db.projectImage.updateMany({
+            where: { projectId: id },
+            data: { isPrimary: false },
+          }),
+          db.projectImage.update({
+            where: { id: nextImage.id },
+            data: { isPrimary: true },
+          }),
+        ]);
       }
     }
 

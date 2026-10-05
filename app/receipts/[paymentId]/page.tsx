@@ -108,6 +108,13 @@ export default async function ReceiptPage({
           </p>
         </div>
 
+        {tx.paymentStatus === "REFUNDED" && (
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+            <p className="font-bold">Transaction Refunded</p>
+            <p className="mt-1">Payment Verified records that this payment was received and verified. The transaction was subsequently refunded, so this receipt does not indicate funds are still retained.</p>
+          </div>
+        )}
+
         <div>
           {row("Order / Transaction", <span className="font-mono">{tx.transactionNumber}</span>)}
           {row("Solution", tx.solution?.title ?? tx.projectType.replace(/_/g, " "))}
@@ -116,6 +123,8 @@ export default async function ReceiptPage({
           {payment.utrNumber && row("UTR / Reference", <span className="font-mono">{payment.utrNumber}</span>)}
           {row("Payment date", formatDate(payment.paidAt))}
           {payment.verifiedAt && row("Verified on", formatDate(payment.verifiedAt))}
+          {row("Payment status", "Payment Verified")}
+          {tx.paymentStatus === "REFUNDED" && row("Transaction status", "Transaction Refunded")}
         </div>
 
         <div className="mt-6 rounded-xl border border-[#D9E2E4] p-5 text-sm space-y-2">

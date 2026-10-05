@@ -123,9 +123,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify ownership of solutionId if provided (Issue 5: Transaction Cross-Linking)
+    let solution: { id: string; providerId: string } | null = null;
     if (data.solutionId) {
-      const solution = await db.project.findUnique({
+      solution = await db.project.findUnique({
         where: { id: data.solutionId },
+        select: { id: true, providerId: true },
       });
       if (!solution) {
         return NextResponse.json({ error: "Selected solution not found" }, { status: 404 });
@@ -139,9 +141,25 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify ownership of enquiryId if provided (Issue 5: Transaction Cross-Linking)
+    let enquiry: {
+      projectId: string;
+      customerId: string | null;
+      name: string;
+      email: string;
+      whatsapp: string | null;
+      providerId: string;
+    } | null = null;
     if (data.enquiryId) {
-      const enquiry = await db.inquiry.findUnique({
+      enquiry = await db.inquiry.findUnique({
         where: { id: data.enquiryId },
+        select: {
+          projectId: true,
+          customerId: true,
+          name: true,
+          email: true,
+          whatsapp: true,
+          providerId: true,
+        },
       });
       if (!enquiry) {
         return NextResponse.json({ error: "Selected inquiry not found" }, { status: 404 });
@@ -150,6 +168,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { error: "Forbidden: The specified inquiry does not belong to your partner account" },
           { status: 403 }
+        );
+      }
+
+      if (solution && enquiry.projectId !== solution.id) {
+        return NextResponse.json(
+          { error: "The selected inquiry belongs to a different solution." },
+          { status: 400 }
+        );
+      }
+
+      const differs = (submitted: string | null | undefined, authoritative: string | null) =>
+        authoritative !== null && (submitted || "").trim().toLowerCase() !== authoritative.trim().toLowerCase();
+      if (
+        differs(data.customerEmail, enquiry.email) ||
+        differs(data.customerName, enquiry.name) ||
+        differs(data.customerWhatsapp, enquiry.whatsapp)
+      ) {
+        return NextResponse.json(
+          { error: "Customer details must match the selected inquiry." },
+          { status: 400 }
         );
       }
     }
@@ -164,13 +202,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Try linking customer account if registered
-    let customerId: string | null = null;
-    const existingUser = await db.user.findUnique({
-      where: { email: data.customerEmail },
-      select: { id: true },
-    });
-    if (existingUser) {
-      customerId = existingUser.id;
+    let customerId: string | null = enquiry?.customerId ?? null;
+    if (!customerId) {
+      const existingUser = await db.user.findUnique({
+        where: { email: enquiry?.email ?? data.customerEmail },
+        select: { id: true },
+      });
+      customerId = existingUser?.id ?? null;
     }
 
     // Atomically create the transaction, its payment rows and the audit record.
@@ -181,9 +219,9 @@ export async function POST(req: NextRequest) {
       customerId,
       createdById: session.user.id,
       data: {
-        customerName: data.customerName,
-        customerEmail: data.customerEmail,
-        customerWhatsapp: data.customerWhatsapp || null,
+        customerName: enquiry?.name ?? data.customerName,
+        customerEmail: enquiry?.email ?? data.customerEmail,
+        customerWhatsapp: enquiry?.whatsapp ?? (data.customerWhatsapp || null),
         solutionId: data.solutionId || null,
         enquiryId: data.enquiryId || null,
         agreedAmount: data.agreedAmount ?? null,

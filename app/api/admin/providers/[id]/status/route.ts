@@ -80,10 +80,6 @@ export async function PATCH(
           ...(isApproving
             ? {
                 isActive: true,
-                showWhatsapp: true,
-                showEmail: true,
-                providerConsentConfirmed: true,
-                providerConsentConfirmedAt: new Date(),
                 verificationStatus: verificationStatus || "verified",
               }
             : isDeactivating

@@ -308,9 +308,11 @@ export async function PUT(
     ).slice(0, 15);
 
     const sanitizedImages = rawImages.filter((img) => img && typeof img.url === "string" && img.url.trim().length > 0);
-    const hasPrimary = sanitizedImages.some((img) => img.isPrimary);
-    if (!hasPrimary && sanitizedImages.length > 0) {
-      sanitizedImages[0].isPrimary = true;
+    const primaryIndex = sanitizedImages.findIndex((img) => img.isPrimary);
+    if (sanitizedImages.length > 0) {
+      sanitizedImages.forEach((img, index) => {
+        img.isPrimary = index === (primaryIndex >= 0 ? primaryIndex : 0);
+      });
     }
 
     const effectiveDealType = data.priceMode === "FIXED" ? (data.dealType ?? "NONE") : "NONE";

@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
           demoUrl: data.demoUrl || null,
           priceMode: data.priceMode,
           price: data.price ?? null,
-          status: data.status || "PUBLISHED",
+          status: data.status || "DRAFT",
           // Featured placement is an administrator-only decision.
           featured: false,
           whatsIncluded: data.whatsIncluded || [],
@@ -215,6 +215,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Execute Import ──────────────────────────────────────────────────────
+    // Imports follow the same safe default as the normal partner form.
+    // The schema permits an explicit publish request, but it must pass the same
+    // active/approved partner gate used by normal creation.
+    const requestedStatus = data.status || "DRAFT";
+    if (requestedStatus === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
+      return NextResponse.json(
+        { error: "Your partner account must be active and approved before publishing a solution." },
+        { status: 403 }
+      );
+    }
     const finalSlug = await generateUniqueSlug(data.title, async (s) => {
       const found = await db.project.findUnique({ where: { slug: s } });
       return Boolean(found);
@@ -244,7 +254,7 @@ export async function POST(request: NextRequest) {
         priceMode: data.priceMode,
         price: data.price ?? null,
         originalPrice: validOriginalPrice,
-        status: data.status || "PUBLISHED",
+        status: requestedStatus,
         featured: false,
         whatsIncluded: data.whatsIncluded || [],
         categoryId,
