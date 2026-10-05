@@ -3,6 +3,7 @@
 // Source of truth: docs/13-database-design.md + Phase 4 pricing offer rules.
 
 import { z } from "zod";
+import { moneyNumber } from "@/lib/utils/money";
 import {
   DEAL_TYPES,
   PRICE_QUALIFIERS,
@@ -61,13 +62,9 @@ const projectFields = {
 
   priceMode: PriceModeEnum.default("CONTACT"),
 
-  price: z.number().positive("Price must be a positive number").nullable(),
+  price: moneyNumber("Price").nullable(),
 
-  originalPrice: z
-    .number()
-    .positive("Original price must be a positive number")
-    .optional()
-    .nullable(),
+  originalPrice: moneyNumber("Original price").optional().nullable(),
 
   priceQualifier: PriceQualifierEnum.default("NONE").optional(),
 

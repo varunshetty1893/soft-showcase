@@ -4,7 +4,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, AuthError, authErrorResponse } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { createAuditLogTx } from "@/lib/db/audit";
+import {
+  updateTransactionStatusWithPayments,
+  PaymentRuleError,
+} from "@/lib/db/queries/transaction-payments";
 import { UpdateTransactionStatusSchema } from "@/lib/validation/transaction.schema";
 
 export async function GET(
@@ -28,6 +31,7 @@ export async function GET(
         solution: true,
         customer: true,
         enquiry: true,
+        payments: { orderBy: { sequence: "asc" } },
       },
     });
 
@@ -72,59 +76,14 @@ export async function PATCH(
 
     const { paymentStatus, deliveryStatus, adminNotes } = parsed.data;
 
-    const isVerifiedState = (status: string | null | undefined) =>
-      status === "VERIFIED" || status === "COMPLETED";
-    const willBeVerified = isVerifiedState(paymentStatus);
-
-    const updated = await db.$transaction(async (tx) => {
-      const current = await tx.transaction.findUnique({
-        where: { id },
-        select: { id: true, paymentStatus: true, verifiedAt: true, verifiedBy: true },
-      });
-
-      if (!current) return null;
-
-      const wasVerified = isVerifiedState(current.paymentStatus);
-
-      // Verification metadata must always agree with the payment status:
-      //  - entering a verified state (from a non-verified one) stamps who/when
-      //  - moving VERIFIED <-> COMPLETED keeps the original verifier/timestamp
-      //  - leaving a verified state clears both, so audit data never contradicts itself
-      let verificationData: { verifiedAt?: Date | null; verifiedBy?: string | null } = {};
-      if (willBeVerified && !wasVerified) {
-        verificationData = { verifiedAt: new Date(), verifiedBy: session.user.id };
-      } else if (willBeVerified && wasVerified && !current.verifiedAt) {
-        verificationData = { verifiedAt: new Date(), verifiedBy: session.user.id };
-      } else if (!willBeVerified) {
-        verificationData = { verifiedAt: null, verifiedBy: null };
-      }
-
-      const txUpdated = await tx.transaction.update({
-        where: { id },
-        data: {
-          paymentStatus,
-          ...(deliveryStatus ? { deliveryStatus } : {}),
-          ...(adminNotes !== undefined ? { adminNotes } : {}),
-          ...verificationData,
-        },
-      });
-
-      // Not swallowed: a status change is never committed without its audit record.
-      await createAuditLogTx(tx, {
-        userId: session.user.id,
-        action: `TRANSACTION_${paymentStatus}`,
-        entityType: "Transaction",
-        entityId: id,
-        details: {
-          transactionNumber: txUpdated.transactionNumber,
-          previousPaymentStatus: current.paymentStatus,
-          paymentStatus,
-          verificationCleared: wasVerified && !willBeVerified,
-          adminNotes: adminNotes ?? null,
-        },
-      });
-
-      return txUpdated;
+    // Totals, verification stamps, delivery gating (balance must be 0) and the audit record are
+    // all handled inside one locked database transaction.
+    const updated = await updateTransactionStatusWithPayments({
+      transactionId: id,
+      adminId: session.user.id,
+      paymentStatus,
+      deliveryStatus,
+      adminNotes,
     });
 
     if (!updated) {
@@ -133,6 +92,9 @@ export async function PATCH(
 
     return NextResponse.json({ transaction: updated });
   } catch (err: unknown) {
+    if (err instanceof PaymentRuleError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Failed to update transaction status:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -3,17 +3,20 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import {
   ArrowLeft,
   Receipt,
-  ExternalLink,
   User,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
+import { summarizeTransaction } from "@/lib/transactions/summary";
+import { PaymentsTable } from "@/components/transactions/PaymentsTable";
+import { AddPaymentForm } from "@/components/partner/AddPaymentForm";
+import { MAX_ACTIVE_PAYMENTS } from "@/lib/transactions/payments";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -36,6 +39,7 @@ export default async function PartnerTransactionDetailPage({
       solution: true,
       customer: true,
       partner: true,
+      payments: { orderBy: { sequence: "asc" } },
     },
   });
 
@@ -47,6 +51,9 @@ export default async function PartnerTransactionDetailPage({
   if (transaction.partnerId !== partner.id && !user.isAdmin) {
     notFound();
   }
+
+  const summary = summarizeTransaction(transaction);
+  const locked = ["REFUNDED", "DISPUTED", "COMPLETED"].includes(transaction.paymentStatus);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -76,7 +83,7 @@ export default async function PartnerTransactionDetailPage({
               </span>
             </div>
             <p className="text-xs text-[#526267] font-mono mt-0.5">
-              UTR: {transaction.utrNumber} • {formatDate(transaction.createdAt)}
+              {transaction.utrNumber ? `UTR: ${transaction.utrNumber}` : "No UTR (cash)"} • {formatDate(transaction.createdAt)}
             </p>
           </div>
         </div>
@@ -93,18 +100,24 @@ export default async function PartnerTransactionDetailPage({
 
           <div className="space-y-2.5 text-xs">
             <div className="flex justify-between py-1 border-b border-[#F3F7F7]">
-              <span className="text-[#526267]">Amount:</span>
+              <span className="text-[#526267]">Total deal amount:</span>
               <strong className="text-base text-[#155761]">
-                {formatCurrency(Number(transaction.amount))}
+                {formatMoney(summary.agreedAmount, transaction.currency)}
               </strong>
             </div>
             <div className="flex justify-between py-1 border-b border-[#F3F7F7]">
-              <span className="text-[#526267]">Payment Mode:</span>
-              <span className="font-semibold">{transaction.paymentMethod}</span>
+              <span className="text-[#526267]">Paid &amp; verified:</span>
+              <span className="font-semibold">{formatMoney(summary.verifiedTotal, transaction.currency)}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-[#F3F7F7]">
-              <span className="text-[#526267]">UTR / Reference:</span>
-              <span className="font-mono font-bold text-[#102124]">{transaction.utrNumber}</span>
+              <span className="text-[#526267]">Balance:</span>
+              <span className={`font-bold ${summary.balance > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                {summary.balance > 0 ? formatMoney(summary.balance, transaction.currency) : "Nil — paid in full"}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-[#F3F7F7]">
+              <span className="text-[#526267]">Payments:</span>
+              <span className="font-semibold">{summary.activeCount} of {MAX_ACTIVE_PAYMENTS}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-[#F3F7F7]">
               <span className="text-[#526267]">Delivery Status:</span>
@@ -159,37 +172,19 @@ export default async function PartnerTransactionDetailPage({
         </div>
       </div>
 
-      {/* Payment Evidence Screenshot Card */}
-      {transaction.paymentEvidenceUrl && (
-        <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-[#102124]">Submitted Payment Evidence</h3>
-            <a
-              href={transaction.paymentEvidenceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-semibold text-[#155761] hover:underline flex items-center gap-1"
-            >
-              <span>Open in new tab</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-
-          <div className="rounded-2xl border border-[#D9E2E4] overflow-hidden max-h-96 bg-[#102124]/5 flex items-center justify-center p-4">
-            <div className="relative w-full h-80">
-              <Image
-                src={transaction.paymentEvidenceUrl}
-                alt="Payment Proof"
-                fill
-                sizes="(max-width: 768px) 100vw, 800px"
-                className="object-contain rounded-xl"
-                referrerPolicy="no-referrer"
-                unoptimized={transaction.paymentEvidenceUrl.startsWith("data:")}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Payments, screenshots & receipts */}
+      <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 shadow-xs space-y-4">
+        <h3 className="font-bold text-sm text-[#102124]">Payments, Screenshots &amp; Receipts</h3>
+        <PaymentsTable payments={summary.payments} currency={transaction.currency} />
+        {!locked && (
+          <AddPaymentForm
+            transactionId={transaction.id}
+            slotsLeft={summary.slotsLeft}
+            remainingToSubmit={summary.remainingToSubmit}
+            currency={transaction.currency}
+          />
+        )}
+      </div>
 
       {/* Scope description notes */}
       {transaction.description && (

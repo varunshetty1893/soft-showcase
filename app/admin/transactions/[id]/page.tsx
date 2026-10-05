@@ -28,6 +28,7 @@ export default async function AdminTransactionPage({
       partner: true,
       solution: true,
       customer: true,
+      payments: { orderBy: { sequence: "asc" } },
     },
   });
 
@@ -35,5 +36,7 @@ export default async function AdminTransactionPage({
     notFound();
   }
 
-  return <AdminTransactionDetailManager transaction={transaction} />;
+  // Decimal / Date instances cannot cross the server -> client boundary; serialise to plain JSON.
+  const plain = JSON.parse(JSON.stringify(transaction));
+  return <AdminTransactionDetailManager transaction={plain} />;
 }

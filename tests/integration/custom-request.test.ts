@@ -44,7 +44,7 @@ describe("Custom Project Request API Integration Tests", () => {
     technologyPreferences: ["Next.js", "PostgreSQL", "Go"],
     description: "We require an end-to-end fleet tracking system that can monitor 200+ delivery vehicles in real-time across multiple distribution hubs.",
     requiredFeatures: "GPS telematics ingestion, Driver dispatch mobile PWA, Automated shift timesheets, Route analytics dashboard",
-    budget: "$10,000 - $25,000",
+    budget: "25000",
     deadline: "Within 3 months",
     additionalRequirements: "Must support offline caching for drivers in low-connectivity areas.",
   };

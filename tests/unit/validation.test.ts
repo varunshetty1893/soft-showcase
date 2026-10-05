@@ -73,7 +73,7 @@ describe("Validation Unit Tests", () => {
       technologyPreferences: ["Next.js", "Python", "OpenAI"],
       description: "We require a specialized SaaS platform to extract and categorize invoices automatically from scanned PDF documents.",
       requiredFeatures: "Multi-tenant auth, OCR pipeline, Webhook notifications, Stripe billing integration",
-      budget: "$5,000 - $10,000",
+      budget: "10000",
       deadline: "Within 2 months",
     };
 

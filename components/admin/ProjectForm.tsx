@@ -34,6 +34,7 @@ import {
   type PriceQualifierValue,
 } from "@/lib/utils/pricing";
 import { useToast } from "@/components/ui/toast";
+import { parseMoney } from "@/lib/utils/money";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -463,15 +464,30 @@ export default function ProjectForm({
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const parsedPrice =
-      form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM"
-        ? parseFloat(form.price) || null
-        : null;
+    // Shared money rule: never zero, never negative, max 2 decimals (same as the API)
+    let parsedPrice: number | null = null;
+    if (form.priceMode === "FIXED" || form.priceMode === "STARTING_FROM") {
+      const priceCheck = parseMoney(form.price, "Price");
+      if (!priceCheck.ok) {
+        setErrors({ price: [priceCheck.error] });
+        toast.error(priceCheck.error);
+        setSaving(false);
+        return;
+      }
+      parsedPrice = priceCheck.value;
+    }
 
-    const rawOriginalPrice =
-      form.priceMode === "FIXED" && form.originalPrice && form.originalPrice.trim() !== ""
-        ? parseFloat(form.originalPrice) || null
-        : null;
+    let rawOriginalPrice: number | null = null;
+    if (form.priceMode === "FIXED" && form.originalPrice && form.originalPrice.trim() !== "") {
+      const originalCheck = parseMoney(form.originalPrice, "Original price");
+      if (!originalCheck.ok) {
+        setErrors({ originalPrice: [originalCheck.error] });
+        toast.error(originalCheck.error);
+        setSaving(false);
+        return;
+      }
+      rawOriginalPrice = originalCheck.value;
+    }
 
     if (
       form.priceMode === "FIXED" &&

@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { parseMoney } from "@/lib/utils/money";
 
 interface Category {
   id: string;
@@ -987,6 +988,34 @@ export function PartnerSolutionForm({
       });
     }
 
+    // Price rules (shared with the API): never zero, never negative, max 2 decimals
+    if (priceMode !== "CONTACT") {
+      const priceCheck = parseMoney(price, "Price");
+      if (!priceCheck.ok) {
+        clientErrors.push({
+          field: "price",
+          title: "Invalid Price",
+          message: priceCheck.error,
+          currentCount: 0,
+          maxLimit: 0,
+          canTrim: false,
+        });
+      }
+    }
+    if (priceMode === "FIXED" && originalPrice && originalPrice.trim() !== "") {
+      const originalCheck = parseMoney(originalPrice, "Original price");
+      if (!originalCheck.ok) {
+        clientErrors.push({
+          field: "originalPrice",
+          title: "Invalid Original Price",
+          message: originalCheck.error,
+          currentCount: 0,
+          maxLimit: 0,
+          canTrim: false,
+        });
+      }
+    }
+
     if (clientErrors.length > 0) {
       setErrorItems(clientErrors);
       setError("Please review and adjust the highlighted items below before saving.");
@@ -1347,6 +1376,9 @@ export function PartnerSolutionForm({
               <Label className="text-xs font-semibold text-[#102124]">Price (INR) *</Label>
               <Input
                 type="number"
+                min="1"
+                step="0.01"
+                inputMode="decimal"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="24999"
@@ -1363,6 +1395,9 @@ export function PartnerSolutionForm({
               </Label>
               <Input
                 type="number"
+                min="1"
+                step="0.01"
+                inputMode="decimal"
                 value={originalPrice}
                 onChange={(e) => setOriginalPrice(e.target.value)}
                 placeholder="Must be > selling price"

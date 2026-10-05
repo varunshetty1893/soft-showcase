@@ -2,6 +2,7 @@
 // Zod validation schema for the custom project request endpoint.
 
 import { z } from "zod";
+import { optionalBudgetSchema } from "@/lib/utils/money";
 import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const CustomRequestSchema = z.object({
@@ -67,12 +68,8 @@ export const CustomRequestSchema = z.object({
     .optional()
     .nullable(),
 
-  budget: z
-    .string()
-    .max(100, "Budget must be under 100 characters")
-    .trim()
-    .optional()
-    .nullable(),
+  // Optional. When given it must be a positive number (no zero / negative / free text).
+  budget: optionalBudgetSchema(),
 
   additionalRequirements: z
     .string()

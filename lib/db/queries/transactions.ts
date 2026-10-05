@@ -1,5 +1,5 @@
 // lib/db/queries/transactions.ts
-// Database queries for transactions and payment evidence.import { Prisma, TransactionPaymentStatus } from "@prisma/client";
+// Database queries for transactions and payment evidence.
 import { Prisma, TransactionPaymentStatus } from "@prisma/client";
 
 import { db } from "@/lib/db/client";
@@ -29,6 +29,7 @@ export async function getAdminTransactionsPaginated(filters: AdminTransactionFil
     where.OR = [
       { transactionNumber: { contains: search, mode: "insensitive" } },
       { utrNumber: { contains: search, mode: "insensitive" } },
+      { payments: { some: { utrNumber: { contains: search, mode: "insensitive" } } } },
       { customerName: { contains: search, mode: "insensitive" } },
       { customerEmail: { contains: search, mode: "insensitive" } },
       { partner: { is: { OR: [
@@ -46,6 +47,7 @@ export async function getAdminTransactionsPaginated(filters: AdminTransactionFil
         partner: { select: { id: true, displayName: true, email: true, whatsappNumber: true } },
         solution: { select: { id: true, title: true, slug: true, price: true } },
         customer: { select: { id: true, name: true, email: true } },
+        payments: { select: { id: true, status: true, amount: true, sequence: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -131,6 +133,7 @@ export async function getCustomerTransactions(
     const transactions = await db.transaction.findMany({
       where: { customerId: userId },
       include: {
+        payments: { orderBy: { sequence: "asc" } },
         solution: {
           select: { id: true, title: true, slug: true },
         },

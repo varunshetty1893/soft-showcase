@@ -404,7 +404,11 @@ export function CustomProjectForm({
             <Label htmlFor="budget" className="text-[#102124]">Target Budget</Label>
             <Input
               id="budget"
-              placeholder="e.g. $1,000 - $3,000 or Flexible"
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="0.01"
+              placeholder="e.g. 25000 (numbers only, optional)"
               value={formData.budget}
               onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
               className="mt-1.5"

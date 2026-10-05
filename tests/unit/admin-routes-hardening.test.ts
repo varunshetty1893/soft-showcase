@@ -44,6 +44,8 @@ vi.mock("@/lib/db/client", () => ({
     },
     category: { findUnique: vi.fn() },
     transaction: { findUnique: vi.fn(), update: vi.fn() },
+    transactionPayment: { findMany: vi.fn(), updateMany: vi.fn() },
+    $queryRaw: vi.fn().mockResolvedValue([]),
     user: { updateMany: vi.fn() },
   },
 }));
@@ -139,14 +141,46 @@ describe("Partner status endpoint", () => {
 describe("Transaction verification", () => {
   const params = { params: Promise.resolve({ id: "tx-1" }) };
 
+  const row = (sequence: number, amount: number, status: string) => ({
+    id: `pay-${sequence}`,
+    transactionId: "tx-1",
+    sequence,
+    amount,
+    status,
+    paymentMethod: "UPI",
+    utrNumber: null,
+    evidenceUrl: null,
+  });
+
+  const parent = (extra: Record<string, unknown> = {}) => ({
+    id: "tx-1",
+    transactionNumber: "T-1",
+    paymentStatus: "UNDER_REVIEW",
+    deliveryStatus: "PENDING",
+    verifiedAt: null,
+    verifiedBy: null,
+    amount: 1000,
+    agreedAmount: 1000,
+    paymentMethod: "UPI",
+    payments: [row(1, 1000, "PENDING_REVIEW")],
+    ...extra,
+  });
+
+  beforeEach(() => {
+    dbAny.transaction.update.mockResolvedValue({ id: "tx-1", transactionNumber: "T-1", payments: [] });
+    dbAny.transactionPayment.updateMany.mockResolvedValue({ count: 1 });
+    dbAny.transactionPayment.findMany.mockResolvedValue([row(1, 1000, "VERIFIED")]);
+  });
+
   it("clears verifiedAt/verifiedBy when a verified transaction is moved back", async () => {
-    dbAny.transaction.findUnique.mockResolvedValue({
-      id: "tx-1",
-      paymentStatus: "VERIFIED",
-      verifiedAt: new Date("2026-01-01"),
-      verifiedBy: "admin-0",
-    });
-    dbAny.transaction.update.mockResolvedValue({ id: "tx-1", transactionNumber: "T-1" });
+    dbAny.transaction.findUnique.mockResolvedValue(
+      parent({
+        paymentStatus: "VERIFIED",
+        verifiedAt: new Date("2026-01-01"),
+        verifiedBy: "admin-0",
+        payments: [row(1, 1000, "VERIFIED")],
+      })
+    );
 
     const res = await transactionPatch(
       jsonReq("/api/admin/transactions/tx-1", "PATCH", { paymentStatus: "DISPUTED" }),
@@ -155,19 +189,13 @@ describe("Transaction verification", () => {
 
     expect(res.status).toBe(200);
     const data = dbAny.transaction.update.mock.calls[0][0].data;
+    expect(data.paymentStatus).toBe("DISPUTED");
     expect(data.verifiedAt).toBeNull();
     expect(data.verifiedBy).toBeNull();
   });
 
   it("stamps verifier once when entering a verified state and keeps it between VERIFIED and COMPLETED", async () => {
-    dbAny.transaction.update.mockResolvedValue({ id: "tx-1", transactionNumber: "T-1" });
-
-    dbAny.transaction.findUnique.mockResolvedValueOnce({
-      id: "tx-1",
-      paymentStatus: "UNDER_REVIEW",
-      verifiedAt: null,
-      verifiedBy: null,
-    });
+    dbAny.transaction.findUnique.mockResolvedValueOnce(parent());
     await transactionPatch(
       jsonReq("/api/admin/transactions/tx-1", "PATCH", { paymentStatus: "VERIFIED" }),
       params
@@ -176,12 +204,14 @@ describe("Transaction verification", () => {
     expect(entering.verifiedBy).toBe("admin-1");
     expect(entering.verifiedAt).toBeInstanceOf(Date);
 
-    dbAny.transaction.findUnique.mockResolvedValueOnce({
-      id: "tx-1",
-      paymentStatus: "VERIFIED",
-      verifiedAt: new Date("2026-01-01"),
-      verifiedBy: "admin-0",
-    });
+    dbAny.transaction.findUnique.mockResolvedValueOnce(
+      parent({
+        paymentStatus: "VERIFIED",
+        verifiedAt: new Date("2026-01-01"),
+        verifiedBy: "admin-0",
+        payments: [row(1, 1000, "VERIFIED")],
+      })
+    );
     await transactionPatch(
       jsonReq("/api/admin/transactions/tx-1", "PATCH", { paymentStatus: "COMPLETED" }),
       params
@@ -198,6 +228,35 @@ describe("Transaction verification", () => {
       params
     );
     expect(res.status).toBe(404);
+    expect(dbAny.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mark the order VERIFIED while part of the agreed amount is still unpaid", async () => {
+    dbAny.transaction.findUnique.mockResolvedValue(
+      parent({ payments: [row(1, 400, "PENDING_REVIEW")] })
+    );
+    dbAny.transactionPayment.findMany.mockResolvedValue([row(1, 400, "VERIFIED")]);
+    const res = await transactionPatch(
+      jsonReq("/api/admin/transactions/tx-1", "PATCH", { paymentStatus: "VERIFIED" }),
+      params
+    );
+    expect(res.status).toBe(409);
+    expect(dbAny.transaction.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses Delivered / Completed delivery while the balance is not zero", async () => {
+    dbAny.transaction.findUnique.mockResolvedValue(
+      parent({ paymentStatus: "EVIDENCE_SUBMITTED", payments: [row(1, 400, "VERIFIED")] })
+    );
+    dbAny.transactionPayment.findMany.mockResolvedValue([row(1, 400, "VERIFIED")]);
+    const res = await transactionPatch(
+      jsonReq("/api/admin/transactions/tx-1", "PATCH", {
+        paymentStatus: "EVIDENCE_SUBMITTED",
+        deliveryStatus: "DELIVERED",
+      }),
+      params
+    );
+    expect(res.status).toBe(409);
     expect(dbAny.transaction.update).not.toHaveBeenCalled();
   });
 });

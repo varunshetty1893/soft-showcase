@@ -5,12 +5,15 @@ import {
   Receipt,
   MessageCircle,
   Search,
+  Download,
   X,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
+import { paymentMethodLabel } from "@/lib/transactions/payments";
 
 interface CustomerTransactionItem {
   id: string;
@@ -23,6 +26,22 @@ interface CustomerTransactionItem {
   paymentMethod: string;
   description?: string | null;
   createdAt: string | Date;
+  summary?: {
+    agreedAmount: number;
+    verifiedTotal: number;
+    balance: number;
+    isFullyPaid: boolean;
+    payments: Array<{
+      id: string;
+      sequence: number;
+      amount: number;
+      paymentMethod: string;
+      status: string;
+      paidAt: string;
+      receiptNumber: string | null;
+      isFinalReceipt: boolean;
+    }>;
+  };
   solution?: {
     id: string;
     title: string;
@@ -181,8 +200,14 @@ export function CustomerTransactionsList({
 
                 <div className="text-right">
                   <div className="text-lg font-extrabold text-[#155761]">
-                    {formatCurrency(Number(tx.amount))}
+                    {formatMoney(tx.summary?.agreedAmount ?? Number(tx.amount))}
                   </div>
+                  {tx.summary && (
+                    <div className="text-[11px] text-[#526267]">
+                      Paid {formatMoney(tx.summary.verifiedTotal)}
+                      {tx.summary.balance > 0 ? ` • Balance ${formatMoney(tx.summary.balance)}` : " • Paid in full"}
+                    </div>
+                  )}
                   {tx.utrNumber ? (
                     <div className="text-[11px] text-[#526267] font-mono">
                       UTR: {tx.utrNumber}
@@ -221,13 +246,55 @@ export function CustomerTransactionsList({
                     <strong>Scope:</strong> {tx.projectType.replace(/_/g, " ")}
                   </p>
                   <p className="text-[#526267]">
-                    <strong>Payment Mode:</strong> {tx.paymentMethod}
+                    <strong>Payment Mode:</strong> {paymentMethodLabel(tx.paymentMethod)}
                   </p>
                   <p className="text-[#526267]">
                     <strong>Order Date:</strong> {formatDate(tx.createdAt)}
                   </p>
                 </div>
               </div>
+
+              {tx.summary && tx.summary.payments.length > 0 && (
+                <div className="rounded-xl border border-[#D9E2E4] overflow-hidden text-xs">
+                  <div className="px-3 py-2 bg-[#F8FAFA] font-bold text-[#102124]">Payments &amp; receipts</div>
+                  <ul className="divide-y divide-[#F3F7F7]">
+                    {tx.summary.payments.map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div>
+                          <span className="font-semibold text-[#102124]">
+                            Payment {p.sequence}: {formatMoney(p.amount)}
+                          </span>
+                          <span className="ml-2 text-[#526267]">
+                            {paymentMethodLabel(p.paymentMethod)} • {formatDate(p.paidAt)}
+                          </span>
+                          <span
+                            className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              p.status === "VERIFIED"
+                                ? "bg-[#DDF4EC] text-[#2F7D78]"
+                                : p.status === "REJECTED"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-amber-100 text-amber-900"
+                            }`}
+                          >
+                            {p.status === "PENDING_REVIEW" ? "Awaiting verification" : p.status === "VERIFIED" ? "Verified" : "Rejected"}
+                          </span>
+                        </div>
+                        {p.status === "VERIFIED" && p.receiptNumber && (
+                          <a
+                            href={`/receipts/${p.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#155761] text-white font-semibold hover:bg-[#0f434b]"
+                          >
+                            <Download className="w-3 h-3" />
+                            {p.isFinalReceipt ? "Final receipt" : "Receipt"}
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {tx.description && (
                 <div className="p-3 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267]">

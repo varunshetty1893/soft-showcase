@@ -8,26 +8,12 @@ import { CreateTransactionSchema } from "@/lib/validation/transaction.schema";
 import { generateSecureTransactionNumber } from "@/lib/utils/crypto";
 import { transactionCreateLimiter, getClientIp } from "@/lib/utils/rate-limit";
 import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
-
-function isValidEvidenceUrl(url: string | null | undefined): boolean {
-  if (!url) return true;
-  const trimmed = url.trim();
-  // Do NOT allow base64 images to be stored in the database
-  if (trimmed.startsWith("data:image/")) return false;
-  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("/api/partner/uploads")) return true;
-  try {
-    const parsed = new URL(trimmed);
-    const trustedHosts = [
-      "res.cloudinary.com",
-      "images.unsplash.com",
-      process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : "",
-      "localhost",
-    ].filter(Boolean);
-    return trustedHosts.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
-  } catch {
-    return false;
-  }
-}
+import { isValidEvidenceUrl } from "@/lib/transactions/evidence";
+import { firstValidationMessage } from "@/lib/transactions/errors";
+import {
+  createTransactionWithPayments,
+  PaymentRuleError,
+} from "@/lib/db/queries/transaction-payments";
 
 export async function GET() {
   const session = await auth();
@@ -54,6 +40,7 @@ export async function GET() {
       include: {
         solution: { select: { id: true, title: true, slug: true } },
         enquiry: { select: { id: true, name: true, email: true } },
+        payments: { orderBy: { sequence: "asc" } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -111,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
+        { error: firstValidationMessage(parsed.error), details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -125,12 +112,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate payment evidence URL (Issue 27: Arbitrary External URLs)
-    if (data.paymentEvidenceUrl && !isValidEvidenceUrl(data.paymentEvidenceUrl)) {
-      return NextResponse.json(
-        { error: "Payment evidence must be uploaded through the platform storage." },
-        { status: 400 }
-      );
+    // Validate payment evidence URLs (Issue 27: Arbitrary External URLs)
+    for (const payment of data.payments) {
+      if (payment.evidenceUrl && !isValidEvidenceUrl(payment.evidenceUrl)) {
+        return NextResponse.json(
+          { error: "Payment screenshots must be uploaded through the platform storage." },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify ownership of solutionId if provided (Issue 5: Transaction Cross-Linking)
@@ -184,55 +173,34 @@ export async function POST(req: NextRequest) {
       customerId = existingUser.id;
     }
 
-    // Enforce initial business state constraints (Issue 26)
-    const initialDeliveryStatus = data.deliveryStatus || "PENDING";
-
-    // Atomically create transaction and audit log
-    const transaction = await db.$transaction(async (tx) => {
-      const created = await tx.transaction.create({
-        data: {
-          transactionNumber,
-          partnerId: partner.id,
-          customerId,
-          customerName: data.customerName,
-          customerEmail: data.customerEmail,
-          customerWhatsapp: data.customerWhatsapp || null,
-          solutionId: data.solutionId || null,
-          enquiryId: data.enquiryId || null,
-          amount: data.amount as any,
-          currency: data.currency || "INR",
-          paymentMethod: data.paymentMethod || "UPI",
-          utrNumber: data.utrNumber,
-          paymentStatus: data.paymentEvidenceUrl ? "EVIDENCE_SUBMITTED" : "PENDING",
-          paymentEvidenceUrl: data.paymentEvidenceUrl || null,
-          paymentEvidenceNotes: data.paymentEvidenceNotes || null,
-          projectType: data.projectType,
-          description: data.description || null,
-          deliveryStatus: initialDeliveryStatus,
-          verificationSource: "manual_provider_submission",
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          userId: session.user.id,
-          action: "TRANSACTION_RECORDED",
-          entityType: "Transaction",
-          entityId: created.id,
-          details: {
-            transactionNumber,
-            amount: data.amount,
-            currency: data.currency,
-            partnerId: partner.id,
-          },
-        },
-      }).catch(() => null);
-
-      return created;
+    // Atomically create the transaction, its payment rows and the audit record.
+    // Totals, overpayment, the 3-payment limit and duplicate-UTR rules are enforced inside.
+    const transaction = await createTransactionWithPayments({
+      transactionNumber,
+      partnerId: partner.id,
+      customerId,
+      createdById: session.user.id,
+      data: {
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerWhatsapp: data.customerWhatsapp || null,
+        solutionId: data.solutionId || null,
+        enquiryId: data.enquiryId || null,
+        agreedAmount: data.agreedAmount ?? null,
+        currency: data.currency || "INR",
+        payments: data.payments,
+        paymentEvidenceNotes: data.paymentEvidenceNotes || null,
+        projectType: data.projectType,
+        description: data.description || null,
+        deliveryStatus: data.deliveryStatus === "IN_PROGRESS" ? "IN_PROGRESS" : "PENDING",
+      },
     });
 
     return NextResponse.json({ transaction }, { status: 201 });
   } catch (err: unknown) {
+    if (err instanceof PaymentRuleError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("Failed to record transaction:", err);
     return NextResponse.json({ error: "Failed to record transaction" }, { status: 500 });
   }

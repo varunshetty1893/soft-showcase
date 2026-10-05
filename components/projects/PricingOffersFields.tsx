@@ -172,7 +172,7 @@ export function PricingOffersFields({
             <input
               type="number"
               min="1"
-              step="1"
+              step="0.01"
               value={value.price}
               onChange={(e) => onChange({ price: e.target.value })}
               placeholder="e.g. 4999"
@@ -196,7 +196,7 @@ export function PricingOffersFields({
               <input
                 type="number"
                 min="1"
-                step="1"
+                step="0.01"
                 value={value.originalPrice}
                 onChange={(e) => onChange({ originalPrice: e.target.value })}
                 placeholder="e.g. 7999"

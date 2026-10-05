@@ -138,6 +138,7 @@ export async function getPartnerTransactions(partnerId: string) {
       include: {
         solution: { select: { id: true, title: true, slug: true } },
         enquiry: { select: { id: true, name: true, email: true } },
+        payments: { orderBy: { sequence: "asc" } },
       },
       orderBy: { createdAt: "desc" },
     });

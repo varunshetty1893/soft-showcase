@@ -8,6 +8,7 @@ import { getEffectivePartnerContext } from "@/lib/auth/partner-auth";
 import { Receipt, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
+import { summarizeTransaction } from "@/lib/transactions/summary";
 import { PartnerTransactionsList } from "@/components/partner/PartnerTransactionsList";
 
 export const metadata: Metadata = {
@@ -21,7 +22,13 @@ export default async function PartnerTransactionsPage() {
   const partnerId = partner.id;
   const rawTransactions = await getPartnerTransactions(partnerId);
 
-  const serializedTransactions = rawTransactions.map((tx: any) => ({
+  const serializedTransactions = rawTransactions.map((tx: any) => {
+    const sm = summarizeTransaction(tx);
+    return {
+    agreedAmount: sm.agreedAmount,
+    verifiedTotal: sm.verifiedTotal,
+    balance: sm.balance,
+    paymentCount: sm.activeCount,
     id: tx.id,
     transactionNumber: tx.transactionNumber,
     utrNumber: tx.utrNumber,
@@ -39,7 +46,8 @@ export default async function PartnerTransactionsPage() {
           slug: tx.solution.slug,
         }
       : null,
-  }));
+  };
+  });
 
   return (
     <div className="space-y-6">

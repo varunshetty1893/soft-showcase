@@ -1,29 +1,82 @@
 // app/api/partner/receipt-extract/route.ts
-// Server-side route that accepts a base64 receipt image and returns
-// extracted payment fields using Google Gemini Vision.
-// Requires GEMINI_API_KEY in environment variables.
-// Falls back gracefully if the key is missing or extraction fails.
+// Reads ONE payment screenshot with Google Gemini Vision and returns amount, UTR and method.
+// Degrades gracefully: on any failure it returns { error } with HTTP 200 so the form can show
+// a clear message and fall back to manual entry (it never fails silently).
+//
+// Env:
+//   GEMINI_API_KEY  (required)
+//   GEMINI_MODEL    (optional) preferred model id. If it is missing / retired (404) the
+//                   fallback chain below is tried automatically.
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/session";
 import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
+import { db } from "@/lib/db/client";
+import { cleanReceiptExtraction } from "@/lib/transactions/receipt-parse";
 
-// Maps common receipt text patterns to our internal payment method codes
-function normalisePaymentMethod(raw: string): string {
-  const u = raw.toUpperCase();
-  if (u.includes("UPI") || u.includes("GPAY") || u.includes("PHONEPE") || u.includes("PAYTM")) return "UPI";
-  if (u.includes("NEFT")) return "NEFT_RTGS";
-  if (u.includes("RTGS")) return "NEFT_RTGS";
-  if (u.includes("IMPS")) return "IMPS";
-  if (u.includes("SWIFT") || u.includes("WIRE")) return "WIRE_TRANSFER";
-  if (u.includes("CARD") || u.includes("VISA") || u.includes("MASTER")) return "CARD";
-  if (u.includes("CASH")) return "CASH";
-  return raw;
+// Gemini 1.5 / 2.0 are retired and 2.5 is being shut down (16 Oct 2026), so the chain starts
+// with the current Gemini 3 family. The first model that answers wins.
+const MODEL_CHAIN = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+
+const MAX_BASE64_CHARS = 7_000_000; // ~5 MB image
+
+const PROMPT = `You read payment screenshots (Google Pay, PhonePe, Paytm, BHIM, Cred, Amazon Pay, bank apps, bank receipts).
+Extract these fields exactly as shown on screen:
+
+- amount: the amount paid, digits and an optional decimal point only (e.g. "2", "25000", "499.50"). Ignore fees, cashback, discounts, balances.
+- currency: "INR" for the rupee sign, otherwise the 3-letter ISO code.
+- upiTransactionId: the 12-digit number labelled "UPI transaction ID", "UTR", "UTR No", "UPI Ref No", "UPI Reference ID", "Transaction reference" or "Ref No". It is ALWAYS exactly 12 digits.
+  * Google Pay shows two IDs. Use the 12-digit "UPI transaction ID". NEVER use "Google transaction ID" (it looks like CICAgPiq...).
+  * PhonePe shows a "Transaction ID" starting with T... and a separate 12-digit "UTR". Use the 12-digit UTR.
+  * Never use order IDs, merchant IDs, VPAs/UPI handles, phone numbers or account numbers.
+- otherReferenceId: any other transaction/order/Google ID shown (informational only).
+- paymentMethod: one of UPI, IMPS, NEFT_RTGS, CREDIT_DEBIT_CARD, WIRE_TRANSFER, CASH, OTHER. Use UPI for Google Pay, PhonePe, Paytm, BHIM and anything showing UPI.
+- paymentStatus: the status text shown (e.g. "Completed", "Success", "Failed", "Pending").
+- transactionDate: the date/time shown, as written.
+
+If a field is not visible, return an empty string for it. Never guess or invent digits.`;
+
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    amount: { type: "STRING" },
+    currency: { type: "STRING" },
+    upiTransactionId: { type: "STRING" },
+    otherReferenceId: { type: "STRING" },
+    paymentMethod: { type: "STRING" },
+    paymentStatus: { type: "STRING" },
+    transactionDate: { type: "STRING" },
+  },
+  required: ["amount", "upiTransactionId"],
+};
+
+async function callGemini(model: string, apiKey: string, mimeType: string, base64Data: string) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ inlineData: { mimeType, data: base64Data } }, { text: PROMPT }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0,
+          // Large enough that "thinking" tokens can never truncate the JSON answer
+          maxOutputTokens: 4096,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+        },
+      }),
+    }
+  );
+  return res;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth guard
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,96 +88,99 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // Return empty extraction if key not configured; client shows manual fill
-      return NextResponse.json({}, { status: 200 });
+      return NextResponse.json({
+        error: "Automatic reading is not configured. Please enter the amount and UTR manually.",
+        warnings: [],
+      });
     }
 
-    const body = await req.json();
-    const { imageDataUrl } = body as { imageDataUrl?: string };
-
+    const body = await req.json().catch(() => null);
+    const imageDataUrl = (body as { imageDataUrl?: string } | null)?.imageDataUrl;
     if (!imageDataUrl || !imageDataUrl.startsWith("data:image/")) {
       return NextResponse.json({ error: "Invalid image data" }, { status: 400 });
     }
 
-    // Strip the data URL prefix to get raw base64
     const [header, base64Data] = imageDataUrl.split(",");
-    const mimeMatch = header.match(/data:(image\/[a-z]+);base64/);
+    if (!base64Data || base64Data.length > MAX_BASE64_CHARS) {
+      return NextResponse.json({ error: "Image is too large to read. Please enter details manually." });
+    }
+    const mimeMatch = header.match(/data:(image\/[a-z+.-]+);base64/);
     const mimeType = mimeMatch?.[1] ?? "image/jpeg";
 
-    // Call Gemini gemini-1.5-flash with vision
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: `You are a specialized payment receipt and UPI screenshot data extractor.
-Analyze this payment receipt screenshot carefully (it may be from Google Pay, PhonePe, Paytm, BHIM, Cred, Amazon Pay, or a Bank App).
+    const models = Array.from(new Set([process.env.GEMINI_MODEL?.trim(), ...MODEL_CHAIN].filter(Boolean) as string[]));
 
-Extract the following fields accurately:
-1. "amount": The exact payment amount (numeric digits only, e.g. "25000", "1", "499.50"). Ignore fees/discounts.
-2. "currency": "INR" for ₹ / Indian Rupee, or 3-letter ISO currency code.
-3. "utrNumber": The 12-digit UTR number, UPI transaction ID, Google transaction ID, Bank Reference No (Ref No), or Order ID shown on the screen. (e.g. "412389102931", "CICAgID...").
-4. "paymentMethod": One of "UPI", "NEFT_RTGS", "IMPS", "WIRE_TRANSFER", "CARD", "CASH". If it has a UPI logo, GPay, PhonePe, Paytm, or UTR number, set it to "UPI".
-5. "confidence": "high" if amount and UTR are clearly visible, "medium" if only one is found, "low" if unclear.
-
-Respond ONLY with a valid JSON object (no markdown formatting, no backticks, no explanation):
-{
-  "amount": "<numeric amount as string, digits only>",
-  "currency": "INR",
-  "utrNumber": "<UTR/transaction ref string>",
-  "paymentMethod": "UPI",
-  "confidence": "high"
-}
-If a field is not present or not readable in the image, omit that key or set it to undefined. Do not invent values.`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 256,
-          },
-        }),
+    let rawText = "";
+    let lastError = "";
+    for (const model of models) {
+      let res: Response;
+      try {
+        res = await callGemini(model, apiKey, mimeType, base64Data);
+      } catch (err) {
+        lastError = `network error (${model})`;
+        console.error("[receipt-extract] network error:", model, err);
+        continue;
       }
-    );
-
-    if (!geminiRes.ok) {
-      console.error("[receipt-extract] Gemini API error:", await geminiRes.text());
-      return NextResponse.json({}, { status: 200 }); // Degrade gracefully
+      if (res.status === 404) {
+        lastError = `model ${model} unavailable`;
+        console.warn("[receipt-extract] model unavailable, trying next:", model);
+        continue; // retired / unknown model: try the next one
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        lastError = `Gemini error ${res.status} (${model})`;
+        console.error("[receipt-extract] Gemini API error:", model, res.status, text.slice(0, 300));
+        if (res.status === 400 || res.status === 401 || res.status === 403) break; // key / request problem: retrying won't help
+        continue;
+      }
+      const data = await res.json();
+      const parts: Array<{ text?: string; thought?: boolean }> = data?.candidates?.[0]?.content?.parts ?? [];
+      rawText = parts
+        .filter((p) => !p.thought && typeof p.text === "string")
+        .map((p) => p.text as string)
+        .join("");
+      if (rawText) break;
+      lastError = `empty response (${model})`;
     }
 
-    const geminiData = await geminiRes.json();
-    const rawText: string =
-      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    // Parse JSON from Gemini response
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({}, { status: 200 });
+    if (!rawText) {
+      console.error("[receipt-extract] no usable response:", lastError);
+      return NextResponse.json({
+        error: "Could not read this screenshot automatically. Please enter the amount and UTR manually.",
+        warnings: [],
+      });
     }
 
-    const extracted = JSON.parse(jsonMatch[0]);
-
-    // Normalise payment method
-    if (extracted.paymentMethod) {
-      extracted.paymentMethod = normalisePaymentMethod(extracted.paymentMethod);
+    let parsedJson: Record<string, unknown> = {};
+    try {
+      const match = rawText.match(/\{[\s\S]*\}/);
+      parsedJson = match ? JSON.parse(match[0]) : {};
+    } catch {
+      parsedJson = {};
     }
 
-    return NextResponse.json(extracted, { status: 200 });
+    const cleaned = cleanReceiptExtraction(parsedJson, rawText);
+
+    // Early duplicate warning so the partner knows before submitting
+    let utrAlreadyUsed = false;
+    if (cleaned.utrNumber) {
+      const clash = await db.transactionPayment
+        .findFirst({
+          where: { utrNumber: { equals: cleaned.utrNumber, mode: "insensitive" }, status: { not: "REJECTED" } },
+          select: { id: true },
+        })
+        .catch(() => null);
+      utrAlreadyUsed = Boolean(clash);
+      if (utrAlreadyUsed) {
+        cleaned.warnings.push("This UTR has already been used on another payment.");
+      }
+    }
+
+    return NextResponse.json({ ...cleaned, utrAlreadyUsed });
   } catch (err) {
     console.error("[receipt-extract] Error:", err);
-    // Always degrade gracefully — don't break the form
-    return NextResponse.json({}, { status: 200 });
+    return NextResponse.json({
+      error: "Could not read this screenshot automatically. Please enter the amount and UTR manually.",
+      warnings: [],
+    });
   }
 }

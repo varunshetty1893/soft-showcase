@@ -345,7 +345,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       body.dealEndsAt = null;
     } else if (
       body.originalPrice === "" ||
-      Number(body.originalPrice) === 0 ||
       (body.originalPrice != null &&
         body.price != null &&
         Number(body.originalPrice) === Number(body.price))

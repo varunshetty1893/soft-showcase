@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/auth";
 import { getCustomerTransactions } from "@/lib/db/queries/transactions";
 import { Receipt } from "lucide-react";
+import { summarizeTransaction } from "@/lib/transactions/summary";
 import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/config/constants";
 import { CustomerTransactionsList } from "@/components/customer/CustomerTransactionsList";
@@ -31,7 +32,26 @@ export default async function CustomerTransactionsPage() {
     id: tx.id,
     transactionNumber: tx.transactionNumber,
     utrNumber: tx.utrNumber,
-    amount: tx.amount,
+    amount: tx.amount?.toString?.() ?? tx.amount,
+    summary: (() => {
+      const sm = summarizeTransaction(tx);
+      return {
+        agreedAmount: sm.agreedAmount,
+        verifiedTotal: sm.verifiedTotal,
+        balance: sm.balance,
+        isFullyPaid: sm.isFullyPaid,
+        payments: sm.payments.map((p) => ({
+          id: p.id,
+          sequence: p.sequence,
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          status: p.status,
+          paidAt: p.paidAt,
+          receiptNumber: p.receiptNumber,
+          isFinalReceipt: p.isFinalReceipt,
+        })),
+      };
+    })(),
     paymentStatus: tx.paymentStatus,
     deliveryStatus: tx.deliveryStatus,
     projectType: tx.projectType,

@@ -4,26 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db/client";
-
-function isValidEvidenceUrl(url: string | null | undefined): boolean {
-  if (!url) return true;
-  const trimmed = url.trim();
-  // Do NOT allow base64 images to be stored in the database
-  if (trimmed.startsWith("data:image/")) return false;
-  if (trimmed.startsWith("/uploads/") || trimmed.startsWith("/api/partner/uploads")) return true;
-  try {
-    const parsed = new URL(trimmed);
-    const trustedHosts = [
-      "res.cloudinary.com",
-      "images.unsplash.com",
-      process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : "",
-      "localhost",
-    ].filter(Boolean);
-    return trustedHosts.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
-  } catch {
-    return false;
-  }
-}
+import { canMarkDelivered } from "@/lib/transactions/payments";
 
 // Valid delivery status progression
 const VALID_DELIVERY_TRANSITIONS: Record<string, string[]> = {
@@ -76,6 +57,7 @@ export async function GET(
         solution: true,
         customer: true,
         enquiry: true,
+        payments: { orderBy: { sequence: "asc" } },
       },
     });
 
@@ -132,6 +114,7 @@ export async function PATCH(
 
     const existing = await db.transaction.findUnique({
       where: { id },
+      include: { payments: { orderBy: { sequence: "asc" } } },
     });
 
     if (!existing) {
@@ -143,30 +126,15 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { deliveryStatus, paymentEvidenceUrl, paymentEvidenceNotes } = body;
+    const { deliveryStatus, paymentEvidenceNotes } = body;
 
-    // Validate payment evidence URL (Issue 27)
-    if (paymentEvidenceUrl && !isValidEvidenceUrl(paymentEvidenceUrl)) {
+    // Payment screenshots / UTRs are added as individual payments through
+    // POST /api/partner/transactions/[id]/payments (max 3 per transaction).
+    if (body.paymentEvidenceUrl) {
       return NextResponse.json(
-        { error: "Payment evidence must be uploaded through the platform storage." },
+        { error: "Add payment screenshots through the Add Payment form on the transaction page." },
         { status: 400 }
       );
-    }
-
-    // Validate payment status modification constraints (Issue 26)
-    if (paymentEvidenceUrl) {
-      if (
-        existing.paymentStatus === "VERIFIED" ||
-        existing.paymentStatus === "COMPLETED" ||
-        existing.paymentStatus === "REFUNDED"
-      ) {
-        return NextResponse.json(
-          {
-            error: `Cannot submit new payment evidence because this transaction is already marked as ${existing.paymentStatus}.`,
-          },
-          { status: 400 }
-        );
-      }
     }
 
     // Validate delivery status transitions (Issue 26)
@@ -176,6 +144,20 @@ export async function PATCH(
         return NextResponse.json(
           {
             error: `Invalid delivery status transition from ${existing.deliveryStatus} to ${deliveryStatus}. Expected progression: PENDING -> IN_PROGRESS -> DELIVERED -> COMPLETED.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Delivered / Completed only once the full agreed amount is paid and verified (balance 0)
+      if (
+        (deliveryStatus === "DELIVERED" || deliveryStatus === "COMPLETED") &&
+        !canMarkDelivered(existing.payments, existing.agreedAmount ?? existing.amount)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot mark delivery as Delivered/Completed until the full amount is paid and verified (balance must be zero).",
           },
           { status: 400 }
         );
@@ -199,7 +181,6 @@ export async function PATCH(
       where: { id },
       data: {
         ...(deliveryStatus ? { deliveryStatus } : {}),
-        ...(paymentEvidenceUrl ? { paymentEvidenceUrl, paymentStatus: "EVIDENCE_SUBMITTED" } : {}),
         ...(paymentEvidenceNotes !== undefined ? { paymentEvidenceNotes } : {}),
       },
     });

@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { label: "User Management", href: "/admin/users", icon: UserCog },
   { label: "Partners & Providers", href: "/admin/providers", icon: Users },
   { label: "Transactions & Evidence", href: "/admin/transactions", icon: Receipt },
+  { label: "Receipts", href: "/admin/receipts", icon: Receipt },
   { label: "Support Tickets", href: "/admin/support", icon: Headphones },
   { label: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
   { label: "Custom Requests", href: "/admin/custom-requests", icon: FileQuestion },

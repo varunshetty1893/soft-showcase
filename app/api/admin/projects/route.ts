@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
       body.originalPrice === "" ||
       body.originalPrice === undefined ||
       body.originalPrice === null ||
-      Number(body.originalPrice) === 0 ||
       (body.price != null && Number(body.originalPrice) === Number(body.price))
     ) {
       body.originalPrice = null;

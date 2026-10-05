@@ -7,7 +7,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { getAdminTransactionsPaginated } from "@/lib/db/queries/transactions";
 import { Receipt } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
 import { APP_NAME } from "@/config/constants";
 import { TableSearchBar } from "@/components/common/TableSearchBar";
 import { TablePagination } from "@/components/common/TablePagination";
@@ -98,7 +98,7 @@ export default async function AdminTransactionsPage({
                     <td className="py-4 px-4">
                       <div className="font-mono font-bold text-gray-900">{tx.transactionNumber}</div>
                       <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                        UTR: {tx.utrNumber}
+                        {tx.utrNumber ? `UTR: ${tx.utrNumber}` : "No UTR (cash)"}
                       </div>
                     </td>
 
@@ -122,7 +122,7 @@ export default async function AdminTransactionsPage({
                     </td>
 
                     <td className="py-4 px-4 font-bold text-indigo-700">
-                      {formatCurrency(Number(tx.amount))}
+                      {formatMoney(Number((tx.agreedAmount ?? tx.amount).toString()), tx.currency)}
                     </td>
 
                     <td className="py-4 px-4">

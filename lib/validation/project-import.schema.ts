@@ -3,6 +3,7 @@
 // Source of truth: docs/22-project-import.md & docs/23-project-import-template.md
 
 import { z } from "zod";
+import { moneyNumber } from "@/lib/utils/money";
 import { isValidPhone, normalizeToE164 } from "@/lib/utils/phone";
 
 export const ImportProviderSchema = z.object({
@@ -87,8 +88,8 @@ export const ProjectImportSchema = z
     priceMode: z
       .enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"])
       .default("CONTACT"),
-    price: z.number().positive("Price must be a positive number").nullable().optional(),
-    originalPrice: z.number().positive("Original price must be a positive number").nullable().optional(),
+    price: moneyNumber("Price").nullable().optional(),
+    originalPrice: moneyNumber("Original price").nullable().optional(),
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
 
@@ -182,8 +183,8 @@ export const PartnerSolutionImportSchema = z
     priceMode: z
       .enum(["CONTACT", "FIXED", "STARTING_FROM", "FREE"])
       .default("CONTACT"),
-    price: z.number().positive("Price must be a positive number").nullable().optional(),
-    originalPrice: z.number().positive("Original price must be a positive number").nullable().optional(),
+    price: moneyNumber("Price").nullable().optional(),
+    originalPrice: moneyNumber("Original price").nullable().optional(),
 
     demoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")).nullable(),
 

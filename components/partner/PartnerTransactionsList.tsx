@@ -12,12 +12,18 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
+import { paymentMethodLabel } from "@/lib/transactions/payments";
 
 interface PartnerTransactionItem {
   id: string;
   transactionNumber: string;
-  utrNumber: string;
+  utrNumber?: string | null;
+  agreedAmount?: number;
+  verifiedTotal?: number;
+  balance?: number;
+  paymentCount?: number;
   customerName: string;
   customerEmail?: string | null;
   amount: string | number;
@@ -81,7 +87,7 @@ export function PartnerTransactionsList({
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchesTx = tx.transactionNumber.toLowerCase().includes(q);
-        const matchesUtr = tx.utrNumber.toLowerCase().includes(q);
+        const matchesUtr = (tx.utrNumber || "").toLowerCase().includes(q);
         const matchesCustomer = tx.customerName.toLowerCase().includes(q);
         const matchesEmail = (tx.customerEmail || "").toLowerCase().includes(q);
         const matchesSolution = (tx.solution?.title || "").toLowerCase().includes(q);
@@ -256,10 +262,10 @@ export function PartnerTransactionsList({
 
                   <div className="text-right sm:text-right">
                     <p className="text-lg font-extrabold text-[#102124]">
-                      {formatCurrency(Number(tx.amount))}
+                      {formatMoney(tx.agreedAmount ?? Number(tx.amount))}
                     </p>
                     <p className="text-xs font-mono text-[#526267]">
-                      UTR: {tx.utrNumber}
+                      {tx.utrNumber ? `UTR: ${tx.utrNumber}` : "No UTR (cash)"}
                     </p>
                   </div>
                 </div>
@@ -267,7 +273,7 @@ export function PartnerTransactionsList({
                 {/* Footer details */}
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[#526267] pt-1">
                   <div className="flex items-center gap-4">
-                    <span>Payment Mode: <strong>{tx.paymentMethod}</strong></span>
+                    <span>Payment Mode: <strong>{paymentMethodLabel(tx.paymentMethod)}</strong></span>
                     <span>Date: <strong>{formatDate(tx.transactionDate)}</strong></span>
                   </div>
 

@@ -4,11 +4,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   CheckCircle2,
   XCircle,
-  ExternalLink,
   ArrowLeft,
   Save,
 } from "lucide-react";
@@ -16,7 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
+import { summarizeTransaction } from "@/lib/transactions/summary";
+import { PaymentsTable } from "@/components/transactions/PaymentsTable";
+import { MAX_ACTIVE_PAYMENTS } from "@/lib/transactions/payments";
 
 interface AdminTransactionDetailManagerProps {
   transaction: any;
@@ -30,6 +32,40 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
   const [deliveryStatus, setDeliveryStatus] = React.useState(transaction.deliveryStatus || "PENDING");
   const [adminNotes, setAdminNotes] = React.useState(transaction.adminNotes || "");
   const [loading, setLoading] = React.useState(false);
+
+  const summary = React.useMemo(() => summarizeTransaction(transaction), [transaction]);
+  const [reviewingId, setReviewingId] = React.useState<string | null>(null);
+
+  // Keep local status controls in sync after router.refresh() re-renders with fresh server data
+  React.useEffect(() => {
+    setPaymentStatus(transaction.paymentStatus || "PENDING");
+    setDeliveryStatus(transaction.deliveryStatus || "PENDING");
+  }, [transaction.paymentStatus, transaction.deliveryStatus]);
+
+  const reviewPayment = async (paymentId: string, action: "VERIFY" | "REJECT") => {
+    let reason: string | undefined;
+    if (action === "REJECT") {
+      const input = window.prompt("Reason for rejecting this payment (shown to the partner):", "");
+      if (input === null) return;
+      reason = input.trim() || undefined;
+    }
+    setReviewingId(paymentId);
+    try {
+      const res = await fetch(`/api/admin/transactions/${transaction.id}/payments/${paymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to update payment");
+      toast.success(action === "VERIFY" ? "Payment verified. Receipt issued." : "Payment rejected.");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setReviewingId(null);
+    }
+  };
 
   const handleUpdate = async (newStatus?: string) => {
     setLoading(true);
@@ -86,14 +122,14 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
               </span>
             </div>
             <p className="text-xs text-gray-500 font-mono mt-0.5">
-              UTR: {transaction.utrNumber} • Created {formatDate(transaction.createdAt)}
+              {transaction.utrNumber ? `UTR: ${transaction.utrNumber}` : "No UTR (cash)"} • Created {formatDate(transaction.createdAt)}
             </p>
           </div>
         </div>
 
         {/* Quick action buttons */}
         <div className="flex items-center gap-2">
-          {paymentStatus !== "VERIFIED" && (
+          {paymentStatus !== "VERIFIED" && summary.remainingToSubmit === 0 && summary.balance > 0 && (
             <Button
               size="sm"
               onClick={() => handleUpdate("VERIFIED")}
@@ -128,18 +164,24 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
           </h2>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between py-1 border-b border-gray-50">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-gray-500">Total deal amount:</span>
               <strong className="text-sm font-extrabold text-indigo-700">
-                {formatCurrency(Number(transaction.amount))}
+                {formatMoney(summary.agreedAmount, transaction.currency)}
               </strong>
             </div>
             <div className="flex justify-between py-1 border-b border-gray-50">
-              <span className="text-gray-500">Payment Method:</span>
-              <span className="font-semibold">{transaction.paymentMethod}</span>
+              <span className="text-gray-500">Verified so far:</span>
+              <span className="font-semibold">{formatMoney(summary.verifiedTotal, transaction.currency)}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-gray-50">
-              <span className="text-gray-500">UTR / Ref Number:</span>
-              <span className="font-mono font-bold text-gray-900">{transaction.utrNumber}</span>
+              <span className="text-gray-500">Balance:</span>
+              <span className={`font-bold ${summary.balance > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                {summary.balance > 0 ? formatMoney(summary.balance, transaction.currency) : "Nil — paid in full"}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-gray-50">
+              <span className="text-gray-500">Payments:</span>
+              <span className="font-semibold">{summary.activeCount} of {MAX_ACTIVE_PAYMENTS}</span>
             </div>
             <div className="flex justify-between py-1">
               <span className="text-gray-500">Verification Source:</span>
@@ -173,37 +215,28 @@ export function AdminTransactionDetailManager({ transaction }: AdminTransactionD
         </div>
       </div>
 
-      {/* Payment Evidence Screenshot Card */}
-      {transaction.paymentEvidenceUrl && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-gray-900">Payment Evidence Screenshot</h3>
-            <a
-              href={transaction.paymentEvidenceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1"
-            >
-              <span>Open raw image</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50 p-4 flex items-center justify-center">
-            <div className="relative w-full h-80">
-              <Image
-                src={transaction.paymentEvidenceUrl}
-                alt="Payment Proof"
-                fill
-                sizes="(max-width: 768px) 100vw, 800px"
-                className="object-contain rounded-lg"
-                referrerPolicy="no-referrer"
-                unoptimized={transaction.paymentEvidenceUrl.startsWith("data:")}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Payments, screenshots & per-payment verification */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-3">
+        <h3 className="font-bold text-sm text-gray-900">Payments &amp; Receipts</h3>
+        <PaymentsTable
+          payments={summary.payments}
+          currency={transaction.currency}
+          renderActions={(p) => (
+            <>
+              {p.status !== "VERIFIED" && p.status !== "REJECTED" && (
+                <Button size="sm" onClick={() => reviewPayment(p.id, "VERIFY")} isLoading={reviewingId === p.id} disabled={reviewingId !== null} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                  Verify
+                </Button>
+              )}
+              {p.status !== "REJECTED" && (
+                <Button size="sm" variant="outline" onClick={() => reviewPayment(p.id, "REJECT")} disabled={reviewingId !== null} className="h-7 text-xs text-rose-600 border-rose-200 hover:bg-rose-50">
+                  Reject
+                </Button>
+              )}
+            </>
+          )}
+        />
+      </div>
 
       {/* Admin Status & Audit Notes Editor */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
