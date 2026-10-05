@@ -4,11 +4,9 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { signOut } from "next-auth/react";
 import {
   ExternalLink,
   ShieldCheck,
-  LogOut,
   Sparkles,
   Layers,
   CheckCircle2,
@@ -128,23 +126,14 @@ export function PartnerHeader({ user, partner, isDemoGuest }: PartnerHeaderProps
             </div>
           </div>
 
-          {/* Sign In / Sign Out Button */}
-          {isDemoGuest ? (
+          {/* Sign In Button (Demo Guest only) */}
+          {isDemoGuest && (
             <Link
               href="/login?callbackUrl=/partner"
               className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#155761] text-white hover:bg-[#10474F] transition-colors shadow-xs"
             >
               Sign In
             </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="p-2 text-[#526267] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           )}
 
           {/* Mobile menu toggle */}
