@@ -113,7 +113,7 @@ interface PreviewData {
   technologies: {
     total: number;
     existing: string[];
-    new: string[];
+    unrecognized: string[];
   };
 }
 
@@ -465,12 +465,12 @@ export default function PartnerImportPage() {
                     {tech}
                   </span>
                 ))}
-                {previewData.technologies.new.map((tech) => (
+                {previewData.technologies.unrecognized.map((tech) => (
                   <span
                     key={tech}
                     className="px-2 py-0.5 rounded-md bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/30 font-medium text-[11px]"
                   >
-                    + {tech} (new)
+                    {tech} (not in catalogue)
                   </span>
                 ))}
               </div>
