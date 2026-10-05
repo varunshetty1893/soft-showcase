@@ -1110,7 +1110,7 @@ export function PartnerRegisterForm() {
                   className="mt-0.5 h-4 w-4 rounded border-[#D9E2E4] text-[#155761] focus:ring-[#155761]"
                 />
                 <span>
-                  I confirm that I own, or have the documented right to distribute, every solution I list. I agree to the <Link href="/terms" className="font-semibold text-[#155761] hover:underline">Terms of Service</Link>, direct buyer communication policies, and administrative review.
+                  I confirm that I own, or have the documented right to distribute, every solution I list. I agree to the <Link href="/terms" className="font-semibold text-[#155761] hover:underline">Terms of Service</Link> and <Link href="/privacy" className="font-semibold text-[#155761] hover:underline">Privacy Policy</Link>, direct buyer communication policies, and administrative review.
                 </span>
               </label>
               {fieldErrors.acceptedPartnerTerms && (

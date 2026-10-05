@@ -165,7 +165,7 @@ export default function TermsPage() {
                   You agree not to misuse the Platform by submitting fraudulent inquiries, bypassing rate limits or security controls, scraping provider data, or uploading unlawful or infringing content.
                 </p>
                 <p>
-                  You may permanently delete your Customer or Solution Partner account at any time from your profile settings. Upon account deletion, your login access, profile details, and active partner listings are removed, while historical transaction receipts and inquiry audit records are preserved in anonymized form for record-keeping integrity.
+                  You may permanently delete your Customer or Solution Partner account at any time from your profile settings (<Link href="/profile" className="text-[#155761] hover:underline">/profile</Link> or <Link href="/partner/profile" className="text-[#155761] hover:underline">/partner/profile</Link>). Upon account deletion, your login access, profile details, and active partner listings are removed, while historical transaction receipts and inquiry audit records are preserved in anonymized form for record-keeping integrity, as detailed in our <Link href="/privacy" className="text-[#155761] font-semibold hover:underline">Privacy Policy</Link>.
                 </p>
               </section>
 
@@ -180,10 +180,10 @@ export default function TermsPage() {
 
               <section className="space-y-2">
                 <h2 className="text-base font-bold text-[#102124]">
-                  10. Governing Law &amp; Support Contact
+                  10. Governing Law, Privacy &amp; Support Contact
                 </h2>
                 <p>
-                  These Terms &amp; Conditions are governed by and construed in accordance with the laws of India. If you have questions regarding these Terms, a project listing, or a transaction record, please visit our <Link href="/support" className="text-[#155761] font-semibold hover:underline">Help Center</Link> or open a support ticket via your <Link href="/my-support" className="text-[#155761] font-semibold hover:underline">Support Dashboard</Link>.
+                  These Terms &amp; Conditions are governed by and construed in accordance with the laws of India, and should be read together with our <Link href="/privacy" className="text-[#155761] font-semibold hover:underline">Privacy Policy</Link>. If you have questions regarding these Terms, a project listing, or a transaction record, please visit our <Link href="/support" className="text-[#155761] font-semibold hover:underline">Help Center</Link> or open a support ticket via your <Link href="/my-support" className="text-[#155761] font-semibold hover:underline">Support Dashboard</Link>.
                 </p>
                 <div className="p-4 rounded-2xl bg-[#F3F7F7] border border-[#D9E2E4] flex items-center justify-between gap-4 text-xs text-[#102124]">
                   <div className="flex items-center gap-2.5">
