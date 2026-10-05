@@ -30,7 +30,11 @@ vi.mock("@/lib/email/email-service", () => {
 // Mock auth session
 vi.mock("@/lib/auth/session", () => {
   return {
-    getCurrentUser: vi.fn().mockResolvedValue(null),
+    getCurrentUser: vi.fn().mockResolvedValue({
+      id: "customer-user-1",
+      email: "customer@test.com",
+      name: "Test Customer",
+    }),
   };
 });
 

@@ -66,6 +66,7 @@ export function CustomProjectForm({
   const turnstileRef = React.useRef<TurnstileWidgetHandle | null>(null);
 
   const [isLoading, setIsLoading] = React.useState(false);
+  const [customTechInput, setCustomTechInput] = React.useState("");
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState(false);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
@@ -118,6 +119,32 @@ export function CustomProjectForm({
         };
       }
     });
+  };
+
+  const handleAddCustomTech = () => {
+    const raw = customTechInput.trim();
+    if (!raw) return;
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
+    setFormData((prev) => {
+      const next = [...prev.technologyPreferences];
+      for (const part of parts) {
+        if (next.length >= 10) break;
+        const match = POPULAR_TECHNOLOGIES.find(
+          (t) => t.toLowerCase() === part.toLowerCase()
+        );
+        const tag = match || part;
+        if (!next.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+          next.push(tag);
+        }
+      }
+      return { ...prev, technologyPreferences: next };
+    });
+    setCustomTechInput("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -331,9 +358,35 @@ export function CustomProjectForm({
           </div>
 
           <div>
-            <Label className="text-[#102124]">Preferred Technologies (Select relevant tags)</Label>
+            <Label className="text-[#102124]">Preferred Technologies (Select or type custom tags)</Label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <Input
+                value={customTechInput}
+                onChange={(e) => setCustomTechInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomTech();
+                  }
+                }}
+                placeholder="Type custom tech tag (e.g. GraphQL, Go, Rust) and press Enter"
+                className="text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddCustomTech}
+                disabled={!customTechInput.trim() || formData.technologyPreferences.length >= 10}
+                className="shrink-0 font-semibold"
+              >
+                Add Tag
+              </Button>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              {POPULAR_TECHNOLOGIES.map((tech) => {
+              {Array.from(
+                new Set([...POPULAR_TECHNOLOGIES, ...formData.technologyPreferences])
+              ).map((tech) => {
                 const selected = formData.technologyPreferences.includes(tech);
                 return (
                   <button

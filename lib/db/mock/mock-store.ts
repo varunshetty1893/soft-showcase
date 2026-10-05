@@ -2,12 +2,8 @@
 // In-memory Prisma mock store for local development and test environments when USE_MOCK_DB=true.
 // Strictly excluded from production execution.
 
-import fs from "fs";
-import path from "path";
-import { DEFAULT_CATEGORIES } from "@/config/categories";
-import { DEFAULT_TECHNOLOGIES } from "@/config/technologies";
-
-const PERSIST_FILE = path.join(process.cwd(), ".local_mock_store.json");
+import { DEFAULT_CATEGORIES } from "../../../config/categories";
+import { DEFAULT_TECHNOLOGIES } from "../../../config/technologies";
 
 const initialCategories = DEFAULT_CATEGORIES.map((cat, idx) => ({
   id: `cat-${idx + 1}`,
@@ -231,49 +227,11 @@ export class InMemoryStore {
   lastLoadedMtime = 0;
 
   saveToDisk() {
-    try {
-      const dataToSave = {
-        providers: this.providers,
-        users: this.users,
-        pendingRegistrations: this.pendingRegistrations,
-        verificationTokens: this.verificationTokens,
-        inquiries: this.inquiries,
-        customRequests: this.customRequests,
-        supportTickets: this.supportTickets,
-        supportMessages: this.supportMessages,
-        transactions: this.transactions,
-        auditLogs: this.auditLogs,
-      };
-      fs.writeFileSync(PERSIST_FILE, JSON.stringify(dataToSave), "utf-8");
-      try {
-        const stat = fs.statSync(PERSIST_FILE);
-        this.lastLoadedMtime = stat.mtimeMs;
-      } catch {}
-    } catch {}
+    // Pure in-memory store (N12: never write mock state to disk)
   }
 
-  loadFromDisk(force = false) {
-    try {
-      if (fs.existsSync(PERSIST_FILE)) {
-        const stat = fs.statSync(PERSIST_FILE);
-        if (!force && stat.mtimeMs <= this.lastLoadedMtime) {
-          return;
-        }
-        this.lastLoadedMtime = stat.mtimeMs;
-        const raw = fs.readFileSync(PERSIST_FILE, "utf-8");
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.providers)) this.providers = parsed.providers;
-        if (Array.isArray(parsed.users)) this.users = parsed.users;
-        if (Array.isArray(parsed.pendingRegistrations)) this.pendingRegistrations = parsed.pendingRegistrations;
-        if (Array.isArray(parsed.verificationTokens)) this.verificationTokens = parsed.verificationTokens;
-        if (Array.isArray(parsed.inquiries)) this.inquiries = parsed.inquiries;
-        if (Array.isArray(parsed.customRequests)) this.customRequests = parsed.customRequests;
-        if (Array.isArray(parsed.supportTickets)) this.supportTickets = parsed.supportTickets;
-        if (Array.isArray(parsed.supportMessages)) this.supportMessages = parsed.supportMessages;
-        if (Array.isArray(parsed.transactions)) this.transactions = parsed.transactions;
-        if (Array.isArray(parsed.auditLogs)) this.auditLogs = parsed.auditLogs;
-      }
-    } catch {}
+  loadFromDisk() {
+    // Pure in-memory store (N12: never read mock state from disk)
   }
 
   resolveProject(p: any) {
@@ -309,7 +267,9 @@ export class InMemoryStore {
 
 export const memoryStore = new InMemoryStore();
 
-export function createMockPrismaClient(): any {
+let txQueue: Promise<any> = Promise.resolve();
+
+export function createMockPrismaClient(isInsideTx = false): any {
   return new Proxy(
     {},
     {
@@ -320,7 +280,14 @@ export function createMockPrismaClient(): any {
               return Promise.all(callbackOrArray);
             }
             if (typeof callbackOrArray === "function") {
-              return callbackOrArray(createMockPrismaClient());
+              if (isInsideTx) {
+                return callbackOrArray(createMockPrismaClient(true));
+              }
+              const run = txQueue.then(() =>
+                callbackOrArray(createMockPrismaClient(true))
+              );
+              txQueue = run.catch(() => undefined);
+              return run;
             }
             return [];
           };
@@ -339,7 +306,14 @@ export function createMockPrismaClient(): any {
               return memoryStore.projects.map((p) => memoryStore.resolveProject(p));
             }
             if (modelName === "category") return [...memoryStore.categories];
-            if (modelName === "technology") return [...memoryStore.technologies];
+            if (modelName === "technology") {
+              let techs = [...memoryStore.technologies];
+              if (args?.where?.id?.in && Array.isArray(args.where.id.in)) {
+                const idSet = new Set(args.where.id.in);
+                techs = techs.filter((t) => idSet.has(t.id));
+              }
+              return techs;
+            }
             if (modelName === "projectProvider") return [...memoryStore.providers];
             if (modelName === "user") return [...memoryStore.users];
             if (modelName === "pendingRegistration") return [...memoryStore.pendingRegistrations];
@@ -450,15 +424,71 @@ export function createMockPrismaClient(): any {
             }
             if (modelName === "user") {
               if (args?.where?.email) {
-                return memoryStore.users.find((u) => u.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+                return (
+                  memoryStore.users.find((u) => {
+                    if (u.email.toLowerCase() !== args.where.email.toLowerCase()) return false;
+                    if (
+                      args.where.emailVerified &&
+                      typeof args.where.emailVerified === "object" &&
+                      "not" in args.where.emailVerified &&
+                      args.where.emailVerified.not === null
+                    ) {
+                      return u.emailVerified != null;
+                    }
+                    return true;
+                  }) || null
+                );
               }
               return memoryStore.users[0] || null;
             }
             if (modelName === "projectProvider") {
-              if (args?.where?.userId) {
+              if (args?.where?.userId !== undefined) {
+                if (args.where.userId === null) {
+                  if (args?.where?.email) {
+                    return (
+                      memoryStore.providers.find(
+                        (p) => !p.userId && p.email?.toLowerCase() === args.where.email.toLowerCase()
+                      ) || null
+                    );
+                  }
+                  return memoryStore.providers.find((p) => !p.userId) || null;
+                }
                 return memoryStore.providers.find((p) => p.userId === args.where.userId) || null;
               }
+              if (args?.where?.email) {
+                return (
+                  memoryStore.providers.find(
+                    (p) => p.email?.toLowerCase() === args.where.email.toLowerCase()
+                  ) || null
+                );
+              }
               return memoryStore.providers[0] || null;
+            }
+            if (modelName === "technology") {
+              const orConds = args?.where?.OR;
+              if (Array.isArray(orConds)) {
+                return (
+                  memoryStore.technologies.find((t) =>
+                    orConds.some((cond: any) => {
+                      if (cond.slug && t.slug === cond.slug) return true;
+                      if (cond.name?.equals && t.name.toLowerCase() === cond.name.equals.toLowerCase()) {
+                        return true;
+                      }
+                      if (typeof cond.name === "string" && t.name.toLowerCase() === cond.name.toLowerCase()) {
+                        return true;
+                      }
+                      return false;
+                    })
+                  ) || null
+                );
+              }
+              if (args?.where?.slug) {
+                return memoryStore.technologies.find((t) => t.slug === args.where.slug) || null;
+              }
+              if (args?.where?.id) {
+                return memoryStore.technologies.find((t) => t.id === args.where.id) || null;
+              }
+              return null;
             }
             return null;
           },
@@ -516,6 +546,17 @@ export function createMockPrismaClient(): any {
               if (existingIdx !== -1) memoryStore.pendingRegistrations.splice(existingIdx, 1);
               memoryStore.pendingRegistrations.unshift(data);
             } else if (modelName === "user") {
+              if (
+                data.email &&
+                memoryStore.users.some(
+                  (u) => u.email?.toLowerCase() === data.email.toLowerCase()
+                )
+              ) {
+                throw Object.assign(
+                  new Error("Unique constraint failed on the fields: (`email`)"),
+                  { code: "P2002" }
+                );
+              }
               memoryStore.users.push(data);
             } else if (modelName === "verificationToken") {
               memoryStore.verificationTokens.push(data);
@@ -523,6 +564,10 @@ export function createMockPrismaClient(): any {
               memoryStore.inquiries.unshift(data);
             } else if (modelName === "auditLog") {
               memoryStore.auditLogs.unshift(data);
+            } else if (modelName === "technology") {
+              memoryStore.technologies.push(data);
+            } else if (modelName === "projectProvider") {
+              memoryStore.providers.push(data);
             }
 
             memoryStore.saveToDisk();
@@ -606,13 +651,31 @@ export function createMockPrismaClient(): any {
             let updatedCount = 0;
             if (coll) {
               const targetIdentifier = args?.where?.identifier?.toLowerCase();
-              const targetEmail = args?.where?.email?.toLowerCase();
+              const targetEmail =
+                typeof args?.where?.email === "string"
+                  ? args.where.email.toLowerCase()
+                  : typeof args?.where?.email?.equals === "string"
+                  ? args.where.email.equals.toLowerCase()
+                  : undefined;
+              const maxAttempts = args?.where?.attempts?.lt;
+              const expiresGt = args?.where?.expires?.gt;
+              const expiresAtGt = args?.where?.expiresAt?.gt;
 
               for (let i = 0; i < coll.length; i++) {
-                const match =
+                let match =
                   (!targetIdentifier && !targetEmail) ||
                   (targetIdentifier && coll[i].identifier?.toLowerCase() === targetIdentifier) ||
                   (targetEmail && coll[i].email?.toLowerCase() === targetEmail);
+
+                if (match && maxAttempts !== undefined) {
+                  match = (coll[i].attempts ?? 0) < maxAttempts;
+                }
+                if (match && expiresGt !== undefined) {
+                  match = new Date(coll[i].expires).getTime() > new Date(expiresGt).getTime();
+                }
+                if (match && expiresAtGt !== undefined) {
+                  match = new Date(coll[i].expiresAt).getTime() > new Date(expiresAtGt).getTime();
+                }
 
                 if (match) {
                   const patch = { ...(args?.data || {}) };

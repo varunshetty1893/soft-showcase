@@ -8,7 +8,46 @@ import { PrismaClient } from "@prisma/client";
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   mockDb?: any;
+  __mockStoreModule?: { createMockPrismaClient: () => PrismaClient };
 };
+
+function createBuildPhaseStub(): PrismaClient {
+  const modelStub = {
+    findMany: async () => [],
+    findFirst: async () => null,
+    findUnique: async () => null,
+    count: async () => 0,
+    create: async () => ({}),
+    update: async () => ({}),
+    upsert: async () => ({}),
+    delete: async () => ({}),
+    deleteMany: async () => ({ count: 0 }),
+    updateMany: async () => ({ count: 0 }),
+  };
+  return new Proxy({} as PrismaClient, {
+    get(_t, prop: string) {
+      if (prop === "$transaction") return async () => [];
+      if (prop === "$queryRaw" || prop === "$queryRawUnsafe") return async () => [];
+      return modelStub;
+    },
+  });
+}
+
+function loadMockStore(): { createMockPrismaClient: () => PrismaClient } {
+  if (process.env.NODE_ENV !== "production") {
+    if (globalForPrisma.__mockStoreModule) {
+      return globalForPrisma.__mockStoreModule;
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require("./mock/mock-store");
+    } catch {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require("./mock/mock-store.ts");
+    }
+  }
+  return { createMockPrismaClient: createBuildPhaseStub };
+}
 
 function getClient(): PrismaClient {
   const databaseUrl = process.env.DATABASE_URL;
@@ -29,8 +68,7 @@ function getClient(): PrismaClient {
 
   if (useMockDb) {
     if (!globalForPrisma.mockDb) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { createMockPrismaClient } = require("./mock/mock-store");
+      const { createMockPrismaClient } = loadMockStore();
       globalForPrisma.mockDb = createMockPrismaClient();
       console.warn(
         `[Database] Running with in-memory mock store (${
@@ -63,8 +101,7 @@ function getClient(): PrismaClient {
     } catch (err) {
       console.warn("[Database] PrismaClient initialization failed — using mock store fallback:", err);
       if (!globalForPrisma.mockDb) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { createMockPrismaClient } = require("./mock/mock-store");
+        const { createMockPrismaClient } = loadMockStore();
         globalForPrisma.mockDb = createMockPrismaClient();
       }
       return globalForPrisma.mockDb;

@@ -195,22 +195,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Partners may only use the administrator-curated category and technology
-    // catalogue. Importing JSON must not be a side door for creating global
-    // taxonomy records.
     if (!existingCategory) {
       return NextResponse.json(
         { error: "Choose an existing category from the catalogue before importing." },
-        { status: 400 }
-      );
-    }
-
-    if (newTechNames.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Choose only existing technologies from the catalogue before importing.",
-          unrecognizedTechnologies: newTechNames,
-        },
         { status: 400 }
       );
     }
@@ -231,9 +218,27 @@ export async function POST(request: NextRequest) {
       return Boolean(found);
     });
 
-    // 1. Use the administrator-curated category and technologies.
+    // 1. Resolve category and resolve or create technologies.
     const categoryId = existingCategory.id;
     const techIds: string[] = existingTechnologies.map((t) => t.id);
+    for (const newTechName of newTechNames) {
+      const techSlug =
+        slugify(newTechName) ||
+        `tech-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const createdTech = await db.technology.upsert({
+        where: { slug: techSlug },
+        update: { isActive: true },
+        create: {
+          name: newTechName,
+          slug: techSlug,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      if (!techIds.includes(createdTech.id)) {
+        techIds.push(createdTech.id);
+      }
+    }
 
     const validOriginalPrice =
       data.priceMode === "FIXED" &&

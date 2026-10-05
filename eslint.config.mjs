@@ -26,6 +26,7 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "tests/**",
+      "cleanup-production.js",
     ],
   },
 ];

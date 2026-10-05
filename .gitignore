@@ -38,6 +38,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local mock db & ad-hoc scripts
+.local_mock_store.json
+local_mock_store.json
+cleanup-production.js
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

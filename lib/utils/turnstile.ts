@@ -3,10 +3,9 @@
 // Zero external dependencies (uses native fetch).
 // Source of truth: Cloudflare Turnstile Server-side Validation API.
 
-import { getEnv } from "@/lib/config/env";
-
 export interface TurnstileVerificationResult {
   success: boolean;
+  error?: string;
   unreachable?: boolean;
   errorCodes?: string[];
   challengeTs?: string;
@@ -22,8 +21,7 @@ export async function verifyTurnstileToken(
   token?: string | null,
   clientIp?: string
 ): Promise<TurnstileVerificationResult> {
-  const env = getEnv();
-  const secretKey = env.TURNSTILE_SECRET_KEY || process.env.TURNSTILE_SECRET_KEY;
+  const secretKey = process.env.TURNSTILE_SECRET_KEY?.trim();
 
   // In development / test without Turnstile secret configured, bypass
   if (!secretKey) {
@@ -31,19 +29,24 @@ export async function verifyTurnstileToken(
       return { success: true };
     }
     console.error("[Turnstile] Error: TURNSTILE_SECRET_KEY is not configured in production.");
-    return { success: false, errorCodes: ["not-configured"] };
+    return {
+      success: false,
+      error: "Security verification is misconfigured or temporarily unavailable.",
+      errorCodes: ["not-configured"],
+    };
   }
 
   if (!token || typeof token !== "string" || !token.trim()) {
     return {
       success: false,
+      error: "Security verification is required. Please complete the challenge.",
       errorCodes: ["missing-input-response"],
     };
   }
 
   try {
     const formData = new URLSearchParams();
-    formData.append("secret", secretKey.trim());
+    formData.append("secret", secretKey);
     formData.append("response", token.trim());
     if (clientIp && !clientIp.startsWith("fp_")) {
       formData.append("remoteip", clientIp);
@@ -61,7 +64,12 @@ export async function verifyTurnstileToken(
 
     if (!res.ok) {
       console.warn(`[Turnstile] Verification HTTP error: ${res.status}`);
-      return { success: false, unreachable: true, errorCodes: [`http-${res.status}`] };
+      return {
+        success: false,
+        unreachable: true,
+        error: "Security verification service is temporarily unavailable.",
+        errorCodes: [`http-${res.status}`],
+      };
     }
 
     const data = await res.json();
@@ -70,6 +78,7 @@ export async function verifyTurnstileToken(
     if (!isSuccess) {
       return {
         success: false,
+        error: "Security verification failed. Please complete the challenge and try again.",
         errorCodes: data["error-codes"] || ["turnstile-failed"],
         challengeTs: data.challenge_ts,
         hostname: data.hostname,
@@ -85,6 +94,7 @@ export async function verifyTurnstileToken(
           console.warn(`[Turnstile] Hostname mismatch: got ${data.hostname}, expected ${expectedHost}`);
           return {
             success: false,
+            error: "Security verification hostname mismatch.",
             errorCodes: ["hostname-mismatch"],
             hostname: data.hostname,
           };
@@ -101,10 +111,11 @@ export async function verifyTurnstileToken(
     };
   } catch (err: unknown) {
     console.error("[Turnstile] Verification exception:", err);
-    // On unexpected network timeout / connectivity error, mark unreachable
+    // On unexpected network timeout / connectivity error, mark unreachable and fail closed
     return {
-      success: process.env.NODE_ENV !== "production",
+      success: false,
       unreachable: true,
+      error: "Security verification service is temporarily unavailable.",
       errorCodes: ["network-error"],
     };
   }

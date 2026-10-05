@@ -371,6 +371,7 @@ export function PartnerSolutionForm({
     }
     return [];
   });
+  const [customTechInput, setCustomTechInput] = React.useState("");
 
 
   // ── Photos and Screenshots Gallery (Starts empty - no unwanted default cover) ──
@@ -527,9 +528,8 @@ export function PartnerSolutionForm({
           if (existing) {
             matchedIds.push(existing.id);
           } else {
-            const tempId = `tech-${tName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
-            newTechList.push({ id: tempId, name: tName });
-            matchedIds.push(tempId);
+            newTechList.push({ id: tName, name: tName });
+            matchedIds.push(tName);
           }
         });
 
@@ -628,6 +628,41 @@ export function PartnerSolutionForm({
     );
   };
 
+  const handleAddCustomTech = () => {
+    const raw = customTechInput.trim();
+    if (!raw) return;
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
+    const nextAll = [...allTechs];
+    const nextSelected = [...selectedTechs];
+
+    for (const part of parts) {
+      const existing = nextAll.find(
+        (t) =>
+          t.name.toLowerCase() === part.toLowerCase() ||
+          t.id.toLowerCase() === part.toLowerCase()
+      );
+      if (existing) {
+        if (!nextSelected.includes(existing.id)) {
+          nextSelected.push(existing.id);
+        }
+      } else {
+        const newTech: Technology = { id: part, name: part };
+        nextAll.push(newTech);
+        if (!nextSelected.includes(newTech.id)) {
+          nextSelected.push(newTech.id);
+        }
+      }
+    }
+
+    setAllTechs(nextAll);
+    setSelectedTechs(nextSelected.slice(0, 20));
+    setCustomTechInput("");
+  };
 
   const handleRemoveTech = (id: string) => {
     setSelectedTechs((prev) => prev.filter((t) => t !== id));
@@ -1795,7 +1830,42 @@ export function PartnerSolutionForm({
             4. Tech Stack Tags
           </h2>
           <p className="text-xs text-[#526267] mt-0.5">
-            Select from the administrator-curated technology list to keep catalog filters accurate.
+            Select from popular technologies below or type to add custom tech stack tags.
+          </p>
+        </div>
+
+        {/* Custom Tech Tag Input */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold text-[#102124]">
+            Add Custom Tech Stack Tag
+          </Label>
+          <div className="flex items-center gap-2">
+            <Input
+              value={customTechInput}
+              onChange={(e) => setCustomTechInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddCustomTech();
+                }
+              }}
+              placeholder="e.g. FastAPI, LangChain, GraphQL (comma-separated allowed)"
+              className="text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddCustomTech}
+              disabled={!customTechInput.trim() || selectedTechs.length >= 20}
+              className="shrink-0 gap-1.5 font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Tag</span>
+            </Button>
+          </div>
+          <p className="text-[11px] text-[#526267]">
+            Press Enter or click Add Tag. Up to 20 tags per solution.
           </p>
         </div>
 

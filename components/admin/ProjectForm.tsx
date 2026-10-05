@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Eye,
   CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { ImageUploader, type ProjectImageItem } from "@/components/admin/ImageUploader";
 import {
@@ -250,6 +251,7 @@ export default function ProjectForm({
   // ── Selector data ────────────────────────────────────────────────────────────
   const [categories, setCategories] = useState<Category[]>([]);
   const [technologies, setTechnologies] = useState<Technology[]>([]);
+  const [customTechInput, setCustomTechInput] = useState("");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selectorsLoading, setSelectorsLoading] = useState(true);
 
@@ -356,7 +358,7 @@ export default function ProjectForm({
       faqs: p.faqs.map((f) => (f.id === id ? { ...f, [field]: value } : f)),
     }));
 
-  // ── Technology toggle ─────────────────────────────────────────────────────────
+  // ── Technology toggle & custom tag addition ───────────────────────────────────
   const toggleTechnology = (techId: string) => {
     setForm((p) => ({
       ...p,
@@ -364,6 +366,43 @@ export default function ProjectForm({
         ? p.technologyIds.filter((id) => id !== techId)
         : [...p.technologyIds, techId],
     }));
+  };
+
+  const handleAddCustomTech = () => {
+    const raw = customTechInput.trim();
+    if (!raw) return;
+    const parts = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
+    const nextTechs = [...technologies];
+    const nextIds = [...form.technologyIds];
+
+    for (const part of parts) {
+      const existing = nextTechs.find(
+        (t) =>
+          t.name.toLowerCase() === part.toLowerCase() ||
+          t.id.toLowerCase() === part.toLowerCase()
+      );
+      if (existing) {
+        if (!nextIds.includes(existing.id)) {
+          nextIds.push(existing.id);
+        }
+      } else {
+        const slug = slugify(part) || part.toLowerCase();
+        const newTech: Technology = { id: part, name: part, slug };
+        nextTechs.push(newTech);
+        if (!nextIds.includes(newTech.id)) {
+          nextIds.push(newTech.id);
+        }
+      }
+    }
+
+    setTechnologies(nextTechs);
+    setForm((p) => ({ ...p, technologyIds: nextIds }));
+    setCustomTechInput("");
   };
 
   // ── Phase 3: Save Moderation Settings for Partner-Owned Project ──────────────
@@ -1310,7 +1349,38 @@ export default function ProjectForm({
 
       {/* ── Section: Technologies ────────────────────────────────────────────── */}
       <div className={sectionClass}>
-        <h2 className="text-base font-bold text-[#102124]">Technologies</h2>
+        <div>
+          <h2 className="text-base font-bold text-[#102124]">Technologies</h2>
+          <p className="text-xs text-[#526267] mt-0.5">
+            Select from existing technologies below or type to add new tech stack tags.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={customTechInput}
+            onChange={(e) => setCustomTechInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddCustomTech();
+              }
+            }}
+            placeholder="e.g. FastAPI, LangChain, GraphQL (comma-separated allowed)"
+            className={fieldClass}
+          />
+          <button
+            type="button"
+            onClick={handleAddCustomTech}
+            disabled={!customTechInput.trim()}
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-[#D9E2E4] bg-[#F8FAFA] text-[#102124] hover:border-[#155761] hover:text-[#155761] transition disabled:opacity-40 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Tag</span>
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {technologies.map((tech) => {
             const selected = form.technologyIds.includes(tech.id);
@@ -1331,7 +1401,7 @@ export default function ProjectForm({
           })}
           {technologies.length === 0 && (
             <p className="text-xs text-[#526267] italic">
-              No technologies available. Add them in the Technologies admin section.
+              No technologies yet. Type above and click Add Tag to create one.
             </p>
           )}
         </div>

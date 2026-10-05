@@ -470,7 +470,7 @@ export default function PartnerImportPage() {
                     key={tech}
                     className="px-2 py-0.5 rounded-md bg-[#DDF4EC] text-[#155761] border border-[#2F7D78]/30 font-medium text-[11px]"
                   >
-                    {tech} (not in catalogue)
+                    + {tech} (new tag)
                   </span>
                 ))}
               </div>

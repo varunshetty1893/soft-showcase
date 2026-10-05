@@ -5,7 +5,7 @@
 // - Database: PrismaAdapter for OAuth accounts, users, and tokens
 // - isAdmin is read from the users table and propagated to the session.
 
-import NextAuth, { CredentialsSignin } from "next-auth";
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -43,7 +43,7 @@ if (!process.env.AUTH_URL && !process.env.NEXTAUTH_URL) {
 
 const authSecret = getEnv().AUTH_SECRET;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authConfig: NextAuthConfig = {
   secret: authSecret,
   trustHost: true,
 
@@ -330,4 +330,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return baseUrl;
     },
   },
-});
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);

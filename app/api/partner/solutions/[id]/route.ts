@@ -284,30 +284,60 @@ export async function PUT(
       .filter((f: any) => f && typeof f.question === "string" && typeof f.answer === "string" && f.question.trim())
       .slice(0, 20);
 
+    const rawTechIds: string[] = Array.isArray(body.technologyIds) ? body.technologyIds : [];
+    const rawTechNames: string[] = Array.isArray(body.technologies) ? body.technologies : [];
     const rawTechList: string[] = (
-      Array.isArray(body.technologyIds)
-        ? body.technologyIds
-        : Array.isArray(body.technologies)
-        ? body.technologies
-        : []
+      rawTechIds.length > 0 ? rawTechIds : rawTechNames
     ).slice(0, 20);
 
-    const resolvedTechIds: string[] = [];
-    for (const item of rawTechList) {
+    const resolvedTechIdSet = new Set<string>();
+    for (let idx = 0; idx < rawTechList.length; idx++) {
+      const item = rawTechList[idx];
       if (!item || typeof item !== "string") continue;
       const trimmed = item.trim();
       if (!trimmed) continue;
 
       const existingById = await db.technology.findUnique({ where: { id: trimmed } }).catch(() => null);
       if (existingById) {
-        resolvedTechIds.push(existingById.id);
+        resolvedTechIdSet.add(existingById.id);
         continue;
       }
-      return NextResponse.json(
-        { error: "Choose technologies from the administrator-curated list." },
-        { status: 400 }
-      );
+
+      const candidateName =
+        typeof rawTechNames[idx] === "string" && rawTechNames[idx].trim()
+          ? rawTechNames[idx].trim()
+          : trimmed;
+      const techSlug = slugify(candidateName) || `tech-${Date.now()}-${idx}`;
+
+      const existingByName = await db.technology
+        .findFirst({
+          where: {
+            OR: [
+              { name: { equals: candidateName, mode: "insensitive" } },
+              { slug: techSlug },
+            ],
+          },
+        })
+        .catch(() => null);
+
+      if (existingByName) {
+        resolvedTechIdSet.add(existingByName.id);
+      } else {
+        const newTech = await db.technology
+          .create({
+            data: {
+              name: candidateName,
+              slug: techSlug,
+              isActive: true,
+            },
+          })
+          .catch(() => null);
+        if (newTech) {
+          resolvedTechIdSet.add(newTech.id);
+        }
+      }
     }
+    const resolvedTechIds = Array.from(resolvedTechIdSet);
 
     const rawImages: { url: string; storageKey?: string; altText?: string; isPrimary?: boolean; sortOrder?: number }[] = (
       Array.isArray(body.images) ? body.images : []
