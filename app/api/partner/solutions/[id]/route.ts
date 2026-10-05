@@ -8,6 +8,7 @@ import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { slugify } from "@/lib/utils/slug";
 import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
+import { canPublishForProvider, providerPublicationError } from "@/lib/providers/publication-eligibility";
 import {
   assertPartnerCanChangeStatus,
   ProjectOwnershipError,
@@ -249,14 +250,19 @@ export async function PUT(
       }
     }
 
-    if (data.status === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
-      return NextResponse.json(
-        {
-          error:
-            "Your partner profile is currently inactive or deactivated. You can only save solutions as Draft until an administrator activates your account.",
+    if (data.status === "PUBLISHED") {
+      const publishingProvider = await db.projectProvider.findUnique({
+        where: { id: existing.providerId },
+        select: {
+          isActive: true,
+          applicationStatus: true,
+          providerConsentConfirmed: true,
+          removedAt: true,
         },
-        { status: 403 }
-      );
+      });
+      if (!canPublishForProvider(publishingProvider)) {
+        return NextResponse.json({ error: providerPublicationError }, { status: 403 });
+      }
     }
 
     // Bounded metadata arrays (Issue 48)
@@ -614,18 +620,19 @@ export async function PATCH(
         }
       }
 
-      if (
-        body.status === "PUBLISHED" &&
-        !session.user.isAdmin &&
-        (!partner.isActive || partner.applicationStatus !== "approved")
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Your partner profile is not yet active or approved. Solutions can only be saved as Draft until approved.",
+      if (body.status === "PUBLISHED") {
+        const publishingProvider = await db.projectProvider.findUnique({
+          where: { id: existing.providerId },
+          select: {
+            isActive: true,
+            applicationStatus: true,
+            providerConsentConfirmed: true,
+            removedAt: true,
           },
-          { status: 403 }
-        );
+        });
+        if (!canPublishForProvider(publishingProvider)) {
+          return NextResponse.json({ error: providerPublicationError }, { status: 403 });
+        }
       }
       updateData.status = body.status;
     }

@@ -8,6 +8,7 @@ import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import { ProjectSchema } from "@/lib/validation/project.schema";
 import { generateUniqueSlug } from "@/lib/utils/slug";
 import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
+import { canPublishForProvider, providerPublicationError } from "@/lib/providers/publication-eligibility";
 
 export async function GET() {
   const session = await auth();
@@ -201,12 +202,9 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
-    if (data.status === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
+    if (data.status === "PUBLISHED" && !canPublishForProvider(partner)) {
       return NextResponse.json(
-        {
-          error:
-            "Your partner profile is currently inactive or deactivated. You can only save solutions as Draft until an administrator activates your account.",
-        },
+        { error: providerPublicationError },
         { status: 403 }
       );
     }

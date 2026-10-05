@@ -17,6 +17,7 @@ import {
 import { writeAuditLog } from "@/lib/db/audit";
 import { sendPartnerModerationEmail } from "@/lib/email/email-service";
 import { slugify } from "@/lib/utils/slug";
+import { canPublishForProvider, providerPublicationError } from "@/lib/providers/publication-eligibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -457,13 +458,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if ((status ?? existing.status) === "PUBLISHED") {
       const targetProviderId = providerId ?? existing.providerId;
-      if (targetProviderId) {
-        await db.projectProvider
-          .update({
+      const provider = targetProviderId
+        ? await db.projectProvider.findUnique({
             where: { id: targetProviderId },
-            data: { isActive: true, applicationStatus: "approved" },
+            select: {
+              isActive: true,
+              applicationStatus: true,
+              providerConsentConfirmed: true,
+              removedAt: true,
+            },
           })
-          .catch(() => null);
+        : null;
+      if (!canPublishForProvider(provider)) {
+        return NextResponse.json({ error: providerPublicationError }, { status: 422 });
       }
     }
 

@@ -12,6 +12,7 @@ export function publicProviderWhere<T extends Record<string, unknown> = Record<s
     ...(extra || ({} as T)),
     isActive: true,
     applicationStatus: "approved",
+    providerConsentConfirmed: true,
     removedAt: null,
   };
 }

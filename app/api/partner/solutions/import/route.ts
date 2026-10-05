@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth/auth";
 import { PartnerSolutionImportSchema } from "@/lib/validation/project-import.schema";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slug";
 import { resolvePartnerForUser } from "@/lib/auth/partner-auth";
+import { canPublishForProvider, providerPublicationError } from "@/lib/providers/publication-eligibility";
 
 export async function POST(request: NextRequest) {
   try {
@@ -219,9 +220,9 @@ export async function POST(request: NextRequest) {
     // The schema permits an explicit publish request, but it must pass the same
     // active/approved partner gate used by normal creation.
     const requestedStatus = data.status || "DRAFT";
-    if (requestedStatus === "PUBLISHED" && (!partner.isActive || partner.applicationStatus !== "approved")) {
+    if (requestedStatus === "PUBLISHED" && !canPublishForProvider(partner)) {
       return NextResponse.json(
-        { error: "Your partner account must be active and approved before publishing a solution." },
+        { error: providerPublicationError },
         { status: 403 }
       );
     }
