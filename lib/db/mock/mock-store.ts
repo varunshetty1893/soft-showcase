@@ -297,6 +297,10 @@ export function createMockPrismaClient(isInsideTx = false): any {
           return async () => [];
         }
 
+        if (prop === "$executeRaw" || prop === "$executeRawUnsafe") {
+          return async () => 0;
+        }
+
         const modelName = prop;
 
         return {

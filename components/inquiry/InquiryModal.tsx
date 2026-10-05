@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X, Mail } from "lucide-react";
 import { InquiryForm } from "./InquiryForm";
 
@@ -27,6 +28,12 @@ export function InquiryModal({
   projectTitle,
   initialContact,
 }: InquiryModalProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Close on Escape key press
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -46,10 +53,10 @@ export function InquiryModal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-gray-900/60 backdrop-blur-xs transition-opacity animate-in fade-in"
@@ -97,6 +104,7 @@ export function InquiryModal({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

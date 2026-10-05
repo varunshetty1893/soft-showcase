@@ -28,6 +28,7 @@ function createBuildPhaseStub(): PrismaClient {
     get(_t, prop: string) {
       if (prop === "$transaction") return async () => [];
       if (prop === "$queryRaw" || prop === "$queryRawUnsafe") return async () => [];
+      if (prop === "$executeRaw" || prop === "$executeRawUnsafe") return async () => 0;
       return modelStub;
     },
   });

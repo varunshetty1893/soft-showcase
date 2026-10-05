@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   ChevronLeft,
@@ -140,7 +141,7 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
   return (
     <div className="space-y-3">
       {/* ── 1. Primary Hero Display Card ────────────────────────────────────── */}
-      <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#0c181a] shadow-xs group/card select-none">
+      <div className="relative isolate aspect-video w-full rounded-2xl overflow-hidden border border-[#D9E2E4] bg-[#0c181a] shadow-xs group/card select-none">
         {/* Clickable Image Viewport to trigger Fullscreen/Zoom */}
         <div
           onClick={() => setIsLightboxOpen(true)}
@@ -284,16 +285,18 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
       )}
 
       {/* ── 3. Interactive Fullscreen & Zoom Lightbox Modal ────────────────── */}
-      {isLightboxOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200"
-          onClick={() => {
-            setIsLightboxOpen(false);
-            setIsZoomed(false);
-          }}
-        >
+      {isLightboxOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200"
+            onClick={() => {
+              setIsLightboxOpen(false);
+              setIsZoomed(false);
+            }}
+          >
           {/* Lightbox Header Bar */}
           <div
             onClick={(e) => e.stopPropagation()}
@@ -444,7 +447,8 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -48,8 +48,13 @@ async function assertUtrsAreUnique(tx: Tx, utrs: string[], ignorePaymentId?: str
     unique.add(utr);
   }
   for (const utr of utrs) {
-    // Serialise concurrent submissions of the same UTR
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"utr:" + utr}))`;
+    // Serialise concurrent submissions of the same UTR.
+    // Cast pg_advisory_xact_lock(...) to ::text so Prisma never fails trying to deserialize PostgreSQL's `void` column type.
+    if (typeof tx.$executeRaw === "function") {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"utr:" + utr}))::text`;
+    } else {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"utr:" + utr}))::text`;
+    }
     const clash = await tx.transactionPayment.findFirst({
       where: {
         utrNumber: { equals: utr, mode: "insensitive" },
