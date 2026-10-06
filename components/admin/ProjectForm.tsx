@@ -243,8 +243,15 @@ export default function ProjectForm({
   const [moderationReason, setModerationReason] = useState(
     initialData?.moderationNote ?? ""
   );
-  const [changeRequestNote, setChangeRequestNote] = useState(
-    initialData?.moderationNote ?? ""
+  const [changeRequestNote, setChangeRequestNote] = useState("");
+  const [lastSentRequestNote, setLastSentRequestNote] = useState<string | null>(
+    initialData?.moderationNote ?? null
+  );
+  const [lastSentAt, setLastSentAt] = useState<string | null>(
+    initialData?.moderatedAt ?? null
+  );
+  const [requestChangesSuccessMsg, setRequestChangesSuccessMsg] = useState<string | null>(
+    null
   );
   const [sendingRequestChanges, setSendingRequestChanges] = useState(false);
 
@@ -454,19 +461,21 @@ export default function ProjectForm({
   // ── Phase 3: Request Changes on Partner-Owned Project ────────────────────────
   async function handleRequestChanges() {
     if (!projectId) return;
-    if (!changeRequestNote.trim()) {
+    const trimmedNote = changeRequestNote.trim();
+    if (!trimmedNote) {
       toast.error("Please enter a note describing the requested changes for the partner.");
       return;
     }
 
     setSendingRequestChanges(true);
+    setRequestChangesSuccessMsg(null);
     try {
       const res = await fetch(`/api/admin/projects/${projectId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestChanges: true,
-          moderationNote: changeRequestNote.trim(),
+          moderationNote: trimmedNote,
         }),
       });
 
@@ -476,10 +485,16 @@ export default function ProjectForm({
         return;
       }
 
-      setModerationReason(changeRequestNote.trim());
-      toast.success(
-        data.message || "Change request saved and emailed to the partner."
-      );
+      const nowIso = new Date().toISOString();
+      setModerationReason(trimmedNote);
+      setLastSentRequestNote(trimmedNote);
+      setLastSentAt(nowIso);
+      setChangeRequestNote("");
+      const confirmMsg =
+        data.message ||
+        `Message sent to ${partnerDisplayName || "Solution Partner"}! Your change request is now visible on their solution and delivered via email.`;
+      setRequestChangesSuccessMsg(confirmMsg);
+      toast.success(confirmMsg);
       router.refresh();
     } catch {
       toast.error("Network error while sending change request.");
@@ -863,17 +878,66 @@ export default function ProjectForm({
 
         {/* Request Changes Box (Phase 3) */}
         <div className={sectionClass}>
-          <div>
-            <h2 className="text-base font-bold text-[#102124]">
-              Request Changes from {partnerLabel}
-            </h2>
-            <p className="text-xs text-[#526267] mt-0.5">
-              Send a moderation note directly to the partner by email and display a &ldquo;Changes Requested&rdquo; badge on their project in the Partner Portal.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-[#102124]">
+                Request Changes from {partnerLabel}
+              </h2>
+              <p className="text-xs text-[#526267] mt-0.5">
+                Send a moderation note directly to the partner by email and display a &ldquo;Changes Requested&rdquo; banner on their project in the Partner Portal.
+              </p>
+            </div>
+            {lastSentRequestNote && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Message Delivered</span>
+              </span>
+            )}
           </div>
 
+          {requestChangesSuccessMsg && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-2xs animate-in fade-in duration-200"
+            >
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-emerald-950">Message Sent Successfully</p>
+                  <p className="text-xs text-emerald-800">{requestChangesSuccessMsg}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRequestChangesSuccessMsg(null)}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 px-2 py-0.5 rounded hover:bg-emerald-100 transition cursor-pointer shrink-0"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {lastSentRequestNote && (
+            <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                <span>Active Note Sent to Partner</span>
+                {lastSentAt && (
+                  <span className="font-medium text-amber-700 normal-case">
+                    Sent {new Date(lastSentAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-amber-950 whitespace-pre-wrap leading-relaxed">
+                {lastSentRequestNote}
+              </p>
+            </div>
+          )}
+
           <div>
-            <label className={labelClass}>Requested Changes Note *</label>
+            <label className={labelClass}>
+              {lastSentRequestNote ? "Send New / Updated Note to Partner *" : "Requested Changes Note *"}
+            </label>
             <textarea
               value={changeRequestNote}
               onChange={(e) => setChangeRequestNote(e.target.value)}

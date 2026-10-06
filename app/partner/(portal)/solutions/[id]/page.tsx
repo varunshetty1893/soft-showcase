@@ -15,9 +15,12 @@ import {
   CheckCircle2,
   Sparkles,
   Eye,
+  Tag,
+  AlertCircle,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PriceBlock } from "@/components/projects/PriceBlock";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
@@ -118,31 +121,48 @@ export default async function PartnerSolutionDetailPage({
         </div>
       </div>
 
+      {/* ── Admin Moderation Note Banner ─────────────────────────────── */}
+      {(project as any).moderationNote && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm space-y-2 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-bold text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Message from Admin Moderation Team</span>
+            </div>
+            <Link
+              href={`/partner/solutions/${project.id}/edit`}
+              className="text-xs font-bold text-[#155761] hover:underline"
+            >
+              Address &amp; Update Now →
+            </Link>
+          </div>
+          <p className="text-xs sm:text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">
+            {(project as any).moderationNote}
+          </p>
+        </div>
+      )}
+
       {/* ── Key Metrics Cards ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 shadow-2xs">
-          <span className="text-[11px] font-bold text-[#526267] uppercase tracking-wider block">Pricing Model</span>
-          {hasOffer ? (
-            <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-              <span className="text-xs text-[#8A9A9E] line-through font-medium">
-                {formatCurrency(Number((project as { originalPrice?: unknown }).originalPrice))}
-              </span>
-              <span className="text-base font-extrabold text-[#102124]">
-                {formatCurrency(Number(project.price))}
-              </span>
-              <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
-                {discountPct}% OFF
-              </span>
-            </div>
-          ) : (
-            <p className="text-base font-extrabold text-[#102124] mt-1">
-              {project.priceMode === "FIXED" && project.price
-                ? formatCurrency(Number(project.price))
-                : project.priceMode === "STARTING_FROM" && project.price
-                ? `From ${formatCurrency(Number(project.price))}`
-                : "Contact for Quote"}
-            </p>
-          )}
+          <span className="text-[11px] font-bold text-[#526267] uppercase tracking-wider block mb-1.5">
+            Pricing &amp; Offer
+          </span>
+          <PriceBlock
+            priceMode={project.priceMode as any}
+            price={project.price != null ? Number(project.price) : null}
+            originalPrice={
+              (project as any).originalPrice != null
+                ? Number((project as any).originalPrice)
+                : null
+            }
+            priceQualifier={((project as any).priceQualifier ?? "NONE") as any}
+            dealType={((project as any).dealType ?? "NONE") as any}
+            dealLabel={(project as any).dealLabel ?? null}
+            dealStartsAt={(project as any).dealStartsAt ?? null}
+            dealEndsAt={(project as any).dealEndsAt ?? null}
+            variant="compact"
+          />
         </div>
 
         <div className="bg-white rounded-2xl border border-[#D9E2E4] p-4 shadow-2xs">

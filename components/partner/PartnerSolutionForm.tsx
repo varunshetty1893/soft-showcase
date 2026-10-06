@@ -33,6 +33,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { parseMoney } from "@/lib/utils/money";
+import {
+  PricingOffersFields,
+  type PricingOffersFormState,
+} from "@/components/projects/PricingOffersFields";
+import {
+  validatePricingOfferInput,
+  fromIstDatetimeLocal,
+  toIstDatetimeLocal,
+} from "@/lib/utils/pricing";
+import { useToast } from "@/components/ui/toast";
 
 interface Category {
   id: string;
@@ -279,6 +289,7 @@ export function PartnerSolutionForm({
   isEditing = false,
 }: PartnerSolutionFormProps) {
   const router = useRouter();
+  const toast = useToast();
 
   const [title, setTitle] = React.useState(initialData?.title || "");
   const [categoryId, setCategoryId] = React.useState(
@@ -290,13 +301,30 @@ export function PartnerSolutionForm({
   const [fullDescription, setFullDescription] = React.useState(
     initialData?.fullDescription || ""
   );
-  const [priceMode, setPriceMode] = React.useState<"FIXED" | "STARTING_FROM" | "CONTACT">(
-    initialData?.priceMode || "FIXED"
-  );
-  const [price, setPrice] = React.useState(initialData?.price ? String(initialData.price) : "");
-  const [originalPrice, setOriginalPrice] = React.useState(
-    initialData?.originalPrice ? String(initialData.originalPrice) : ""
-  );
+  const [pricingState, setPricingState] = React.useState<PricingOffersFormState>({
+    priceMode: (initialData?.priceMode || "FIXED") as PricingOffersFormState["priceMode"],
+    price:
+      initialData?.price !== null && initialData?.price !== undefined
+        ? String(initialData.price)
+        : "",
+    originalPrice:
+      initialData?.originalPrice !== null && initialData?.originalPrice !== undefined
+        ? String(initialData.originalPrice)
+        : "",
+    priceQualifier: (initialData?.priceQualifier || "NONE") as PricingOffersFormState["priceQualifier"],
+    dealType: (initialData?.dealType || "NONE") as PricingOffersFormState["dealType"],
+    dealLabel: initialData?.dealLabel || "",
+    dealStartsAt: initialData?.dealStartsAt
+      ? typeof initialData.dealStartsAt === "string"
+        ? toIstDatetimeLocal(initialData.dealStartsAt)
+        : toIstDatetimeLocal(new Date(initialData.dealStartsAt).toISOString())
+      : "",
+    dealEndsAt: initialData?.dealEndsAt
+      ? typeof initialData.dealEndsAt === "string"
+        ? toIstDatetimeLocal(initialData.dealEndsAt)
+        : toIstDatetimeLocal(new Date(initialData.dealEndsAt).toISOString())
+      : "",
+  });
   const [demoUrl, setDemoUrl] = React.useState(initialData?.demoUrl || "");
   const [projectType, setProjectType] = React.useState(initialData?.projectType || "");
   const [status, setStatus] = React.useState<"DRAFT" | "PUBLISHED">(
@@ -442,11 +470,58 @@ export function PartnerSolutionForm({
       }
 
       // Price & pricing mode
-      if (data.priceMode && ["FIXED", "STARTING_FROM", "CONTACT"].includes(data.priceMode)) {
-        setPriceMode(data.priceMode);
+      if (
+        data.priceMode &&
+        ["FIXED", "STARTING_FROM", "CONTACT", "FREE"].includes(data.priceMode)
+      ) {
+        setPricingState((prev) => ({
+          ...prev,
+          priceMode: data.priceMode,
+        }));
       }
       if (data.price !== undefined && data.price !== null) {
-        setPrice(String(data.price));
+        setPricingState((prev) => ({
+          ...prev,
+          price: String(data.price),
+        }));
+      }
+      if (data.originalPrice !== undefined && data.originalPrice !== null) {
+        setPricingState((prev) => ({
+          ...prev,
+          originalPrice: String(data.originalPrice),
+        }));
+      }
+      if (
+        data.priceQualifier &&
+        ["NONE", "STARTING_FROM", "NEGOTIABLE"].includes(data.priceQualifier)
+      ) {
+        setPricingState((prev) => ({
+          ...prev,
+          priceQualifier: data.priceQualifier,
+        }));
+      }
+      if (
+        data.dealType &&
+        [
+          "NONE",
+          "LIMITED_DEAL",
+          "LAUNCH_OFFER",
+          "FESTIVE_SALE",
+          "EARLY_BIRD",
+          "CLEARANCE",
+          "CUSTOM",
+        ].includes(data.dealType)
+      ) {
+        setPricingState((prev) => ({
+          ...prev,
+          dealType: data.dealType,
+        }));
+      }
+      if (typeof data.dealLabel === "string") {
+        setPricingState((prev) => ({
+          ...prev,
+          dealLabel: data.dealLabel.slice(0, 24),
+        }));
       }
 
       // Project type & demo url
@@ -960,6 +1035,8 @@ export function PartnerSolutionForm({
       });
     }
 
+    const { priceMode, price, originalPrice, priceQualifier, dealType, dealLabel, dealStartsAt, dealEndsAt } = pricingState;
+
     if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice <= 0) {
@@ -969,6 +1046,25 @@ export function PartnerSolutionForm({
           message: "Please enter a valid price amount greater than zero.",
         });
       }
+    }
+
+    const offerValidationErrors = validatePricingOfferInput({
+      priceMode,
+      price: price ? Number(price) : null,
+      originalPrice: originalPrice ? Number(originalPrice) : null,
+      priceQualifier,
+      dealType,
+      dealLabel,
+      dealStartsAt: fromIstDatetimeLocal(dealStartsAt),
+      dealEndsAt: fromIstDatetimeLocal(dealEndsAt),
+    });
+    for (const [fieldKey, errMsg] of Object.entries(offerValidationErrors)) {
+      if (fieldKey === "price" && clientErrors.some((c) => c.field === "price")) continue;
+      clientErrors.push({
+        field: fieldKey,
+        title: "Pricing & Offer Configuration",
+        message: errMsg,
+      });
     }
 
     if (photos.length === 0) {
@@ -1024,9 +1120,9 @@ export function PartnerSolutionForm({
     }
 
     // Price rules (shared with the API): never zero, never negative, max 2 decimals
-    if (priceMode !== "CONTACT") {
+    if (priceMode === "FIXED" || priceMode === "STARTING_FROM") {
       const priceCheck = parseMoney(price, "Price");
-      if (!priceCheck.ok) {
+      if (!priceCheck.ok && !clientErrors.some((c) => c.field === "price")) {
         clientErrors.push({
           field: "price",
           title: "Invalid Price",
@@ -1039,7 +1135,7 @@ export function PartnerSolutionForm({
     }
     if (priceMode === "FIXED" && originalPrice && originalPrice.trim() !== "") {
       const originalCheck = parseMoney(originalPrice, "Original price");
-      if (!originalCheck.ok) {
+      if (!originalCheck.ok && !clientErrors.some((c) => c.field === "originalPrice")) {
         clientErrors.push({
           field: "originalPrice",
           title: "Invalid Original Price",
@@ -1055,6 +1151,7 @@ export function PartnerSolutionForm({
       setErrorItems(clientErrors);
       setError("Please review and adjust the highlighted items below before saving.");
       setShowErrorModal(true);
+      toast.error(clientErrors[0]?.message || "Please review highlighted fields before saving.");
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -1064,7 +1161,7 @@ export function PartnerSolutionForm({
 
     try {
       const computedPrice =
-        priceMode === "CONTACT"
+        priceMode === "CONTACT" || priceMode === "FREE"
           ? null
           : Number(price) > 0
           ? Number(price)
@@ -1100,8 +1197,23 @@ export function PartnerSolutionForm({
         shortDescription: shortDescription.trim(),
         fullDescription: fullDescription.trim(),
         priceMode,
+        priceQualifier:
+          priceMode === "STARTING_FROM"
+            ? "STARTING_FROM"
+            : priceMode === "FREE"
+            ? "NONE"
+            : priceQualifier,
         price: computedPrice,
         originalPrice: computedOriginalPrice,
+        dealType: priceMode === "FIXED" ? dealType : "NONE",
+        dealLabel:
+          priceMode === "FIXED" && dealType === "CUSTOM"
+            ? dealLabel.trim() || null
+            : null,
+        dealStartsAt:
+          priceMode === "FIXED" ? fromIstDatetimeLocal(dealStartsAt) : null,
+        dealEndsAt:
+          priceMode === "FIXED" ? fromIstDatetimeLocal(dealEndsAt) : null,
         demoUrl: formattedDemoUrl,
         projectType: projectType.trim() ? projectType.trim() : null,
         status,
@@ -1144,17 +1256,24 @@ export function PartnerSolutionForm({
         setErrorItems(parsed);
         setError("Please review and adjust the highlighted items below before saving.");
         setShowErrorModal(true);
+        toast.error(parsed[0]?.message || resData?.error || "Failed to save solution.");
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
         return;
       }
 
+      toast.success(
+        isEditing
+          ? "Solution & pricing updated successfully!"
+          : "Solution published successfully!"
+      );
       router.push("/partner/solutions");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred while saving.";
       setError(msg);
+      toast.error(msg);
       setErrorItems([
         {
           field: "general",
@@ -1201,6 +1320,22 @@ export function PartnerSolutionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
+      {/* ── Admin Moderation Note / Requested Changes Banner ─────────── */}
+      {initialData?.moderationNote && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm space-y-2 shadow-xs">
+          <div className="flex items-center gap-2 font-bold text-amber-900">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Message from Admin Moderation Team</span>
+          </div>
+          <p className="text-xs sm:text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">
+            {initialData.moderationNote}
+          </p>
+          <p className="text-[11px] text-amber-700 font-medium">
+            Review the feedback above, update your solution details or pricing below, and save to resubmit.
+          </p>
+        </div>
+      )}
+
       {/* ── Success Notice Banner ────────────────────────────────────── */}
       {successNotice && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between shadow-xs animate-in fade-in duration-200">
@@ -1386,61 +1521,25 @@ export function PartnerSolutionForm({
         </div>
       </div>
 
-      {/* ── 2. Pricing & Visibility ───────────────────────────────────── */}
+      {/* ── 2. Pricing, Promotional Offers & Visibility ───────────────── */}
       <div className="bg-white rounded-3xl border border-[#D9E2E4] p-6 sm:p-8 shadow-xs space-y-6">
-        <h2 className="text-base font-bold text-[#102124] border-b border-[#F3F7F7] pb-3">
-          2. Commercial Pricing &amp; Visibility Status
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F3F7F7] pb-3">
+          <h2 className="text-base font-bold text-[#102124]">
+            2. Commercial Pricing, Promotional Offers &amp; Visibility Status
+          </h2>
+          <span className="text-[11px] font-semibold text-[#155761] bg-[#E8F4F5] px-2.5 py-1 rounded-full border border-[#155761]/20">
+            Full Pricing &amp; Promotional Deals Enabled
+          </span>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label className="text-xs font-semibold text-[#102124]">Pricing Mode</Label>
-            <select
-              value={priceMode}
-              onChange={(e) => setPriceMode(e.target.value as any)}
-              className="w-full h-10 px-3 mt-1 rounded-xl bg-white border border-[#D9E2E4] text-xs font-medium text-[#102124] focus:outline-none focus:ring-2 focus:ring-[#155761]"
-            >
-              <option value="FIXED">Fixed Price (INR)</option>
-              <option value="STARTING_FROM">Starting From (INR)</option>
-              <option value="CONTACT">Contact for Quote</option>
-            </select>
-          </div>
+        <PricingOffersFields
+          value={pricingState}
+          onChange={(patch) =>
+            setPricingState((prev) => ({ ...prev, ...patch }))
+          }
+        />
 
-          {priceMode !== "CONTACT" && (
-            <div>
-              <Label className="text-xs font-semibold text-[#102124]">Price (INR) *</Label>
-              <Input
-                type="number"
-                min="1"
-                step="0.01"
-                inputMode="decimal"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="24999"
-                required
-                className="mt-1"
-              />
-            </div>
-          )}
-
-          {priceMode === "FIXED" && (
-            <div>
-              <Label className="text-xs font-semibold text-[#102124]">
-                Original Price (INR) (Optional)
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                step="0.01"
-                inputMode="decimal"
-                value={originalPrice}
-                onChange={(e) => setOriginalPrice(e.target.value)}
-                placeholder="Must be > selling price"
-                className="mt-1"
-              />
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F3F7F7]">
           <div>
             <Label className="text-xs font-semibold text-[#102124]">Publishing Status</Label>
             <select
@@ -1450,10 +1549,11 @@ export function PartnerSolutionForm({
             >
               <option value="PUBLISHED">Published (Visible on Showcase)</option>
               <option value="DRAFT">Draft (Internal Architecture Only)</option>
+              <option value="ARCHIVED">Archived (Hidden from Catalog)</option>
             </select>
           </div>
 
-          <div className="sm:col-span-3">
+          <div>
             <Label className="text-xs font-semibold text-[#102124]">Live Demo URL (Optional)</Label>
             <Input
               type="url"
@@ -1463,7 +1563,6 @@ export function PartnerSolutionForm({
               className="mt-1"
             />
           </div>
-
         </div>
       </div>
 

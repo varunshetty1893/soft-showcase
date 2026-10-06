@@ -238,8 +238,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       // Send escaped moderation / request-changes email to partner when note is provided
       const partnerEmail = existing.provider?.email;
       const partnerName = existing.provider?.displayName || "Partner";
+      const partnerUserId = (existing.provider as any)?.userId as string | undefined;
       if (
-        partnerEmail &&
         noteInput &&
         (isRequestingChanges || (nextDbStatus && nextDbStatus !== "PUBLISHED"))
       ) {
@@ -249,14 +249,75 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           ? "Rejected"
           : "Unpublished";
 
-        await sendPartnerModerationEmail({
-          to: partnerEmail,
-          partnerName,
-          projectTitle: existing.title,
-          projectId: existing.id,
-          actionLabel,
-          note: noteInput,
-        }).catch((e) => console.error("[Moderation Email] Error:", e));
+        if (partnerEmail) {
+          await sendPartnerModerationEmail({
+            to: partnerEmail,
+            partnerName,
+            projectTitle: existing.title,
+            projectId: existing.id,
+            actionLabel,
+            note: noteInput,
+          }).catch((e) => console.error("[Moderation Email] Error:", e));
+        }
+
+        // Also deliver an in-app Support / Moderation notification thread to the Partner Portal
+        if (partnerUserId && (db as any).supportTicket) {
+          try {
+            const subjectLine = `Moderation Notice (${actionLabel}): ${existing.title}`;
+            const existingTicket = await db.supportTicket.findFirst({
+              where: {
+                requesterId: partnerUserId,
+                subject: subjectLine,
+                status: { notIn: ["RESOLVED", "CLOSED"] },
+              },
+              orderBy: { updatedAt: "desc" },
+            });
+
+            if (existingTicket) {
+              await db.supportMessage.create({
+                data: {
+                  ticketId: existingTicket.id,
+                  senderId: actorId,
+                  senderName: "Platform Moderation Team",
+                  senderRole: "admin",
+                  message: noteInput,
+                },
+              });
+              await db.supportTicket.update({
+                where: { id: existingTicket.id },
+                data: { status: "WAITING_CUSTOMER", updatedAt: new Date() },
+              });
+            } else {
+              const ticketNumber = `MOD-${Date.now().toString(36).toUpperCase()}-${Math.random()
+                .toString(36)
+                .slice(2, 5)
+                .toUpperCase()}`;
+              await db.supportTicket.create({
+                data: {
+                  ticketNumber,
+                  requesterId: partnerUserId,
+                  requesterRole: "solution_partner",
+                  subject: subjectLine,
+                  category: "SOLUTION_MODERATION",
+                  description: `Admin moderation update (${actionLabel}) for solution "${existing.title}":\n\n${noteInput}`,
+                  status: "WAITING_CUSTOMER",
+                  priority: "HIGH",
+                  messages: {
+                    create: {
+                      senderId: actorId,
+                      senderName: "Platform Moderation Team",
+                      senderRole: "admin",
+                      message: noteInput,
+                    },
+                  },
+                },
+              });
+            }
+            revalidatePath("/partner/support");
+          } catch (ticketErr) {
+            console.error("[Moderation In-App Ticket] Error:", ticketErr);
+          }
+        }
       }
 
       safeRevalidate(updated.slug);

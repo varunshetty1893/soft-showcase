@@ -42,9 +42,11 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
 
   const [loading, setLoading] = React.useState(false);
   const [replyLoading, setReplyLoading] = React.useState(false);
+  const [sentNotice, setSentNotice] = React.useState<string | null>(null);
 
   const handleUpdateStatus = async () => {
     setLoading(true);
+    setSentNotice(null);
 
     try {
       const res = await fetch(`/api/admin/support/${ticket.id}`, {
@@ -59,6 +61,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update ticket");
 
+      setSentNotice("Ticket settings and status updated successfully.");
       toast.success("Ticket updated successfully!");
       router.refresh();
     } catch (err: unknown) {
@@ -72,6 +75,7 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
     e.preventDefault();
     if (!replyText.trim()) return;
     setReplyLoading(true);
+    setSentNotice(null);
 
     try {
       const res = await fetch(`/api/partner/support/${ticket.id}/messages`, {
@@ -86,7 +90,8 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
       setMessages((prev: Message[]) => [...prev, data.message]);
       setReplyText("");
       setStatus("WAITING_CUSTOMER");
-      toast.success("Reply sent to ticket thread.");
+      setSentNotice("Admin response sent! Your message has been added to the ticket thread.");
+      toast.success("Message sent! Admin reply added to ticket thread.");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send message");
@@ -160,6 +165,27 @@ export function AdminSupportDetailManager({ ticket }: AdminSupportDetailManagerP
           </Button>
         )}
       </div>
+
+      {/* Inline Sent Confirmation Banner */}
+      {sentNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{sentNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSentNotice(null)}
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 px-2 py-0.5 rounded hover:bg-emerald-100 transition cursor-pointer shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Messages Thread */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">

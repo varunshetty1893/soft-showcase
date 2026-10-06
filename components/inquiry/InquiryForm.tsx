@@ -15,6 +15,7 @@ import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
 } from "@/components/security/TurnstileWidget";
+import { useToast } from "@/components/ui/toast";
 
 interface InquiryFormProps {
   projectId: string;
@@ -35,6 +36,7 @@ export function InquiryForm({
   onCancel,
   initialContact,
 }: InquiryFormProps) {
+  const toast = useToast();
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
@@ -143,29 +145,38 @@ export function InquiryForm({
       if (!res.ok) {
         resetTurnstile();
         if (res.status === 429) {
-          setErrorMessage("Too many inquiries sent. Please wait a few minutes before trying again.");
+          const msg = "Too many inquiries sent. Please wait a few minutes before trying again.";
+          setErrorMessage(msg);
+          toast.error(msg);
         } else if (data.details) {
           setFieldErrors(data.details);
-          setErrorMessage("Please correct the errors in the form.");
+          const msg = "Please correct the errors in the form.";
+          setErrorMessage(msg);
+          toast.error(msg);
         } else {
-          setErrorMessage(data.error || "Failed to submit inquiry. Please try again.");
+          const msg = data.error || "Failed to submit inquiry. Please try again.";
+          setErrorMessage(msg);
+          toast.error(msg);
         }
         return;
       }
 
-      setSuccessMessage(
+      const finalSuccessMsg =
         typeof data?.data?.message === "string"
           ? data.data.message
-          : "Your inquiry has been saved for the project provider."
-      );
+          : "Your inquiry has been sent to the project provider.";
+      setSuccessMessage(finalSuccessMsg);
       setIsSuccess(true);
+      toast.success("Message sent! Your inquiry has been delivered to the provider.");
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
       console.error("Inquiry submission error:", err);
       resetTurnstile();
-      setErrorMessage("Network error. Please check your connection and try again.");
+      const netMsg = "Network error. Please check your connection and try again.";
+      setErrorMessage(netMsg);
+      toast.error(netMsg);
     } finally {
       setLoading(false);
     }

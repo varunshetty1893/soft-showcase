@@ -2,8 +2,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Send, User, Shield, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Send, User, Shield, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -34,11 +34,15 @@ export function SupportThreadViewer({
   ticketStatus,
 }: SupportThreadViewerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const [messages, setMessages] = React.useState<Message[]>(initialMessages);
   const [replyText, setReplyText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [sentNotice, setSentNotice] = React.useState<string | null>(
+    searchParams?.get("success") || null
+  );
 
   const isClosed = ticketStatus === "CLOSED" || ticketStatus === "RESOLVED";
 
@@ -46,6 +50,7 @@ export function SupportThreadViewer({
     e.preventDefault();
     if (!replyText.trim()) return;
     setError(null);
+    setSentNotice(null);
     setLoading(true);
 
     try {
@@ -61,7 +66,8 @@ export function SupportThreadViewer({
 
       setMessages((prev) => [...prev, data.message]);
       setReplyText("");
-      toast.success("Reply sent.");
+      setSentNotice("Your reply has been sent and delivered to the support team.");
+      toast.success("Message sent! Your reply has been added to the thread.");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send message";
@@ -74,6 +80,26 @@ export function SupportThreadViewer({
 
   return (
     <div className="space-y-6">
+      {sentNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{sentNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSentNotice(null)}
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 px-2 py-0.5 rounded hover:bg-emerald-100 transition cursor-pointer shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Messages Thread */}
       <div className="space-y-4">
         {messages.map((msg) => {

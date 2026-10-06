@@ -5,7 +5,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Send, User, Shield, AlertCircle, Plus } from "lucide-react";
+import { Send, User, Shield, AlertCircle, Plus, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
@@ -41,6 +41,7 @@ export function CustomerSupportThreadViewer({
   const [replyText, setReplyText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [sentNotice, setSentNotice] = React.useState<string | null>(null);
 
   const isClosed = ticketStatus === "CLOSED" || ticketStatus === "RESOLVED";
 
@@ -48,6 +49,7 @@ export function CustomerSupportThreadViewer({
     e.preventDefault();
     if (!replyText.trim()) return;
     setError(null);
+    setSentNotice(null);
     setLoading(true);
 
     try {
@@ -62,7 +64,8 @@ export function CustomerSupportThreadViewer({
 
       setMessages((prev) => [...prev, data.message]);
       setReplyText("");
-      toast.success("Reply sent.");
+      setSentNotice("Your message has been sent and added to the support ticket.");
+      toast.success("Message sent! Your reply has been delivered.");
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send message";
@@ -75,6 +78,26 @@ export function CustomerSupportThreadViewer({
 
   return (
     <div className="space-y-6">
+      {sentNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{sentNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSentNotice(null)}
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-950 px-2 py-0.5 rounded hover:bg-emerald-100 transition cursor-pointer shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Messages Thread */}
       <div className="space-y-4">
         {messages.length === 0 && (

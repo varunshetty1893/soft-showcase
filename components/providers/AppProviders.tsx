@@ -3,6 +3,7 @@
 import * as React from "react";
 import { SessionProvider } from "next-auth/react";
 import { CartProvider } from "@/lib/cart/cart-context";
+import { ToastProvider } from "@/components/ui/toast";
 
 export function AppProviders({
   children,
@@ -38,7 +39,9 @@ export function AppProviders({
       refetchOnWindowFocus={false}
       refetchWhenOffline={false}
     >
-      <CartProvider>{children}</CartProvider>
+      <ToastProvider>
+        <CartProvider>{children}</CartProvider>
+      </ToastProvider>
     </SessionProvider>
   );
 }

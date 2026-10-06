@@ -52,6 +52,7 @@ function ToastUrlListener({
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const parentContext = React.useContext(ToastContext);
   const [toasts, setToasts] = React.useState<ToastRecord[]>([]);
 
   const dismiss = React.useCallback((id: string) => {
@@ -114,6 +115,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }),
     [toasts, addToast, success, error, warning, info, dismiss, clearAll]
   );
+
+  if (parentContext) {
+    return <>{children}</>;
+  }
 
   return (
     <ToastContext.Provider value={value}>
