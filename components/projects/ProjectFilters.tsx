@@ -21,6 +21,8 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
   const searchParams = useSearchParams();
 
   const activeCategory = searchParams.get("category") || "";
+  const activeTech = searchParams.get("tech") || "";
+  const activeSearch = searchParams.get("q") || searchParams.get("search") || "";
 
   const updateFilter = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -37,7 +39,7 @@ export function ProjectFilters({ categories }: ProjectFiltersProps) {
     router.push(pathname);
   };
 
-  const hasActiveFilters = Boolean(activeCategory || searchParams.get("q"));
+  const hasActiveFilters = Boolean(activeCategory || activeTech || activeSearch);
 
   return (
     <aside className="w-full lg:w-64 shrink-0 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6">

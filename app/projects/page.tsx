@@ -56,29 +56,34 @@ interface ProjectsPageProps {
     category?: string;
     tech?: string;
     q?: string;
+    search?: string;
   }>;
 }
 
 export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const params = await searchParams;
 
-  const currentPage = parseInt(params.page || "1", 10) || 1;
+  const currentPage = Math.max(1, parseInt(params.page || "1", 10) || 1);
   // Keep previously shared `ai-ml` links working while using one canonical
   // category slug everywhere else.
   const categorySlug = params.category === "ai-ml" ? "ai-machine-learning" : params.category;
   const techSlug = params.tech;
-  const search = params.q;
+  const search = (params.q ?? params.search ?? "").trim() || undefined;
 
   let projectsData: {
     projects: ProjectCardData[];
     total: number;
     totalPages: number;
     currentPage: number;
+    relatedSearches?: string[];
+    suggestedProjects?: ProjectCardData[];
   } = {
     projects: [],
     total: 0,
     totalPages: 0,
     currentPage,
+    relatedSearches: [],
+    suggestedProjects: [],
   };
 
   let categories = DEFAULT_CATEGORIES.map((c, idx) => ({
@@ -126,8 +131,18 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
                 Software Project Catalog
               </h1>
               <p className="mt-2 text-sm text-[#526267]">
-                Showing {projectsData.total}{" "}
-                {projectsData.total === 1 ? "project" : "projects"} available for deployment or customization.
+                {search ? (
+                  <>
+                    Showing {projectsData.total}{" "}
+                    {projectsData.total === 1 ? "project" : "projects"} matching{" "}
+                    <span className="font-semibold text-[#102124]">&ldquo;{search}&rdquo;</span>
+                  </>
+                ) : (
+                  <>
+                    Showing {projectsData.total}{" "}
+                    {projectsData.total === 1 ? "project" : "projects"} available for deployment or customization.
+                  </>
+                )}
               </p>
             </div>
 
@@ -139,7 +154,12 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
             <ProjectFilters categories={categories} />
 
             <div className="flex-1 min-w-0 w-full space-y-8">
-              <ProjectGrid projects={projectsData.projects} />
+              <ProjectGrid
+                projects={projectsData.projects}
+                searchQuery={search}
+                relatedSearches={projectsData.relatedSearches}
+                suggestedProjects={projectsData.suggestedProjects}
+              />
 
               <Pagination
                 currentPage={projectsData.currentPage}

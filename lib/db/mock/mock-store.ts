@@ -115,7 +115,7 @@ const initialProjects = [
       "Stripe Connect direct split payments",
       "PostgreSQL schemas with Prisma ORM",
     ],
-    categoryId: "cat-1",
+    categoryId: "cat-3",
     providerId: "prov-2",
     createdAt: new Date("2025-01-02"),
     updatedAt: new Date("2025-01-02"),
@@ -141,10 +141,64 @@ const initialProjects = [
       "End-to-end audit logging & data masking",
       "Ready-to-deploy Docker and Vercel configurations",
     ],
-    categoryId: "cat-3",
+    categoryId: "cat-7",
     providerId: "prov-1",
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
+  },
+  {
+    id: "proj-3",
+    title: "Smart Fitness & Diet Planner",
+    slug: "smart-fitness-diet-planner",
+    shortDescription:
+      "Intelligent Python Flask & SQLite health recommendation engine providing customized diet plans and workout routines.",
+    fullDescription:
+      "A smart, rule-based Python web application built with Flask and SQLite that delivers personalized diet and exercise recommendations. By analyzing user health parameters—including age, weight, height, activity level, and hydration status—the engine computes real-time BMI metrics, caloric intake requirements, and lifestyle plans, accompanied by an administrative analytics dashboard.",
+    status: "PUBLISHED",
+    featured: true,
+    priceMode: "FIXED",
+    price: 19999,
+    originalPrice: null,
+    demoUrl: "https://github.com/varunshetty1893/Smart-Fitness-Diet-Planner-Python-Project",
+    projectType: "AI / Rule-Based Web App",
+    whatsIncluded: [
+      "Full Python 3.8+ & Flask application source code",
+      "Pre-configured SQLite diet.db database and models",
+      "Rule-based recommendation engine for nutrition and workouts",
+      "Responsive Jinja2 HTML5 & CSS3 frontend templates",
+      "Admin dashboard with user management and credential controls",
+    ],
+    categoryId: "cat-7",
+    providerId: "prov-3",
+    createdAt: new Date("2025-01-03"),
+    updatedAt: new Date("2025-01-03"),
+  },
+  {
+    id: "proj-4",
+    title: "Global Farmer — Direct Agri-Produce E-Commerce Platform",
+    slug: "global-farmer",
+    shortDescription:
+      "PHP & MySQL direct farm-to-consumer e-commerce marketplace cutting out middlemen with cart, checkout, and full admin operations.",
+    fullDescription:
+      "Global Farmer is an open-source, full-stack agricultural e-commerce web platform engineered with PHP and MySQLi. It directly connects independent farmers with local households and commercial buyers. Features an automated customer storefront with live product galleries, responsive shopping carts, address books, order tracking, and a session-protected admin control panel with inventory reports, order processing, and user management.",
+    status: "PUBLISHED",
+    featured: true,
+    priceMode: "FIXED",
+    price: 14999,
+    originalPrice: null,
+    demoUrl: "https://github.com/varunshetty1893/global-farmer",
+    projectType: "Full-Stack E-Commerce System",
+    whatsIncluded: [
+      "Complete PHP 7.4+ & MySQLi Source Code",
+      "Full globalfarmer_db.sql database schema with sample data",
+      "Customer storefront with Cart, Checkout & Order History",
+      "Session-protected /gf-manage admin panel with analytics",
+      "Setup documentation for XAMPP, WAMP, and LAMP servers",
+    ],
+    categoryId: "cat-3",
+    providerId: "prov-3",
+    createdAt: new Date("2025-01-04"),
+    updatedAt: new Date("2025-01-04"),
   },
 ];
 
@@ -178,22 +232,38 @@ export class InMemoryStore {
     { id: "feat-2", projectId: "proj-1", feature: "HIPAA-aligned data isolation and patient record encryption", sortOrder: 2 },
     { id: "feat-3", projectId: "proj-2", feature: "Multi-vendor checkout with automated split payouts", sortOrder: 1 },
     { id: "feat-4", projectId: "proj-2", feature: "Real-time inventory and delivery tracking webhooks", sortOrder: 2 },
+    { id: "feat-5", projectId: "proj-3", feature: "Automatic Body Mass Index (BMI) calculator and health tier analysis", sortOrder: 1 },
+    { id: "feat-6", projectId: "proj-3", feature: "Rule-based recommendation engine for personalized meal plans", sortOrder: 2 },
+    { id: "feat-7", projectId: "proj-4", feature: "Direct farm-to-consumer store with category filtering and checkout", sortOrder: 1 },
+    { id: "feat-8", projectId: "proj-4", feature: "Session-protected admin management dashboard", sortOrder: 2 },
   ];
   projectSpecs: any[] = [
     { id: "spec-1", projectId: "proj-1", key: "Framework", value: "Next.js 15 & React 19", sortOrder: 1 },
     { id: "spec-2", projectId: "proj-1", key: "AI Engine", value: "Google Gemini 1.5 Pro / Flash", sortOrder: 2 },
     { id: "spec-3", projectId: "proj-2", key: "Payments", value: "Stripe Connect Custom Accounts", sortOrder: 1 },
     { id: "spec-4", projectId: "proj-2", key: "Database", value: "PostgreSQL & Prisma ORM", sortOrder: 2 },
+    { id: "spec-5", projectId: "proj-3", key: "Backend Framework", value: "Python 3.8+ & Flask Web Framework", sortOrder: 1 },
+    { id: "spec-6", projectId: "proj-3", key: "Database", value: "SQLite (diet.db)", sortOrder: 2 },
+    { id: "spec-7", projectId: "proj-4", key: "Backend", value: "PHP 7.4+ with MySQLi", sortOrder: 1 },
+    { id: "spec-8", projectId: "proj-4", key: "Frontend", value: "HTML5, CSS3, JavaScript", sortOrder: 2 },
   ];
   projectFaqs: any[] = [
     { id: "faq-1", projectId: "proj-1", question: "Can I deploy this on my private cloud?", answer: "Yes, full Docker compose and Kubernetes manifests are provided.", sortOrder: 1 },
     { id: "faq-2", projectId: "proj-2", question: "Does this support multi-currency checkout?", answer: "Yes, Stripe currency conversion is pre-configured.", sortOrder: 1 },
   ];
   projectTechnologies: any[] = [
-    { projectId: "proj-1", technologyId: "tech-1" },
-    { projectId: "proj-1", technologyId: "tech-2" },
-    { projectId: "proj-2", technologyId: "tech-1" },
-    { projectId: "proj-2", technologyId: "tech-4" },
+    { projectId: "proj-1", technologyId: initialTechnologies.find((t) => t.slug === "react")?.id || "tech-1" },
+    { projectId: "proj-1", technologyId: initialTechnologies.find((t) => t.slug === "nextjs")?.id || "tech-2" },
+    { projectId: "proj-1", technologyId: initialTechnologies.find((t) => t.slug === "python")?.id || "tech-13" },
+    { projectId: "proj-2", technologyId: initialTechnologies.find((t) => t.slug === "react")?.id || "tech-1" },
+    { projectId: "proj-2", technologyId: initialTechnologies.find((t) => t.slug === "postgresql")?.id || "tech-22" },
+    { projectId: "proj-2", technologyId: initialTechnologies.find((t) => t.slug === "stripe")?.id || "tech-36" },
+    { projectId: "proj-3", technologyId: initialTechnologies.find((t) => t.slug === "python")?.id || "tech-13" },
+    { projectId: "proj-3", technologyId: initialTechnologies.find((t) => t.slug === "flask")?.id || "tech-14" },
+    { projectId: "proj-3", technologyId: initialTechnologies.find((t) => t.slug === "sqlite")?.id || "tech-25" },
+    { projectId: "proj-4", technologyId: initialTechnologies.find((t) => t.slug === "php")?.id || "tech-19" },
+    { projectId: "proj-4", technologyId: initialTechnologies.find((t) => t.slug === "mysql")?.id || "tech-23" },
+    { projectId: "proj-4", technologyId: initialTechnologies.find((t) => t.slug === "javascript")?.id || "tech-7" },
   ];
   inquiries: any[] = [];
   customRequests: any[] = [];
@@ -307,7 +377,39 @@ export function createMockPrismaClient(isInsideTx = false): any {
           async findMany(args?: any) {
             memoryStore.loadFromDisk();
             if (modelName === "project") {
-              return memoryStore.projects.map((p) => memoryStore.resolveProject(p));
+              let resolved = memoryStore.projects.map((p) => memoryStore.resolveProject(p));
+              const w = args?.where;
+              if (w) {
+                if (typeof w.status === "string") {
+                  resolved = resolved.filter((p) => p.status === w.status);
+                }
+                if (typeof w.featured === "boolean") {
+                  resolved = resolved.filter((p) => Boolean(p.featured) === w.featured);
+                }
+                if (w.category?.slug) {
+                  const catSlugCond = w.category.slug;
+                  if (typeof catSlugCond === "string") {
+                    resolved = resolved.filter((p) => p.category?.slug === catSlugCond);
+                  } else if (Array.isArray(catSlugCond.in)) {
+                    resolved = resolved.filter((p) => catSlugCond.in.includes(p.category?.slug));
+                  }
+                }
+                if (w.technologies?.some?.technology?.slug) {
+                  const techSlug = w.technologies.some.technology.slug;
+                  resolved = resolved.filter((p) =>
+                    (p.technologies || []).some((pt: any) => pt.technology?.slug === techSlug)
+                  );
+                }
+                if (w.id?.not) {
+                  resolved = resolved.filter((p) => p.id !== w.id.not);
+                }
+                if (w.categoryId) {
+                  resolved = resolved.filter((p) => p.categoryId === w.categoryId);
+                }
+              }
+              const skip = args?.skip || 0;
+              const take = args?.take !== undefined ? args.take : resolved.length;
+              return resolved.slice(skip, skip + take);
             }
             if (modelName === "category") return [...memoryStore.categories];
             if (modelName === "technology") {
@@ -504,7 +606,10 @@ export function createMockPrismaClient(isInsideTx = false): any {
           },
 
           async count(args?: any) {
-            if (modelName === "project") return memoryStore.projects.length;
+            if (modelName === "project") {
+              const items = await this.findMany({ where: args?.where });
+              return items.length;
+            }
             if (modelName === "user") return memoryStore.users.length;
             if (modelName === "projectProvider") return memoryStore.providers.length;
             if (modelName === "auditLog") {

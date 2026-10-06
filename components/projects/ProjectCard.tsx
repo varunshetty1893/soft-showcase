@@ -45,6 +45,7 @@ export interface ProjectCardData {
       slug: string;
     };
   }>;
+  matchedTerms?: string[];
 }
 
 interface ProjectCardProps {
@@ -139,6 +140,14 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <span className="text-[11px] text-[#526267]/50 italic">Full-stack software</span>
             )}
           </div>
+
+          {/* Subtle Search Relevance Match Indicator */}
+          {project.matchedTerms && project.matchedTerms.length > 0 && (
+            <p className="mt-2.5 text-[11px] text-[#526267] truncate">
+              <span className="font-medium text-[#155761]">Relevant to your search:</span>{" "}
+              {project.matchedTerms.slice(0, 3).join(" • ")}
+            </p>
+          )}
         </div>
 
         {/* ── Footer / Meta ───────────────────────────────────────────────── */}

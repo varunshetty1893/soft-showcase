@@ -7,6 +7,10 @@ import { db, ensureAdditiveSchema } from "@/lib/db/client";
 import type { ProjectStatus } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE } from "@/config/constants";
 import { publicProviderWhere, publicProjectWhere } from "./public-filters";
+import {
+  rankAndFilterProjects,
+  getRelatedSearchSuggestions,
+} from "@/lib/search/catalog-search";
 
 export { publicProviderWhere, publicProjectWhere };
 
@@ -49,44 +53,27 @@ export async function getPublishedProjects(options: {
       total: 0,
       totalPages: 0,
       currentPage: page,
+      relatedSearches: [] as string[],
+      suggestedProjects: [] as any[],
     };
   }
 
   const skip = (page - 1) * pageSize;
+  const cleanSearch = (search || "").trim();
 
-  const where = publicProjectWhere({
+  // Support both canonical `ai-machine-learning` and legacy `ai-ml` category slugs
+  const categoryFilter = categorySlug
+    ? categorySlug === "ai-machine-learning" || categorySlug === "ai-ml"
+      ? { category: { slug: { in: ["ai-machine-learning", "ai-ml"] } } }
+      : { category: { slug: categorySlug } }
+    : {};
+
+  const baseFilterWhere = publicProjectWhere({
     ...(featured !== undefined && { featured }),
-    ...(categorySlug && { category: { slug: categorySlug } }),
+    ...categoryFilter,
     ...(technologySlug && {
       technologies: { some: { technology: { slug: technologySlug } } },
     }),
-    ...(search && (() => {
-      const cleanSearch = search.trim();
-      const slugSearch = cleanSearch.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-      return {
-        OR: [
-          // Index-friendly prefix match on slug
-          { slug: { startsWith: slugSearch } },
-          // Title prefix match (utilizes B-Tree index)
-          { title: { startsWith: cleanSearch, mode: "insensitive" as const } },
-          // Insensitive title contains
-          { title: { contains: cleanSearch, mode: "insensitive" as const } },
-          // Technology name match
-          {
-            technologies: {
-              some: {
-                technology: {
-                  name: { contains: cleanSearch, mode: "insensitive" as const },
-                },
-              },
-            },
-          },
-          // Scoped short description fallback
-          { shortDescription: { contains: cleanSearch, mode: "insensitive" as const } },
-        ],
-      };
-    })()),
   });
 
   const baseSelect = {
@@ -110,10 +97,120 @@ export async function getPublishedProjects(options: {
       select: { url: true, altText: true },
     },
     technologies: {
-      take: 3,
       include: { technology: { select: { id: true, name: true, slug: true } } },
     },
   } as const;
+
+  const searchableSelect = {
+    ...baseSelect,
+    fullDescription: true,
+    whatsIncluded: true,
+    features: {
+      select: { feature: true },
+    },
+    specifications: {
+      select: { key: true, value: true },
+    },
+  } as const;
+
+  await ensureAdditiveSchema();
+
+  // ── Intelligent Search Path (when a search query is active) ────────────────
+  if (cleanSearch) {
+    let candidateProjects: any[] = [];
+    try {
+      candidateProjects = await db.project.findMany({
+        where: baseFilterWhere,
+        orderBy: [{ featured: "desc" }, { featuredOrder: "asc" }, { createdAt: "desc" }],
+        select: {
+          ...searchableSelect,
+          originalPrice: true,
+          priceQualifier: true,
+          dealType: true,
+          dealLabel: true,
+          dealStartsAt: true,
+          dealEndsAt: true,
+        },
+      });
+    } catch (err) {
+      if (!isMissingColumnError(err)) throw err;
+      const fallbackCandidates = await db.project.findMany({
+        where: {
+          status: "PUBLISHED" as ProjectStatus,
+          provider: { isActive: true, applicationStatus: "approved" },
+          ...categoryFilter,
+          ...(technologySlug && {
+            technologies: { some: { technology: { slug: technologySlug } } },
+          }),
+        },
+        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        select: searchableSelect,
+      });
+      candidateProjects = fallbackCandidates.map((p) => ({
+        ...p,
+        originalPrice: null,
+        priceQualifier: "NONE" as const,
+        dealType: "NONE" as const,
+        dealLabel: null,
+        dealStartsAt: null,
+        dealEndsAt: null,
+      }));
+    }
+
+    const { results, analysis, relatedSearches } = rankAndFilterProjects(
+      candidateProjects,
+      cleanSearch
+    );
+
+    const total = results.length;
+    const pagedResults = results.slice(skip, skip + pageSize).map((p) => ({
+      ...p,
+      technologies: (p.technologies || []).slice(0, 3),
+    }));
+
+    // If active category/tech filter + search yielded 0 matches, check if related projects exist across the catalog
+    let suggestedProjects: any[] = [];
+    if (total === 0 && (categorySlug || technologySlug)) {
+      try {
+        const allCandidates = await db.project.findMany({
+          where: publicProjectWhere(),
+          take: 50,
+          select: {
+            ...searchableSelect,
+            originalPrice: true,
+            priceQualifier: true,
+            dealType: true,
+            dealLabel: true,
+            dealStartsAt: true,
+            dealEndsAt: true,
+          },
+        });
+        suggestedProjects = rankAndFilterProjects(allCandidates, cleanSearch)
+          .results.slice(0, 3)
+          .map((p) => ({
+            ...p,
+            technologies: (p.technologies || []).slice(0, 3),
+          }));
+      } catch {
+        suggestedProjects = [];
+      }
+    }
+
+    return {
+      projects: pagedResults,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      currentPage: page,
+      relatedSearches:
+        relatedSearches.length > 0
+          ? relatedSearches
+          : getRelatedSearchSuggestions(analysis, candidateProjects),
+      suggestedProjects,
+    };
+  }
+
+  // ── Standard Unsearched Catalog Path ───────────────────────────────────────
+  const where = baseFilterWhere;
 
   const queryWithOriginalPrice = () =>
     Promise.all([
@@ -136,8 +233,6 @@ export async function getPublishedProjects(options: {
     ]);
 
   let result: Awaited<ReturnType<typeof queryWithOriginalPrice>>;
-
-  await ensureAdditiveSchema();
 
   try {
     result = await queryWithOriginalPrice();
@@ -179,10 +274,15 @@ export async function getPublishedProjects(options: {
   const [projects, total] = result;
 
   return {
-    projects,
+    projects: projects.map((p) => ({
+      ...p,
+      technologies: (p.technologies || []).slice(0, 3),
+    })),
     total,
     totalPages: Math.ceil(total / pageSize),
     currentPage: page,
+    relatedSearches: [] as string[],
+    suggestedProjects: [] as any[],
   };
 }
 
