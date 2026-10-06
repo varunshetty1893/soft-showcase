@@ -2,7 +2,9 @@
 // Admin: edit an existing project.
 // Fetches project data server-side and passes to the client form.
 
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import ProjectForm from "@/components/admin/ProjectForm";
 import { getAdminProjectById } from "@/lib/db/queries/admin-projects";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -105,11 +107,22 @@ export default async function EditProjectPage({ params }: Props) {
   return (
     <div className="max-w-4xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[#102124]">
-          Edit Project: {project.title}
-        </h1>
-        <p className="text-xs text-[#526267] mt-1 font-mono">/projects/{project.slug}</p>
+      <div className="flex items-center justify-between pb-4 border-b border-[#D9E2E4]">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/projects"
+            className="p-2 rounded-xl bg-white border border-[#D9E2E4] hover:bg-[#F3F7F7] text-[#526267] transition-colors shrink-0"
+            aria-label="Back to Projects"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#102124]">
+              Edit Project: {project.title}
+            </h1>
+            <p className="text-xs text-[#526267] mt-1 font-mono">/projects/{project.slug}</p>
+          </div>
+        </div>
       </div>
 
       {/* Form */}

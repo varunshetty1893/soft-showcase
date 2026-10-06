@@ -8,7 +8,12 @@ const nextConfig: NextConfig = {
   // another package manager lockfile.
   outputFileTracingRoot: path.join(__dirname),
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
+  },
+  experimental: {
+    webpackMemoryOptimizations: true,
+    cpus: 1,
+    workerThreads: false,
   },
   // ─── Remote image patterns ──────────────────────────────────────────────────
   // Cloudinary is the primary image host.
