@@ -701,6 +701,7 @@ export function AuditLogsView({
                     >
                       {/* Timestamp */}
                       <td
+                        suppressHydrationWarning
                         className="py-3 px-4 text-gray-600 whitespace-nowrap font-mono text-[11px]"
                         title={`UTC: ${log.createdAtIso}`}
                       >

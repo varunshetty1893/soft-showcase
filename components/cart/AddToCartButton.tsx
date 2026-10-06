@@ -35,8 +35,14 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
   const session = sessionContext?.data;
   const router = useRouter();
   const pathname = usePathname();
-  const inCart = isInCart(project.id);
+  const [mounted, setMounted] = React.useState(false);
   const [justAdded, setJustAdded] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const inCart = mounted ? isInCart(project.id) : false;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -72,9 +78,10 @@ export function AddToCartButton({ project, variant = "primary", className = "" }
     }
   };
 
-  if (!session?.user) {
+  // During SSR or initial mount, avoid mismatched rendering between server and client
+  if (!mounted || !session?.user) {
     if (variant === "compact") {
-      // Don't show cart option at all when user is not logged in
+      // Don't show cart option at all when user is not logged in or during initial mount
       return null;
     }
 

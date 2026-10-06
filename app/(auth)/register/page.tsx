@@ -151,7 +151,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             <div className="w-2 h-2 rounded-full bg-[#2F7D78]" />
             <span className="text-[12px] text-[#526267]">All systems operational</span>
           </div>
-          <p className="text-[12px] text-[#526267]">© {new Date().getFullYear()} Soft Showcase. All rights reserved.</p>
+          <p suppressHydrationWarning className="text-[12px] text-[#526267]">© {new Date().getFullYear()} Soft Showcase. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <Link href="/terms" className="text-[12px] text-[#526267] hover:text-[#102124] transition-colors">Terms</Link>
             <Link href="/privacy" className="text-[12px] text-[#526267] hover:text-[#102124] transition-colors">Privacy</Link>

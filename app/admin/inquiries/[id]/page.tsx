@@ -59,7 +59,7 @@ export default async function AdminInquiryDetailPage({ params }: Props) {
         </h1>
         <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5" />
-          <span>Received on {formattedDate}</span>
+          <span suppressHydrationWarning>Received on {formattedDate}</span>
         </p>
       </div>
 

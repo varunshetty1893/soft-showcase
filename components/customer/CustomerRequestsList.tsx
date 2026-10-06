@@ -161,7 +161,7 @@ export function CustomerRequestsList({ initialRequests }: CustomerRequestsListPr
                     <div className="flex flex-wrap items-center gap-3 text-xs text-[#526267] mt-2">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 text-[#526267]" />
-                        <span>Submitted on {formattedDate}</span>
+                        <span suppressHydrationWarning>Submitted on {formattedDate}</span>
                       </span>
 
                       {req.category && (

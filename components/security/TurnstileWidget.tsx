@@ -133,7 +133,7 @@ export const TurnstileWidget = React.forwardRef<TurnstileWidgetHandle, Turnstile
     }
 
     return (
-      <div className={className} data-testid="turnstile-widget">
+      <div className={className} data-testid="turnstile-widget" suppressHydrationWarning>
         <Script
           id="cloudflare-turnstile-script"
           src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -141,7 +141,7 @@ export const TurnstileWidget = React.forwardRef<TurnstileWidgetHandle, Turnstile
           onLoad={() => setScriptReady(true)}
           onReady={() => setScriptReady(true)}
         />
-        <div ref={containerRef} className="min-h-[65px]" />
+        <div ref={containerRef} className="min-h-[65px]" suppressHydrationWarning />
       </div>
     );
   }

@@ -621,7 +621,7 @@ export function UserManagementTable({
                       </td>
 
                       {/* Joined */}
-                      <td className="px-4 py-3 align-middle text-[11px] text-[#526267] whitespace-nowrap">
+                      <td suppressHydrationWarning className="px-4 py-3 align-middle text-[11px] text-[#526267] whitespace-nowrap">
                         {formatDate(user.createdAt)}
                       </td>
 

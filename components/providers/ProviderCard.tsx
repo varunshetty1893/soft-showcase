@@ -35,7 +35,13 @@ export function ProviderCard({
 }: ProviderCardProps) {
   const sessionContext = useSession();
   const session = sessionContext?.data;
+  const [mounted, setMounted] = React.useState(false);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const hasWhatsApp = Boolean(provider.hasWhatsapp ?? (provider.showWhatsapp !== false));
   const hasEmail = Boolean(provider.hasEmail ?? (provider.showEmail !== false));
   const hasAnyContact = hasWhatsApp || hasEmail;
@@ -84,7 +90,7 @@ export function ProviderCard({
           <div className="p-3.5 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267] text-center leading-relaxed">
             Contact information for this project is currently unavailable. Please check back later or submit a custom build request.
           </div>
-        ) : !session?.user ? (
+        ) : !mounted || !session?.user ? (
           <div className="space-y-3 pt-2">
             <div className="p-3.5 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4] text-xs text-[#526267] text-center space-y-2">
               <div className="flex items-center justify-center gap-1.5 font-bold text-[#102124]">

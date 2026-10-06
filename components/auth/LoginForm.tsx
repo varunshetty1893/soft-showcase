@@ -82,8 +82,8 @@ export function LoginForm() {
     if (urlError === "OAuthAccountNotLinked") {
       return {
         type: "error",
-        title: "Account exists",
-        message: "This email is registered with another login method.",
+        title: "Account linking",
+        message: "This account was previously accessed via another method. You can sign in using Google or enter your password.",
       };
     }
     if (urlError) {

@@ -170,7 +170,10 @@ export function PriceBlock({
               </span>
             )}
             {resolved.countdownText && (
-              <span className="text-[10px] font-semibold text-rose-600 inline-flex items-center gap-0.5">
+              <span
+                suppressHydrationWarning
+                className="text-[10px] font-semibold text-rose-600 inline-flex items-center gap-0.5"
+              >
                 <Clock className="w-2.5 h-2.5" />
                 {resolved.countdownText}
               </span>
@@ -218,6 +221,7 @@ export function PriceBlock({
             )}
             {resolved.countdownText && (
               <span
+                suppressHydrationWarning
                 data-testid="offer-countdown"
                 className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold"
               >

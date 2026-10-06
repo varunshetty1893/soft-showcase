@@ -214,4 +214,53 @@ describe("Auth Validation Schemas", () => {
       vi.doUnmock("next-auth");
     });
   });
+
+  describe("Google OAuth sign-in with existing password account", () => {
+    it("allows Google OAuth sign-in and links account when user already has password", async () => {
+      const { authConfig } = await import("@/lib/auth/auth");
+      const { db } = await import("@/lib/db/client");
+
+      const testEmail = "manun5260@gmail.com";
+      const user = await db.user.upsert({
+        where: { email: testEmail },
+        update: {
+          passwordHash: "$2b$10$dummyHashExample1234567890",
+          emailVerified: null,
+        },
+        create: {
+          email: testEmail,
+          name: "Test User",
+          passwordHash: "$2b$10$dummyHashExample1234567890",
+          emailVerified: null,
+        },
+      });
+
+      const signInCallback = authConfig.callbacks?.signIn;
+      expect(signInCallback).toBeDefined();
+
+      const result = await signInCallback!({
+        user: { id: user.id, email: testEmail, name: "Test User" },
+        account: {
+          provider: "google",
+          type: "oauth",
+          providerAccountId: "google-12345",
+        } as any,
+        profile: {
+          email: testEmail,
+          email_verified: true,
+        } as any,
+      });
+
+      expect(result).toBe(true);
+
+      const updatedUser = await db.user.findUnique({
+        where: { email: testEmail },
+        include: { accounts: true },
+      });
+      expect(updatedUser?.emailVerified).not.toBeNull();
+      const linked = updatedUser?.accounts.find((a: any) => a.provider === "google");
+      expect(linked).toBeDefined();
+      expect(linked?.providerAccountId).toBe("google-12345");
+    });
+  });
 });

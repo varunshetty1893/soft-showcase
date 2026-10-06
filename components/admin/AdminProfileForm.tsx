@@ -264,7 +264,7 @@ export function AdminProfileForm({ user }: AdminProfileFormProps) {
               </div>
               <div className="p-3 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4]">
                 <span className="text-[11px] text-[#526267] block mb-1">Account Created</span>
-                <span className="font-semibold text-xs text-[#102124]">{formattedDate}</span>
+                <span suppressHydrationWarning className="font-semibold text-xs text-[#102124]">{formattedDate}</span>
               </div>
               <div className="p-3 bg-[#F8FAFA] rounded-xl border border-[#D9E2E4]">
                 <span className="text-[11px] text-[#526267] block mb-1">Password Status</span>

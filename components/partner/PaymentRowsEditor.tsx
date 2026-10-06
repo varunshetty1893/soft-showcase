@@ -26,9 +26,12 @@ export interface PaymentRow {
   messages: string[];
 }
 
+let paymentRowCounter = 0;
+
 export function newPaymentRow(partial: Partial<PaymentRow> = {}): PaymentRow {
+  paymentRowCounter += 1;
   return {
-    key: Math.random().toString(36).slice(2, 10),
+    key: `pay-row-${paymentRowCounter}-${Date.now().toString(36)}`,
     amount: "",
     paymentMethod: "UPI",
     utrNumber: "",

@@ -4,7 +4,13 @@ import * as React from "react";
 import { SessionProvider } from "next-auth/react";
 import { CartProvider } from "@/lib/cart/cart-context";
 
-export function AppProviders({ children }: { children: React.ReactNode }) {
+export function AppProviders({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session?: any;
+}) {
   // Prevent unhandled NextAuth client polling / fetch rejections from tripping error boundaries
   React.useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -26,7 +32,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <SessionProvider basePath="/api/auth" refetchOnWindowFocus={false} refetchWhenOffline={false}>
+    <SessionProvider
+      session={session}
+      basePath="/api/auth"
+      refetchOnWindowFocus={false}
+      refetchWhenOffline={false}
+    >
       <CartProvider>{children}</CartProvider>
     </SessionProvider>
   );

@@ -57,7 +57,7 @@ export const authConfig: NextAuthConfig = {
           Google({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            allowDangerousEmailAccountLinking: false,
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
@@ -187,16 +187,40 @@ export const authConfig: NextAuthConfig = {
           });
 
           if (existingUser) {
-            // If existing user has a credentials password set and no linked Google account,
-            // prevent silent account takeover. Require user to log in with password.
-            const hasGoogleAccount = existingUser.accounts.some(
-              (acc: { provider: string }) => acc.provider === "google"
+            // Allow user to log in through Google even if they previously registered with password.
+            // Ensure Google account is linked to the existing user in database if not already linked.
+            const hasGoogleAccount = Boolean(
+              existingUser.accounts?.some(
+                (acc: { provider: string }) => acc.provider === "google"
+              )
             );
-            if (existingUser.passwordHash && !hasGoogleAccount) {
-              console.warn(
-                `[Auth] Blocked OAuth account takeover for ${normalizedEmail}. Password account exists.`
-              );
-              return "/login?error=OAuthAccountNotLinked";
+            if (!hasGoogleAccount && account?.providerAccountId) {
+              await db.account
+                .upsert({
+                  where: {
+                    provider_providerAccountId: {
+                      provider: account.provider,
+                      providerAccountId: account.providerAccountId,
+                    },
+                  },
+                  update: {
+                    userId: existingUser.id,
+                  },
+                  create: {
+                    userId: existingUser.id,
+                    type: account.type || "oauth",
+                    provider: account.provider,
+                    providerAccountId: account.providerAccountId,
+                    refresh_token: account.refresh_token,
+                    access_token: account.access_token,
+                    expires_at: account.expires_at,
+                    token_type: account.token_type,
+                    scope: account.scope,
+                    id_token: account.id_token,
+                    session_state: (account.session_state as string) || null,
+                  },
+                })
+                .catch((err) => console.warn("[Auth] Failed to link Google account:", err));
             }
 
             // Auto-mark email as verified if they successfully sign in with verified Google
@@ -206,6 +230,10 @@ export const authConfig: NextAuthConfig = {
                 data: { emailVerified: new Date() },
               });
             }
+
+            // Clear login rate limiting for this email address now that identity is confirmed via Google
+            const emailKey = `email:${normalizedEmail}`;
+            await authLoginLimiter.reset(emailKey).catch(() => null);
 
             // Run verified-email admin bootstrap hook and guest record linking
             await bootstrapAdminOnVerification(existingUser.id, normalizedEmail);
@@ -225,6 +253,24 @@ export const authConfig: NextAuthConfig = {
         token.role = (user as { role?: string }).role || (token.isAdmin ? "admin" : "customer");
         token.tokenVersion = (user as { tokenVersion?: number }).tokenVersion ?? 0;
         token.lastChecked = Date.now();
+
+        // If user authenticated via OAuth, ensure token attributes match canonical DB user record
+        if (user.email) {
+          try {
+            const dbUser = await db.user.findUnique({
+              where: { email: user.email.toLowerCase().trim() },
+              select: { id: true, isAdmin: true, role: true, tokenVersion: true },
+            });
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.isAdmin = Boolean(dbUser.isAdmin);
+              token.role = token.isAdmin ? "admin" : (dbUser.role || "customer");
+              token.tokenVersion = dbUser.tokenVersion ?? 0;
+            }
+          } catch (e) {
+            console.warn("[Auth] Error hydrating user in jwt callback:", e);
+          }
+        }
       }
 
       // Keep user info, role and partner status up-to-date with 60-second caching to avoid DB lag on every click

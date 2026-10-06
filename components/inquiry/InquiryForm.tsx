@@ -38,6 +38,11 @@ export function InquiryForm({
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [formData, setFormData] = React.useState({
     name: initialContact?.name || "",
@@ -202,10 +207,10 @@ export function InquiryForm({
     );
   }
 
-  const isSubmitDisabled = loading || (!isVerifiedUser && !turnstileToken);
+  const isSubmitDisabled = loading || (mounted && !isVerifiedUser && !turnstileToken);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" suppressHydrationWarning>
       {errorMessage && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -381,6 +386,7 @@ export function InquiryForm({
           isLoading={loading}
           disabled={isSubmitDisabled}
           className="gap-2"
+          suppressHydrationWarning
         >
           <Send className="w-4 h-4" />
           {loading ? "Sending..." : "Submit Inquiry"}

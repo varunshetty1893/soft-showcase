@@ -393,8 +393,14 @@ export function createMockPrismaClient(isInsideTx = false): any {
               }
             }
             if (modelName === "user") {
-              if (args?.where?.id) return memoryStore.users.find((u) => u.id === args.where.id) || null;
-              if (args?.where?.email) return memoryStore.users.find((u) => u.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+              let u: any = null;
+              if (args?.where?.id) u = memoryStore.users.find((user) => user.id === args.where.id) || null;
+              if (args?.where?.email) u = memoryStore.users.find((user) => user.email.toLowerCase() === args.where.email.toLowerCase()) || null;
+              if (u && args?.include?.accounts) {
+                const accounts = memoryStore.accounts.filter((a) => a.userId === u.id);
+                return { ...u, accounts };
+              }
+              return u;
             }
             if (modelName === "pendingRegistration") {
               if (args?.where?.email) {
@@ -604,6 +610,24 @@ export function createMockPrismaClient(isInsideTx = false): any {
                 return memoryStore.users[idx];
               } else {
                 return this.create({ data: args.create });
+              }
+            }
+            if (modelName === "account") {
+              const provider = args?.where?.provider_providerAccountId?.provider;
+              const providerAccountId = args?.where?.provider_providerAccountId?.providerAccountId;
+              const idx = memoryStore.accounts.findIndex(
+                (a) => a.provider === provider && a.providerAccountId === providerAccountId
+              );
+              if (idx !== -1) {
+                memoryStore.accounts[idx] = {
+                  ...memoryStore.accounts[idx],
+                  ...(args.update || {}),
+                };
+                return memoryStore.accounts[idx];
+              } else {
+                const newAcc = { ...(args.create || {}) };
+                memoryStore.accounts.push(newAcc);
+                return newAcc;
               }
             }
             return this.create({ data: args?.create || {} });

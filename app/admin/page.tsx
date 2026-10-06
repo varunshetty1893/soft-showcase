@@ -359,7 +359,7 @@ export default async function AdminDashboardPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-400 text-[11px] shrink-0">
+                  <span suppressHydrationWarning className="text-gray-400 text-[11px] shrink-0">
                     {formattedTime}
                   </span>
                 </div>

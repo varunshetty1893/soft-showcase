@@ -44,6 +44,11 @@ export function CustomProjectForm({
   const sessionContext = useSession();
   const session = sessionContext?.data;
   const isVerifiedUser = Boolean(session?.user?.id && session?.user?.email);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [formData, setFormData] = React.useState({
     name: initialContact?.name || "",
@@ -241,12 +246,13 @@ export function CustomProjectForm({
     );
   }
 
-  const isSubmitDisabled = isLoading || (!isVerifiedUser && !turnstileToken);
+  const isSubmitDisabled = isLoading || (mounted && !isVerifiedUser && !turnstileToken);
 
   return (
     <form
       onSubmit={handleSubmit}
       className="bg-white rounded-2xl border border-[#D9E2E4] p-6 sm:p-10 shadow-xs space-y-8"
+      suppressHydrationWarning
     >
       {errorMessage && (
         <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-3">
@@ -518,6 +524,7 @@ export function CustomProjectForm({
           isLoading={isLoading}
           disabled={isSubmitDisabled}
           className="gap-2 shadow-xs cursor-pointer w-full sm:w-auto"
+          suppressHydrationWarning
         >
           <Send className="w-4 h-4" />
           {isLoading ? "Submitting Request..." : "Submit Custom Project Request"}

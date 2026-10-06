@@ -214,7 +214,7 @@ export default async function AdminInquiriesPage({
                       </td>
 
                       {/* Date */}
-                      <td className="py-3 px-4 text-gray-500 whitespace-nowrap">
+                      <td suppressHydrationWarning className="py-3 px-4 text-gray-500 whitespace-nowrap">
                         {formattedDate}
                       </td>
 

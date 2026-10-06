@@ -215,7 +215,7 @@ export function CustomerInquiriesList({ initialInquiries }: CustomerInquiriesLis
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-[#526267]" />
                           <span>Submitted:</span>
-                          <span className="text-[#102124]">{formattedDate}</span>
+                          <span suppressHydrationWarning className="text-[#102124]">{formattedDate}</span>
                         </span>
 
                         <span className="flex items-center gap-1">

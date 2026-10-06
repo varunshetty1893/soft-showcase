@@ -17,8 +17,11 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-gray-900">
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-gray-900"
+        suppressHydrationWarning
+      >
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-lg p-6 sm:p-8 text-center">
           <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
             !

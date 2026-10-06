@@ -297,7 +297,7 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
 
           <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">
             <span className="text-xs font-medium text-[#526267] block mb-1">Member Since</span>
-            <span className="text-sm font-bold text-[#102124]">{formattedDate}</span>
+            <span suppressHydrationWarning className="text-sm font-bold text-[#102124]">{formattedDate}</span>
           </div>
 
           <div className="p-4 rounded-xl bg-[#F8FAFA] border border-[#D9E2E4]">

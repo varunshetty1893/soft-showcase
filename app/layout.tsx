@@ -6,6 +6,7 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, APP_URL } from "@/config/constants";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { auth } from "@/lib/auth/auth";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -105,21 +106,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth().catch(() => null);
+
   return (
-    <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
-      <head>
-        <meta
-          name="google-site-verification"
-          content="H-ApiXzSdJL2QT8oYgA5nCkeket1TKISTftArJVJEgM"
-        />
-      </head>
-      <body className="antialiased font-sans bg-[#F8FAFA] text-[#102124]">
-        <AppProviders>{children}</AppProviders>
+    <html
+      lang="en"
+      className={`${inter.variable} ${plusJakartaSans.variable}`}
+      suppressHydrationWarning
+    >
+      <body
+        className="antialiased font-sans bg-[#F8FAFA] text-[#102124]"
+        suppressHydrationWarning
+      >
+        <AppProviders session={session}>{children}</AppProviders>
       </body>
     </html>
   );
