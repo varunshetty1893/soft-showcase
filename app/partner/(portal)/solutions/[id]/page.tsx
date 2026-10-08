@@ -15,13 +15,12 @@ import {
   CheckCircle2,
   Sparkles,
   Eye,
-  Tag,
   AlertCircle,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PriceBlock } from "@/components/projects/PriceBlock";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDate } from "@/lib/utils/format";
 import { APP_NAME } from "@/config/constants";
 
 export const metadata: Metadata = {
@@ -61,19 +60,6 @@ export default async function PartnerSolutionDetailPage({
 
   const primaryImage = project.images[0]?.url || null;
   const isPublished = project.status === "PUBLISHED";
-
-  const hasOffer =
-    project.priceMode === "FIXED" &&
-    (project as { originalPrice?: unknown }).originalPrice != null &&
-    project.price != null &&
-    Number((project as { originalPrice?: unknown }).originalPrice) > Number(project.price);
-  const discountPct = hasOffer
-    ? Math.round(
-        ((Number((project as { originalPrice?: unknown }).originalPrice) - Number(project.price)) /
-          Number((project as { originalPrice?: unknown }).originalPrice)) *
-          100
-      )
-    : 0;
 
   return (
     <div className="space-y-8 max-w-5xl">

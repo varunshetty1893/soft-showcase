@@ -206,18 +206,6 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
             </button>
           </>
         )}
-
-        {/* Caption Bar (Bottom) */}
-        {(currentImage.caption || currentImage.altText) && (
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent backdrop-blur-[2px] text-white p-3 text-xs z-10 flex items-center justify-between pointer-events-none">
-            <span className="truncate pr-4 font-medium opacity-90">
-              {currentImage.caption || currentImage.altText}
-            </span>
-            <span className="text-[10px] text-gray-300 shrink-0 uppercase tracking-wider font-semibold">
-              Click photo to zoom
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ── 2. Scrollable Thumbnails Strip (Scrollbar Removed + Scroll Arrows) ── */}
@@ -408,10 +396,10 @@ export function ProjectGallery({ images, projectTitle }: ProjectGalleryProps) {
             onClick={(e) => e.stopPropagation()}
             className="p-3 sm:p-4 bg-black/60 border-t border-white/10 text-white z-20 shrink-0 space-y-2"
           >
-            {/* Alt Text / Caption */}
-            {(currentImage.caption || currentImage.altText) && (
+            {/* Caption */}
+            {currentImage.caption && (
               <p className="text-center text-xs text-gray-300 truncate max-w-2xl mx-auto font-medium">
-                {currentImage.caption || currentImage.altText}
+                {currentImage.caption}
               </p>
             )}
 
